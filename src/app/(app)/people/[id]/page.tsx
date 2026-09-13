@@ -2,13 +2,16 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
-import { applyPrivacy, filterContactDetails } from "@/lib/privacy";
+import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
 import { submitPersonEdit, submitAddPerson, submitProposeDeletion } from "@/lib/actions/pending-changes";
-import { updateFieldPrivacy } from "@/lib/actions/privacy";
-import { addContactDetail, deleteContactDetail } from "@/lib/actions/contact-details";
+import { deleteContactDetail } from "@/lib/actions/contact-details";
+import { formatPartialDate } from "@/lib/partial-date";
 import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import type { ContactDetail, Person } from "@/lib/types";
+import { ContactDetailForm } from "@/components/contact-detail-form";
+import { PrivacySettingsForm } from "@/components/privacy-settings-form";
+import { ContactIcons } from "@/components/contact-icons";
+import type { ContactDetail, Person, PrivacyVisibility } from "@/lib/types";
 import { PRIVACY_FIELDS } from "@/lib/types";
 
 const CONTACT_TYPE_LABELS: Record<string, string> = {
@@ -19,11 +22,6 @@ const CONTACT_TYPE_LABELS: Record<string, string> = {
 
 function displayName(p: Pick<Person, "full_name" | "surname_tag">) {
   return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
-}
-
-function lifespan(p: Person) {
-  if (!p.date_of_birth && !p.date_of_death) return null;
-  return `${p.date_of_birth ?? "?"} – ${p.living_status === "living" ? "present" : p.date_of_death ?? "?"}`;
 }
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,23 +39,78 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const isOwner = member?.person_id === person.id;
   const canManagePrivacy = isOwner || isAdmin(member);
 
-  const [{ data: father }, { data: mother }, { data: spousesAsA }, { data: spousesAsB }, { data: auditEntries }] =
-    await Promise.all([
-      person.father_id
-        ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.father_id).single()
-        : Promise.resolve({ data: null }),
-      person.mother_id
-        ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.mother_id).single()
-        : Promise.resolve({ data: null }),
-      supabase.from("spouses").select("*, person_b:people!spouses_person_b_id_fkey(id, full_name, surname_tag)").eq("person_a_id", person.id),
-      supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, surname_tag)").eq("person_b_id", person.id),
-      supabase
-        .from("audit_log")
-        .select("*, members!audit_log_performed_by_fkey(name)")
-        .eq("person_id", person.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [
+    { data: father },
+    { data: mother },
+    { data: spousesAsA },
+    { data: spousesAsB },
+    { data: auditEntries },
+    { data: contactDetailsRaw },
+    { data: fieldPrivacyRows },
+    { data: privacyDefaults },
+    { data: allGroups },
+    { data: ownerMember },
+  ] = await Promise.all([
+    person.father_id
+      ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.father_id).single()
+      : Promise.resolve({ data: null }),
+    person.mother_id
+      ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.mother_id).single()
+      : Promise.resolve({ data: null }),
+    supabase.from("spouses").select("*, person_b:people!spouses_person_b_id_fkey(id, full_name, surname_tag)").eq("person_a_id", person.id),
+    supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, surname_tag)").eq("person_b_id", person.id),
+    supabase
+      .from("audit_log")
+      .select("*, members!audit_log_performed_by_fkey(name)")
+      .eq("person_id", person.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase.from("contact_details").select("*").eq("person_id", person.id).order("created_at"),
+    supabase.from("field_privacy").select("id, field_name, visibility").eq("person_id", person.id),
+    supabase.from("privacy_defaults").select("field_name, visibility"),
+    supabase.from("groups").select("id, name").order("name"),
+    supabase.from("members").select("id").eq("person_id", person.id).maybeSingle(),
+  ]);
+
+  const contactDetails = await filterAndDecryptContactDetails(
+    supabase,
+    (contactDetailsRaw ?? []) as ContactDetail[],
+    person,
+    member,
+  );
+
+  // Which groups a viewer can pick from when sharing this profile's info —
+  // the owner's own approved groups if the profile is claimed, otherwise
+  // (an unclaimed profile an admin is managing) every group.
+  let selectableGroups = allGroups ?? [];
+  if (ownerMember) {
+    const { data: ownerMemberships } = await supabase
+      .from("group_memberships")
+      .select("group_id")
+      .eq("member_id", ownerMember.id)
+      .eq("status", "approved");
+    const ownerGroupIds = new Set((ownerMemberships ?? []).map((m) => m.group_id));
+    selectableGroups = (allGroups ?? []).filter((g) => ownerGroupIds.has(g.id));
+  }
+
+  const defaultsMap = new Map((privacyDefaults ?? []).map((d) => [d.field_name, d.visibility as PrivacyVisibility]));
+  const fieldPrivacyGroupIds = (fieldPrivacyRows ?? []).filter((r) => r.visibility === "groups").map((r) => r.id);
+  const { data: fieldPrivacyGroupLinks } =
+    fieldPrivacyGroupIds.length > 0
+      ? await supabase.from("field_privacy_groups").select("field_privacy_id, group_id").in("field_privacy_id", fieldPrivacyGroupIds)
+      : { data: [] as { field_privacy_id: string; group_id: string }[] };
+
+  const currentVisibility: Record<string, PrivacyVisibility> = {};
+  const currentGroupIds: Record<string, string[]> = {};
+  for (const field of PRIVACY_FIELDS) {
+    const row = (fieldPrivacyRows ?? []).find((r) => r.field_name === field);
+    currentVisibility[field] = row?.visibility ?? defaultsMap.get(field) ?? "admins_only";
+    if (row) {
+      currentGroupIds[field] = (fieldPrivacyGroupLinks ?? [])
+        .filter((l) => l.field_privacy_id === row.id)
+        .map((l) => l.group_id);
+    }
+  }
 
   const marriages = [
     ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id })),
@@ -69,13 +122,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .select("id, full_name, surname_tag, father_id, mother_id")
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
-
-  const { data: contactDetailsRaw } = await supabase
-    .from("contact_details")
-    .select("*")
-    .eq("person_id", person.id)
-    .order("created_at");
-  const contactDetails = filterContactDetails((contactDetailsRaw ?? []) as ContactDetail[], person, member);
 
   const childrenByMarriage = new Map<string, typeof children>();
   const otherChildren: typeof children = [];
@@ -89,6 +135,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       otherChildren.push(child);
     }
   }
+
+  const birthDisplay = formatPartialDate({ year: person.birth_year, month: person.birth_month, day: person.birth_day });
+  const deathDisplay = formatPartialDate({ year: person.death_year, month: person.death_month, day: person.death_day });
+  const lifespan =
+    birthDisplay || deathDisplay
+      ? `${birthDisplay ?? "?"} – ${person.living_status === "living" ? "present" : deathDisplay ?? "?"}`
+      : null;
 
   return (
     <div className="space-y-6">
@@ -117,7 +170,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             >
               {person.living_status}
             </Badge>
-            {lifespan(person) && <span className="text-sm text-slate-500">{lifespan(person)}</span>}
+            {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
+            {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
           </div>
         </div>
       </div>
@@ -194,18 +248,15 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
       </Card>
 
-      {(person.place_of_birth || person.place_of_death || person.current_location || person.bio || person.facebook_url || person.linkedin_url) && (
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-900">Details</h2>
+      <Card>
+        <h2 className="mb-2 text-sm font-semibold text-slate-900">About</h2>
+        {(person.place_of_birth || person.place_of_death || person.facebook_url || person.linkedin_url) && (
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             {person.place_of_birth && (
               <div><dt className="font-medium text-slate-500">Place of birth</dt><dd>{person.place_of_birth}</dd></div>
             )}
             {person.place_of_death && (
               <div><dt className="font-medium text-slate-500">Place of death</dt><dd>{person.place_of_death}</dd></div>
-            )}
-            {person.current_location && (
-              <div><dt className="font-medium text-slate-500">Current location</dt><dd>{person.current_location}</dd></div>
             )}
             {person.facebook_url && (
               <div><dt className="font-medium text-slate-500">Facebook</dt><dd><a className="text-slate-900 hover:underline" href={person.facebook_url} target="_blank" rel="noreferrer">{person.facebook_url}</a></dd></div>
@@ -214,9 +265,19 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <div><dt className="font-medium text-slate-500">LinkedIn</dt><dd><a className="text-slate-900 hover:underline" href={person.linkedin_url} target="_blank" rel="noreferrer">{person.linkedin_url}</a></dd></div>
             )}
           </dl>
-          {person.bio && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{person.bio}</p>}
-        </Card>
-      )}
+        )}
+        {person.bio && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{person.bio}</p>}
+
+        <div className="mt-4 flex gap-2 rounded-md bg-blue-50 px-3 py-2.5 text-xs text-blue-900">
+          <span>🔒</span>
+          <p>
+            <span className="font-medium">Privacy &amp; security:</span> everyone here only sees this person&apos;s
+            name and current location by default. Everything else — birthday, contact info, social links — is
+            encrypted and stays private until they choose to share it, either with everyone in the app or with
+            specific groups they&apos;re in.
+          </p>
+        </div>
+      </Card>
 
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
@@ -238,6 +299,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <ul className="mt-1 space-y-1 text-sm">
                 {entries.map((entry) => (
                   <li key={entry.id} className="flex items-center gap-2">
+                    <ContactIcons contactType={entry.contact_type} value={entry.value} />
                     <span className="text-slate-800">
                       {entry.label && <span className="text-slate-400">{entry.label}: </span>}
                       {entry.value}
@@ -259,24 +321,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         })}
 
         {(isOwner || isAdmin(member)) && (
-          <form action={addContactDetail} className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
-            <input type="hidden" name="person_id" value={person.id} />
-            <Select name="contact_type" defaultValue="phone">
-              <option value="phone">Phone</option>
-              <option value="email">Email</option>
-              <option value="address">Address</option>
-            </Select>
-            <Input name="label" placeholder="Label (e.g. Mobile, Home)" />
-            <Input name="value" placeholder="Value" required />
-            <Select name="visibility" defaultValue="admins_only">
-              <option value="everyone">Everyone</option>
-              <option value="admins_only">Admins only</option>
-              <option value="just_me">Just me</option>
-            </Select>
-            <div className="sm:col-span-4">
-              <Button type="submit">Add</Button>
-            </div>
-          </form>
+          <ContactDetailForm personId={person.id} groups={selectableGroups} />
         )}
       </Card>
 
@@ -297,11 +342,39 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <option value="deceased">Deceased</option>
             </Select>
           </Field>
-          <Field label="Date of birth"><Input name="date_of_birth" defaultValue={personRaw.date_of_birth ?? ""} placeholder="e.g. circa 1950" /></Field>
-          <Field label="Date of death"><Input name="date_of_death" defaultValue={personRaw.date_of_death ?? ""} /></Field>
+          <Field label="Current location (city, country)"><Input name="current_location" defaultValue={personRaw.current_location ?? ""} /></Field>
+
+          <div className="sm:col-span-2">
+            <Field label="Date of birth (any part can be left blank)">
+              <div className="flex gap-2">
+                <Input name="birth_year" type="number" placeholder="Year" defaultValue={personRaw.birth_year ?? ""} />
+                <Select name="birth_month" defaultValue={personRaw.birth_month ?? ""}>
+                  <option value="">Month</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
+                  ))}
+                </Select>
+                <Input name="birth_day" type="number" placeholder="Day" defaultValue={personRaw.birth_day ?? ""} />
+              </div>
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label="Date of death (any part can be left blank)">
+              <div className="flex gap-2">
+                <Input name="death_year" type="number" placeholder="Year" defaultValue={personRaw.death_year ?? ""} />
+                <Select name="death_month" defaultValue={personRaw.death_month ?? ""}>
+                  <option value="">Month</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
+                  ))}
+                </Select>
+                <Input name="death_day" type="number" placeholder="Day" defaultValue={personRaw.death_day ?? ""} />
+              </div>
+            </Field>
+          </div>
+
           <Field label="Place of birth"><Input name="place_of_birth" defaultValue={personRaw.place_of_birth ?? ""} /></Field>
           <Field label="Place of death"><Input name="place_of_death" defaultValue={personRaw.place_of_death ?? ""} /></Field>
-          <Field label="Current location"><Input name="current_location" defaultValue={personRaw.current_location ?? ""} /></Field>
           <Field label="Photo URL"><Input name="photo_url" defaultValue={personRaw.photo_url ?? ""} /></Field>
           <Field label="Facebook URL"><Input name="facebook_url" defaultValue={personRaw.facebook_url ?? ""} /></Field>
           <Field label="LinkedIn URL"><Input name="linkedin_url" defaultValue={personRaw.linkedin_url ?? ""} /></Field>
@@ -376,19 +449,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
             Privacy settings
           </summary>
-          <form action={updateFieldPrivacy} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2">
-            <input type="hidden" name="person_id" value={person.id} />
-            {PRIVACY_FIELDS.map((field) => (
-              <Field key={field} label={field.replace(/_/g, " ")}>
-                <Select name={field} defaultValue="everyone">
-                  <option value="everyone">Everyone in the family app</option>
-                  <option value="admins_only">Admins only</option>
-                  <option value="just_me">Just me</option>
-                </Select>
-              </Field>
-            ))}
-            <div className="sm:col-span-2"><Button type="submit">Save privacy settings</Button></div>
-          </form>
+          <PrivacySettingsForm
+            personId={person.id}
+            currentVisibility={currentVisibility}
+            currentGroupIds={currentGroupIds}
+            groups={selectableGroups}
+          />
         </details>
       )}
 

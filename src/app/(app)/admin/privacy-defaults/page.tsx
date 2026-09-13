@@ -20,7 +20,7 @@ export default async function PrivacyDefaultsPage() {
         <form action={updatePrivacyDefaults} className="grid gap-3 sm:grid-cols-2">
           {PRIVACY_FIELDS.map((field) => (
             <Field key={field} label={field.replace(/_/g, " ")}>
-              <Select name={field} defaultValue={byField.get(field) ?? "everyone"}>
+              <Select name={field} defaultValue={byField.get(field) ?? "admins_only"}>
                 <option value="everyone">Everyone in the family app</option>
                 <option value="admins_only">Admins only</option>
                 <option value="just_me">Just me</option>

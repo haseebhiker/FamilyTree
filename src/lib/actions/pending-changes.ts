@@ -5,15 +5,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import type { Member, Person, PendingChangeType } from "@/lib/types";
+import { parsePartialDateFields } from "@/lib/partial-date";
 
-const EDITABLE_PERSON_FIELDS = [
+const EDITABLE_PERSON_TEXT_FIELDS = [
   "full_name",
   "preferred_name",
   "other_names",
   "surname_tag",
   "living_status",
-  "date_of_birth",
-  "date_of_death",
   "place_of_birth",
   "place_of_death",
   "current_location",
@@ -21,6 +20,11 @@ const EDITABLE_PERSON_FIELDS = [
   "bio",
   "facebook_url",
   "linkedin_url",
+] as const;
+
+const EDITABLE_PERSON_DATE_FIELDS = [
+  { prefix: "birth", year: "birth_year", month: "birth_month", day: "birth_day" },
+  { prefix: "death", year: "death_year", month: "death_month", day: "death_day" },
 ] as const;
 
 async function requireMember() {
@@ -181,13 +185,31 @@ export async function submitPersonEdit(formData: FormData) {
   const proposed: Record<string, unknown> = {};
   const previous: Record<string, unknown> = {};
 
-  for (const field of EDITABLE_PERSON_FIELDS) {
+  for (const field of EDITABLE_PERSON_TEXT_FIELDS) {
     if (!formData.has(field)) continue;
     const value = String(formData.get(field) ?? "").trim() || null;
     const currentValue = (current as Person)[field as keyof Person] ?? null;
     if (value !== currentValue) {
       proposed[field] = value;
       previous[field] = currentValue;
+    }
+  }
+
+  for (const { year, month, day } of EDITABLE_PERSON_DATE_FIELDS) {
+    if (!formData.has(year) && !formData.has(month) && !formData.has(day)) continue;
+    const parsed = parsePartialDateFields(formData.get(year), formData.get(month), formData.get(day));
+    const currentPerson = current as Person;
+    if (
+      parsed.year !== currentPerson[year as keyof Person] ||
+      parsed.month !== currentPerson[month as keyof Person] ||
+      parsed.day !== currentPerson[day as keyof Person]
+    ) {
+      proposed[year] = parsed.year;
+      proposed[month] = parsed.month;
+      proposed[day] = parsed.day;
+      previous[year] = currentPerson[year as keyof Person];
+      previous[month] = currentPerson[month as keyof Person];
+      previous[day] = currentPerson[day as keyof Person];
     }
   }
 

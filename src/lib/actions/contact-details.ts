@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
+import { encryptValue } from "@/lib/vault-crypto";
+import { toE164 } from "@/lib/countries";
 import type { ContactType, PrivacyVisibility } from "@/lib/types";
 
 async function requireOwnerOrAdmin(personId: string) {
@@ -24,17 +26,45 @@ export async function addContactDetail(formData: FormData) {
   if (!personId) throw new Error("Missing person id");
   const supabase = await requireOwnerOrAdmin(personId);
 
-  const value = String(formData.get("value") ?? "").trim();
-  if (!value) throw new Error("Value is required");
+  const contactType = String(formData.get("contact_type") ?? "phone") as ContactType;
 
-  const { error } = await supabase.from("contact_details").insert({
-    person_id: personId,
-    contact_type: String(formData.get("contact_type") ?? "phone") as ContactType,
-    label: String(formData.get("label") ?? "").trim() || null,
-    value,
-    visibility: String(formData.get("visibility") ?? "admins_only") as PrivacyVisibility,
-  });
+  let plainValue: string;
+  if (contactType === "phone") {
+    const countryIso2 = String(formData.get("country_iso2") ?? "").trim();
+    const localNumber = String(formData.get("local_number") ?? "").trim();
+    if (!countryIso2) throw new Error("Country is required for a phone number");
+    if (!localNumber) throw new Error("Phone number is required");
+    plainValue = toE164(countryIso2, localNumber);
+  } else {
+    plainValue = String(formData.get("value") ?? "").trim();
+    if (!plainValue) throw new Error("Value is required");
+  }
+
+  const visibility = String(formData.get("visibility") ?? "admins_only") as PrivacyVisibility;
+  const groupIds = formData.getAll("group_ids").map(String).filter(Boolean);
+  if (visibility === "groups" && groupIds.length === 0) {
+    throw new Error("Pick at least one group when visibility is set to groups");
+  }
+
+  const { data: inserted, error } = await supabase
+    .from("contact_details")
+    .insert({
+      person_id: personId,
+      contact_type: contactType,
+      label: String(formData.get("label") ?? "").trim() || null,
+      value: encryptValue(plainValue),
+      visibility,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  if (visibility === "groups") {
+    const { error: groupsError } = await supabase
+      .from("contact_detail_groups")
+      .insert(groupIds.map((groupId) => ({ contact_detail_id: inserted.id, group_id: groupId })));
+    if (groupsError) throw new Error(groupsError.message);
+  }
 
   revalidatePath(`/people/${personId}`);
 }

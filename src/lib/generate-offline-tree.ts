@@ -7,8 +7,12 @@ export interface OfflinePerson {
   other_names: string | null;
   surname_tag: string | null;
   living_status: string;
-  date_of_birth: string | null;
-  date_of_death: string | null;
+  birth_year: number | null;
+  birth_month: number | null;
+  birth_day: number | null;
+  death_year: number | null;
+  death_month: number | null;
+  death_day: number | null;
   place_of_birth: string | null;
   place_of_death: string | null;
   bio: string | null;
@@ -108,6 +112,18 @@ function displayName(p) {
   return p.surname_tag ? p.full_name + " /" + p.surname_tag + "/" : p.full_name;
 }
 
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+function formatPartialDate(year, month, day) {
+  if (!year && !month && !day) return null;
+  const monthName = month ? MONTH_NAMES[month - 1] : null;
+  if (year && month && day) return monthName + " " + day + ", " + year;
+  if (year && month) return monthName + " " + year;
+  if (year) return String(year);
+  if (month && day) return monthName + " " + day + " (year unknown)";
+  if (month) return monthName + " (year unknown)";
+  return null;
+}
+
 const roots = PEOPLE.filter(p => !p.father_id && !p.mother_id).sort((a, b) => a.full_name.localeCompare(b.full_name));
 
 function buildNode(personId, depth) {
@@ -165,10 +181,12 @@ function showDetail(personId) {
     .filter(Boolean);
   const kids = (childrenByParent.get(personId) || []).map(id => byId.get(id));
 
+  const birthDisplay = formatPartialDate(p.birth_year, p.birth_month, p.birth_day);
+  const deathDisplay = formatPartialDate(p.death_year, p.death_month, p.death_day);
   let html = '<h2>' + displayName(p) + '</h2>';
   html += '<div class="meta">' + p.living_status;
-  if (p.date_of_birth || p.date_of_death) {
-    html += ' · ' + (p.date_of_birth || '?') + ' – ' + (p.living_status === 'living' ? 'present' : (p.date_of_death || '?'));
+  if (birthDisplay || deathDisplay) {
+    html += ' · ' + (birthDisplay || '?') + ' – ' + (p.living_status === 'living' ? 'present' : (deathDisplay || '?'));
   }
   html += '</div>';
   if (p.preferred_name) html += '<p>Goes by ' + p.preferred_name + '</p>';
@@ -220,8 +238,12 @@ export function toOfflinePerson(p: Person): OfflinePerson {
     other_names: p.other_names,
     surname_tag: p.surname_tag,
     living_status: p.living_status,
-    date_of_birth: p.date_of_birth,
-    date_of_death: p.date_of_death,
+    birth_year: p.birth_year,
+    birth_month: p.birth_month,
+    birth_day: p.birth_day,
+    death_year: p.death_year,
+    death_month: p.death_month,
+    death_day: p.death_day,
     place_of_birth: p.place_of_birth,
     place_of_death: p.place_of_death,
     bio: p.bio,

@@ -13,10 +13,17 @@ create table people (
   father_id uuid references people(id) on delete set null,
   mother_id uuid references people(id) on delete set null,
   living_status text not null default 'unknown' check (living_status in ('living', 'deceased', 'unknown')),
-  date_of_birth text,
+  -- Partial dates: any of year/month/day may be null (e.g. year-only, or a
+  -- month+day with no known year) — see src/lib/partial-date.ts for the
+  -- display/parsing rules. Checks just catch obviously-invalid input; a
+  -- day without a month, or a value out of range, is rejected at the DB
+  -- level as well as in the form.
   birth_year int,
-  date_of_death text,
+  birth_month int check (birth_month between 1 and 12),
+  birth_day int check (birth_day between 1 and 31),
   death_year int,
+  death_month int check (death_month between 1 and 12),
+  death_day int check (death_day between 1 and 31),
   place_of_birth text,
   place_of_death text,
   current_location text,
@@ -26,7 +33,9 @@ create table people (
   linkedin_url text,
   legacy_id text unique,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  check (birth_day is null or birth_month is not null),
+  check (death_day is null or death_month is not null)
 );
 
 create index people_father_idx on people(father_id);
@@ -49,40 +58,6 @@ create unique index spouses_unique_pair_idx on spouses (
   least(person_a_id, person_b_id), greatest(person_a_id, person_b_id)
 );
 
--- Per-field privacy setting, set by the profile owner (or an admin for
--- unclaimed profiles). Absence of a row = the field-specific default
--- applied in application code (see src/lib/privacy.ts).
-create table field_privacy (
-  id uuid primary key default gen_random_uuid(),
-  person_id uuid not null references people(id) on delete cascade,
-  field_name text not null check (field_name in (
-    'date_of_birth', 'date_of_death',
-    'current_location', 'facebook_url', 'linkedin_url',
-    'place_of_birth', 'place_of_death'
-  )),
-  visibility text not null check (visibility in ('everyone', 'admins_only', 'just_me')),
-  updated_at timestamptz not null default now(),
-  unique (person_id, field_name)
-);
-
--- Contact details (phone/email/address) — a person can have several of
--- each (e.g. two mobile numbers), so these live in their own table rather
--- than single columns on people. Each entry carries its own visibility
--- rather than sharing one field-level setting, since e.g. a work phone and
--- a personal phone might reasonably get different audiences.
-create table contact_details (
-  id uuid primary key default gen_random_uuid(),
-  person_id uuid not null references people(id) on delete cascade,
-  contact_type text not null check (contact_type in ('phone', 'email', 'address')),
-  label text,
-  value text not null,
-  visibility text not null default 'admins_only' check (visibility in ('everyone', 'admins_only', 'just_me')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index contact_details_person_idx on contact_details(person_id);
-
 -- ---------------------------------------------------------------------------
 -- Accounts, invites, roles
 -- ---------------------------------------------------------------------------
@@ -102,6 +77,29 @@ create table invites (
   accepted_at timestamptz
 );
 
+-- Self-service "request access" flow: a Google account that signed in but
+-- isn't on the invite list lands on /not-authorized, which offers this
+-- form instead of a dead end. auth_user_id ties it to their live Supabase
+-- auth session (they're authenticated, just not yet a member) so an
+-- admin's approval only needs to create an `invites` row — the requester's
+-- existing session picks it up next time accept_invite() runs, no need to
+-- sign in again.
+create table access_requests (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid not null references auth.users(id) on delete cascade,
+  email text not null,
+  name text not null,
+  relation_description text not null,
+  notes text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  reviewed_by uuid references auth.users(id),
+  reviewed_at timestamptz,
+  admin_note text,
+  created_at timestamptz not null default now()
+);
+
+create index access_requests_status_idx on access_requests(status);
+
 -- One row per signed-in account, id = auth.users.id. Role/person link are
 -- copied from the invite at first login so this table (not the invite) is
 -- the source of truth for "who can do what" from then on.
@@ -118,6 +116,103 @@ create table members (
 );
 
 create index members_person_idx on members(person_id);
+
+-- ---------------------------------------------------------------------------
+-- Groups
+-- ---------------------------------------------------------------------------
+
+-- Public groups can only be created by an app admin; private ones by any
+-- member, who becomes that group's own admin (group_memberships.role).
+-- Super admins can manage every group regardless of membership.
+create table groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  is_public boolean not null default false,
+  created_by uuid not null references members(id),
+  created_at timestamptz not null default now()
+);
+
+-- One row per (group, member). The creator gets role='admin',
+-- status='approved' immediately (see create_group() below). Anyone else
+-- joining goes in as role='member', status='pending' until a group admin
+-- (or app admin) approves them — except when a group admin adds someone
+-- directly, which goes straight to 'approved' ("who creates the group...
+-- can add anyone there").
+create table group_memberships (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references groups(id) on delete cascade,
+  member_id uuid not null references members(id) on delete cascade,
+  role text not null default 'member' check (role in ('admin', 'member')),
+  status text not null default 'pending' check (status in ('pending', 'approved')),
+  requested_at timestamptz not null default now(),
+  approved_by uuid references members(id),
+  approved_at timestamptz,
+  unique (group_id, member_id)
+);
+
+create index group_memberships_group_idx on group_memberships(group_id);
+create index group_memberships_member_idx on group_memberships(member_id);
+
+-- ---------------------------------------------------------------------------
+-- Privacy
+-- ---------------------------------------------------------------------------
+
+-- Per-field privacy setting, set by the profile owner (or an admin for
+-- unclaimed profiles). Absence of a row = the field-specific default
+-- applied in application code (see src/lib/privacy.ts). visibility =
+-- 'groups' means "visible to members of specific groups" — see which ones
+-- in field_privacy_groups below.
+create table field_privacy (
+  id uuid primary key default gen_random_uuid(),
+  person_id uuid not null references people(id) on delete cascade,
+  field_name text not null check (field_name in (
+    'birth_date', 'death_date',
+    'current_location', 'facebook_url', 'linkedin_url',
+    'place_of_birth', 'place_of_death'
+  )),
+  visibility text not null check (visibility in ('everyone', 'admins_only', 'just_me', 'groups')),
+  updated_at timestamptz not null default now(),
+  unique (person_id, field_name)
+);
+
+-- Which groups can see a field_privacy row when its visibility = 'groups'.
+create table field_privacy_groups (
+  field_privacy_id uuid not null references field_privacy(id) on delete cascade,
+  group_id uuid not null references groups(id) on delete cascade,
+  primary key (field_privacy_id, group_id)
+);
+
+-- Contact details (phone/email/address) — a person can have several of
+-- each (e.g. two mobile numbers), so these live in their own table rather
+-- than single columns on people. Each entry carries its own visibility
+-- rather than sharing one field-level setting, since e.g. a work phone and
+-- a personal phone might reasonably get different audiences.
+-- `value` holds an AES-256-GCM ciphertext, encrypted at the app layer
+-- (src/lib/vault-crypto.ts) before it ever reaches Supabase — plaintext
+-- phone/email/address never touches the database or a backup file. See
+-- README.md for the VAULT_ENCRYPTION_KEY this requires. Phone numbers are
+-- always stored in E.164 (e.g. +14155551234) so WhatsApp/tel: links work
+-- for anyone regardless of country — enforced in the app form, not here.
+create table contact_details (
+  id uuid primary key default gen_random_uuid(),
+  person_id uuid not null references people(id) on delete cascade,
+  contact_type text not null check (contact_type in ('phone', 'email', 'address')),
+  label text,
+  value text not null,
+  visibility text not null default 'admins_only' check (visibility in ('everyone', 'admins_only', 'just_me', 'groups')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index contact_details_person_idx on contact_details(person_id);
+
+-- Which groups can see a contact_details row when its visibility = 'groups'.
+create table contact_detail_groups (
+  contact_detail_id uuid not null references contact_details(id) on delete cascade,
+  group_id uuid not null references groups(id) on delete cascade,
+  primary key (contact_detail_id, group_id)
+);
 
 -- ---------------------------------------------------------------------------
 -- Edit/approval workflow
@@ -160,14 +255,15 @@ create index audit_log_person_idx on audit_log(person_id);
 
 -- Admin-configurable fallback visibility for unclaimed profiles' fields
 -- (§5 of the design doc). One row per field; seeded with the doc's
--- defaults below.
+-- defaults below. No 'groups' option here — a default with no owner to
+-- pick specific groups wouldn't mean anything.
 create table privacy_defaults (
   field_name text primary key,
   visibility text not null check (visibility in ('everyone', 'admins_only', 'just_me'))
 );
 
 -- ---------------------------------------------------------------------------
--- Helper: is the current authenticated user an admin (or super admin)?
+-- Helper functions
 -- ---------------------------------------------------------------------------
 create or replace function is_admin()
 returns boolean
@@ -193,15 +289,65 @@ as $$
   );
 $$;
 
+create or replace function is_group_admin(p_group_id uuid)
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists (
+    select 1 from group_memberships
+    where group_id = p_group_id and member_id = auth.uid() and role = 'admin' and status = 'approved'
+  );
+$$;
+
+-- Creates a group and its creator's admin membership in one step. Runs as
+-- definer so the creator's own first group_memberships row doesn't hit the
+-- chicken-and-egg problem of "you must already be a group admin to insert
+-- an approved admin membership."
+create or replace function create_group(p_name text, p_description text, p_is_public boolean)
+returns groups
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_group groups;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+  if p_is_public and not is_admin() then
+    raise exception 'Only an admin can create a public group';
+  end if;
+
+  insert into groups (name, description, is_public, created_by)
+    values (p_name, p_description, p_is_public, auth.uid())
+    returning * into v_group;
+
+  insert into group_memberships (group_id, member_id, role, status, approved_by, approved_at)
+    values (v_group.id, auth.uid(), 'admin', 'approved', auth.uid(), now());
+
+  return v_group;
+end;
+$$;
+
+grant execute on function create_group(text, text, boolean) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Row-level security
 -- ---------------------------------------------------------------------------
 alter table people enable row level security;
 alter table spouses enable row level security;
-alter table field_privacy enable row level security;
-alter table contact_details enable row level security;
 alter table invites enable row level security;
+alter table access_requests enable row level security;
 alter table members enable row level security;
+alter table groups enable row level security;
+alter table group_memberships enable row level security;
+alter table field_privacy enable row level security;
+alter table field_privacy_groups enable row level security;
+alter table contact_details enable row level security;
+alter table contact_detail_groups enable row level security;
 alter table pending_changes enable row level security;
 alter table audit_log enable row level security;
 alter table privacy_defaults enable row level security;
@@ -227,43 +373,6 @@ create policy "admins can update spouses" on spouses
 create policy "admins can delete spouses" on spouses
   for delete using (is_admin());
 
--- field_privacy: any signed-in member can read (needed to know what to
--- hide); a member can set their own linked profile's rows, admins can set
--- any (e.g. unclaimed profiles).
-create policy "members can read field_privacy" on field_privacy
-  for select using (auth.role() = 'authenticated');
-create policy "owner or admin can write field_privacy" on field_privacy
-  for insert with check (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-create policy "owner or admin can update field_privacy" on field_privacy
-  for update using (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-create policy "owner or admin can delete field_privacy" on field_privacy
-  for delete using (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-
--- contact_details: any signed-in member can read (visibility per row is
--- filtered in application code, see src/lib/privacy.ts); only the profile
--- owner or an admin can add/edit/remove entries — same self-service model
--- as field_privacy, since this is squarely "my own contact info".
-create policy "members can read contact_details" on contact_details
-  for select using (auth.role() = 'authenticated');
-create policy "owner or admin can insert contact_details" on contact_details
-  for insert with check (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-create policy "owner or admin can update contact_details" on contact_details
-  for update using (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-create policy "owner or admin can delete contact_details" on contact_details
-  for delete using (
-    is_admin() or person_id in (select person_id from members where id = auth.uid())
-  );
-
 -- invites: admins-only for direct table access. First-login provisioning
 -- (checking "am I invited?" and creating/reactivating the members row) goes
 -- through the accept_invite() function below instead, which runs with
@@ -277,6 +386,16 @@ create policy "admins can update invites" on invites
   for update using (is_admin());
 create policy "super admins can delete invites" on invites
   for delete using (is_super_admin());
+
+-- access_requests: any authenticated user (not just an existing member —
+-- this is exactly for people who aren't one yet) can submit and read
+-- their own request; only admins can read/decide all of them.
+create policy "self or admin can read access_requests" on access_requests
+  for select using (auth.uid() = auth_user_id or is_admin());
+create policy "self can insert own access_request" on access_requests
+  for insert with check (auth.uid() = auth_user_id and status = 'pending');
+create policy "admin updates access_requests" on access_requests
+  for update using (is_admin());
 
 -- members: a user can read their own row (to learn their role); admins can
 -- read all. Only admins can update (e.g. revoke); the trigger below stops
@@ -359,6 +478,116 @@ $$;
 
 grant execute on function accept_invite() to authenticated;
 
+-- groups: any signed-in member can see the directory (needed so they can
+-- find and request to join a group, private ones included — being listed
+-- isn't the same as being a member). Any member can create a private
+-- group (becoming its admin via create_group()); only an app admin can
+-- create a public one. Only a group admin or app admin can update/delete.
+create policy "members can read groups" on groups
+  for select using (auth.role() = 'authenticated');
+create policy "group admin or app admin can update groups" on groups
+  for update using (is_group_admin(id) or is_admin());
+create policy "group admin or app admin can delete groups" on groups
+  for delete using (is_group_admin(id) or is_admin());
+
+-- group_memberships: any signed-in member can read (so a group's roster
+-- and pending queue are visible to those who need them; nothing in this
+-- row is sensitive by itself). A member can request to join (their own
+-- row, landing as pending/member) or leave (delete their own row); a
+-- group admin or app admin can add someone directly (pre-approved),
+-- approve/reject/promote, or remove anyone.
+create policy "members can read group_memberships" on group_memberships
+  for select using (auth.role() = 'authenticated');
+create policy "self-request or group/app admin can insert membership" on group_memberships
+  for insert with check (
+    (member_id = auth.uid() and status = 'pending' and role = 'member')
+    or is_group_admin(group_id)
+    or is_admin()
+  );
+create policy "group or app admin can update membership" on group_memberships
+  for update using (is_group_admin(group_id) or is_admin());
+create policy "self or group/app admin can delete membership" on group_memberships
+  for delete using (member_id = auth.uid() or is_group_admin(group_id) or is_admin());
+
+-- field_privacy: any signed-in member can read (needed to know what to
+-- hide); a member can set their own linked profile's rows, admins can set
+-- any (e.g. unclaimed profiles).
+create policy "members can read field_privacy" on field_privacy
+  for select using (auth.role() = 'authenticated');
+create policy "owner or admin can write field_privacy" on field_privacy
+  for insert with check (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+create policy "owner or admin can update field_privacy" on field_privacy
+  for update using (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+create policy "owner or admin can delete field_privacy" on field_privacy
+  for delete using (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+
+-- field_privacy_groups: any signed-in member can read (needed to compute
+-- "am I in one of the allowed groups" when viewing someone else's
+-- profile); only the field's owner or an admin can set which groups.
+create policy "members can read field_privacy_groups" on field_privacy_groups
+  for select using (auth.role() = 'authenticated');
+create policy "owner or admin can write field_privacy_groups" on field_privacy_groups
+  for insert with check (
+    is_admin() or field_privacy_id in (
+      select fp.id from field_privacy fp
+      join members m on m.person_id = fp.person_id
+      where m.id = auth.uid()
+    )
+  );
+create policy "owner or admin can delete field_privacy_groups" on field_privacy_groups
+  for delete using (
+    is_admin() or field_privacy_id in (
+      select fp.id from field_privacy fp
+      join members m on m.person_id = fp.person_id
+      where m.id = auth.uid()
+    )
+  );
+
+-- contact_details: any signed-in member can read (visibility per row is
+-- filtered in application code, see src/lib/privacy.ts); only the profile
+-- owner or an admin can add/edit/remove entries — same self-service model
+-- as field_privacy, since this is squarely "my own contact info".
+create policy "members can read contact_details" on contact_details
+  for select using (auth.role() = 'authenticated');
+create policy "owner or admin can insert contact_details" on contact_details
+  for insert with check (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+create policy "owner or admin can update contact_details" on contact_details
+  for update using (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+create policy "owner or admin can delete contact_details" on contact_details
+  for delete using (
+    is_admin() or person_id in (select person_id from members where id = auth.uid())
+  );
+
+-- contact_detail_groups: same pattern as field_privacy_groups above.
+create policy "members can read contact_detail_groups" on contact_detail_groups
+  for select using (auth.role() = 'authenticated');
+create policy "owner or admin can write contact_detail_groups" on contact_detail_groups
+  for insert with check (
+    is_admin() or contact_detail_id in (
+      select cd.id from contact_details cd
+      join members m on m.person_id = cd.person_id
+      where m.id = auth.uid()
+    )
+  );
+create policy "owner or admin can delete contact_detail_groups" on contact_detail_groups
+  for delete using (
+    is_admin() or contact_detail_id in (
+      select cd.id from contact_details cd
+      join members m on m.person_id = cd.person_id
+      where m.id = auth.uid()
+    )
+  );
+
 -- pending_changes: a member can create and read their own submissions;
 -- admins can read/update all (approve/reject/edit-then-approve). A
 -- non-admin submission must land as 'pending' — only an admin's later
@@ -392,12 +621,16 @@ create policy "admins update privacy_defaults" on privacy_defaults
 -- ---------------------------------------------------------------------------
 -- Seed data
 -- ---------------------------------------------------------------------------
+-- Default policy: only name and current location (city/country) are shown
+-- to everyone; everything else is private until the profile's owner
+-- opts in — to "everyone" or to specific groups (see field_privacy /
+-- field_privacy_groups above).
 insert into privacy_defaults (field_name, visibility) values
-  ('date_of_birth', 'everyone'),
-  ('date_of_death', 'everyone'),
-  ('place_of_birth', 'everyone'),
-  ('place_of_death', 'everyone'),
-  ('current_location', 'admins_only'),
+  ('birth_date', 'admins_only'),
+  ('death_date', 'admins_only'),
+  ('place_of_birth', 'admins_only'),
+  ('place_of_death', 'admins_only'),
+  ('current_location', 'everyone'),
   ('facebook_url', 'admins_only'),
   ('linkedin_url', 'admins_only');
 

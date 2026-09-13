@@ -21,9 +21,11 @@ function GearIcon() {
 export function NavBar({
   role,
   pendingCount,
+  pendingAccessRequestCount,
 }: {
   role: Role;
   pendingCount: number;
+  pendingAccessRequestCount: number;
 }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const isAdmin = role === "admin" || role === "super_admin";
@@ -49,14 +51,17 @@ export function NavBar({
           <Link href="/my-submissions" className="hover:text-slate-900">
             My Submissions
           </Link>
+          <Link href="/groups" className="hover:text-slate-900">
+            Groups
+          </Link>
           {isAdmin && (
             <details ref={detailsRef} className="relative">
               <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
                 <GearIcon />
                 Admin
-                {pendingCount > 0 && (
+                {pendingCount + pendingAccessRequestCount > 0 && (
                   <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
-                    {pendingCount}
+                    {pendingCount + pendingAccessRequestCount}
                   </span>
                 )}
               </summary>
@@ -69,6 +74,17 @@ export function NavBar({
                   {pendingCount > 0 && (
                     <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
                       {pendingCount}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  href="/admin/access-requests"
+                  className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                >
+                  Access Requests
+                  {pendingAccessRequestCount > 0 && (
+                    <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                      {pendingAccessRequestCount}
                     </span>
                   )}
                 </Link>

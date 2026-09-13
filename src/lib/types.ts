@@ -2,11 +2,11 @@ export type Role = "member" | "admin" | "super_admin";
 
 export type LivingStatus = "living" | "deceased" | "unknown";
 
-export type PrivacyVisibility = "everyone" | "admins_only" | "just_me";
+export type PrivacyVisibility = "everyone" | "admins_only" | "just_me" | "groups";
 
 export const PRIVACY_FIELDS = [
-  "date_of_birth",
-  "date_of_death",
+  "birth_date",
+  "death_date",
   "current_location",
   "facebook_url",
   "linkedin_url",
@@ -49,10 +49,12 @@ export interface Person {
   father_id: string | null;
   mother_id: string | null;
   living_status: LivingStatus;
-  date_of_birth: string | null;
   birth_year: number | null;
-  date_of_death: string | null;
+  birth_month: number | null;
+  birth_day: number | null;
   death_year: number | null;
+  death_month: number | null;
+  death_day: number | null;
   place_of_birth: string | null;
   place_of_death: string | null;
   current_location: string | null;
@@ -94,4 +96,27 @@ export interface PendingChange {
   admin_note: string | null;
   reviewed_at: string | null;
   created_at: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  created_by: string;
+  created_at: string;
+}
+
+export type GroupMembershipRole = "admin" | "member";
+export type GroupMembershipStatus = "pending" | "approved";
+
+export interface GroupMembership {
+  id: string;
+  group_id: string;
+  member_id: string;
+  role: GroupMembershipRole;
+  status: GroupMembershipStatus;
+  requested_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
 }

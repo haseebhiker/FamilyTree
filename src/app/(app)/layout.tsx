@@ -19,17 +19,19 @@ export default async function AppLayout({
   if (!member) redirect("/not-authorized");
 
   let pendingCount = 0;
+  let pendingAccessRequestCount = 0;
   if (isAdmin(member)) {
-    const { count } = await supabase
-      .from("pending_changes")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending");
-    pendingCount = count ?? 0;
+    const [{ count: changeCount }, { count: requestCount }] = await Promise.all([
+      supabase.from("pending_changes").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("access_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
+    pendingCount = changeCount ?? 0;
+    pendingAccessRequestCount = requestCount ?? 0;
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      <NavBar role={member.role} pendingCount={pendingCount} />
+      <NavBar role={member.role} pendingCount={pendingCount} pendingAccessRequestCount={pendingAccessRequestCount} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
         {children}
       </main>

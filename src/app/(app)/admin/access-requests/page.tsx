@@ -1,0 +1,114 @@
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentMember, isSuperAdmin } from "@/lib/members";
+import { approveAccessRequest, rejectAccessRequest } from "@/lib/actions/access-requests";
+import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+
+export default async function AccessRequestsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const member = await getCurrentMember(supabase, user!.id);
+  const canAssignAdmin = isSuperAdmin(member);
+
+  const { data: requests } = await supabase
+    .from("access_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const { data: people } = await supabase
+    .from("people")
+    .select("id, full_name, surname_tag")
+    .order("full_name")
+    .limit(2000);
+
+  const pending = requests?.filter((r) => r.status === "pending") ?? [];
+  const decided = requests?.filter((r) => r.status !== "pending") ?? [];
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">Access Requests</h1>
+
+      {pending.length === 0 && (
+        <Card>
+          <p className="text-sm text-slate-500">No pending requests.</p>
+        </Card>
+      )}
+
+      {pending.map((req) => (
+        <Card key={req.id}>
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <span className="font-medium text-slate-900">{req.name}</span>{" "}
+              <span className="text-sm text-slate-500">({req.email})</span>
+            </div>
+            <span className="text-xs text-slate-400">{new Date(req.created_at).toLocaleDateString()}</span>
+          </div>
+          <p className="mb-1 text-sm text-slate-700">
+            <span className="font-medium text-slate-500">Relation: </span>
+            {req.relation_description}
+          </p>
+          {req.notes && (
+            <p className="mb-3 text-sm text-slate-700">
+              <span className="font-medium text-slate-500">Notes: </span>
+              {req.notes}
+            </p>
+          )}
+
+          <form action={approveAccessRequest} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="request_id" value={req.id} />
+            <Field label="Role">
+              <Select name="role" defaultValue="member" disabled={!canAssignAdmin}>
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </Select>
+            </Field>
+            <Field label="Link to existing profile (optional)">
+              <Select name="person_id" defaultValue="" className="min-w-56">
+                <option value="">— None yet —</option>
+                {people?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                    {p.surname_tag ? ` /${p.surname_tag}/` : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <PendingButton
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              pendingChildren="Approving…"
+            >
+              Approve
+            </PendingButton>
+          </form>
+          <form action={rejectAccessRequest} className="mt-2 flex items-center gap-2">
+            <input type="hidden" name="request_id" value={req.id} />
+            <Input name="admin_note" placeholder="Reason (optional, shown to requester)" className="max-w-sm" />
+            <Button type="submit" variant="danger">
+              Reject
+            </Button>
+          </form>
+        </Card>
+      ))}
+
+      {decided.length > 0 && (
+        <Card>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Previously decided</h2>
+          <ul className="space-y-1 text-sm">
+            {decided.map((req) => (
+              <li key={req.id} className="flex items-center justify-between">
+                <span>
+                  {req.name} ({req.email})
+                </span>
+                <Badge className={req.status === "approved" ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-600"}>
+                  {req.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
+  );
+}
