@@ -1,0 +1,21 @@
+Parsed 1048 people, 343 spouse pairs from 1048 files.
+
+=== Duplicate name candidates (16) ===
+mrs.mustafa|: 1003, 790
+abdulrazack|: 1023, 717
+tariq|: 1049, 877
+abdulrahim|: 1056, 719
+shahulhameed|: 1059, 714, 726, 820, 876
+aidroos|mohideen: 117, 290
+abdulwahab|: 156, 253
+dharwish|kadi mohsin: 281, 286
+rafi|: 322, 57
+asma|: 323, 888
+farida|: 402, 800
+mahmooda|semar: 426, 939
+muhammadismail|karupatti: 812, 851
+abdulrahim|semar: 908, 960
+shahulhameed|semar: 915, 962
+buhari|semar: 918, 937, 964
+
+=== Warnings (0) ===
