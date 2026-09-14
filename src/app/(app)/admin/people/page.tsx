@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { hardDeletePerson, mergePeople } from "@/lib/actions/people-admin";
-import { Card, Input, Select, Button, Field } from "@/components/ui";
+import { Card, Input, Button, Field } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { PersonPicker } from "@/components/person-picker";
 import Link from "next/link";
 
 export default async function PeopleManagementPage({
@@ -82,20 +83,10 @@ export default async function PeopleManagementPage({
         </p>
         <form action={mergePeople} className="grid gap-3 sm:grid-cols-2">
           <Field label="Keep this profile">
-            <Select name="keeper_id" required defaultValue="">
-              <option value="" disabled>Choose…</option>
-              {allPeopleForSelect?.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}{p.surname_tag ? ` /${p.surname_tag}/` : ""}</option>
-              ))}
-            </Select>
+            <PersonPicker name="keeper_id" people={allPeopleForSelect ?? []} />
           </Field>
           <Field label="Delete this duplicate">
-            <Select name="loser_id" required defaultValue="">
-              <option value="" disabled>Choose…</option>
-              {allPeopleForSelect?.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}{p.surname_tag ? ` /${p.surname_tag}/` : ""}</option>
-              ))}
-            </Select>
+            <PersonPicker name="loser_id" people={allPeopleForSelect ?? []} />
           </Field>
           <div className="sm:col-span-2">
             <PendingButton

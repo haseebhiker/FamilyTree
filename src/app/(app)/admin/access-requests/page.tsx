@@ -3,6 +3,7 @@ import { getCurrentMember, isSuperAdmin } from "@/lib/members";
 import { approveAccessRequest, rejectAccessRequest } from "@/lib/actions/access-requests";
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { PersonPicker } from "@/components/person-picker";
 
 export default async function AccessRequestsPage() {
   const supabase = await createClient();
@@ -65,15 +66,9 @@ export default async function AccessRequestsPage() {
               </Select>
             </Field>
             <Field label="Link to existing profile (optional)">
-              <Select name="person_id" defaultValue="" className="min-w-56">
-                <option value="">— None yet —</option>
-                {people?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name}
-                    {p.surname_tag ? ` /${p.surname_tag}/` : ""}
-                  </option>
-                ))}
-              </Select>
+              <div className="min-w-56">
+                <PersonPicker name="person_id" people={people ?? []} placeholder="Search by name…" />
+              </div>
             </Field>
             <PendingButton
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"

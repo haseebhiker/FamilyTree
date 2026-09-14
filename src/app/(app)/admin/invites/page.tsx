@@ -3,6 +3,7 @@ import { getCurrentMember, isSuperAdmin } from "@/lib/members";
 import { createInvite, revokeInvite } from "@/lib/actions/invites";
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { PersonPicker } from "@/components/person-picker";
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
@@ -52,15 +53,7 @@ export default async function InvitesPage() {
             </Select>
           </Field>
           <Field label="Link to existing tree profile (optional)">
-            <Select name="person_id" defaultValue="">
-              <option value="">— None yet —</option>
-              {people?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                  {p.surname_tag ? ` /${p.surname_tag}/` : ""}
-                </option>
-              ))}
-            </Select>
+            <PersonPicker name="person_id" people={people ?? []} placeholder="Search 1,000+ people by name…" />
           </Field>
           <div className="sm:col-span-2">
             <Button type="submit">Send invite</Button>
