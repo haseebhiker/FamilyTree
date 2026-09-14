@@ -32,7 +32,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   } = await supabase.auth.getUser();
   const member = await getCurrentMember(supabase, user!.id);
 
-  const { data: personRaw } = await supabase.from("people").select("*").eq("id", id).maybeSingle();
+  const { data: personRaw, error: personError } = await supabase.from("people").select("*").eq("id", id).maybeSingle();
+  if (personError) console.error("[people/[id]] query error:", personError);
   if (!personRaw) notFound();
 
   const person = await applyPrivacy(supabase, personRaw as Person, member);
@@ -123,6 +124,25 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
 
+  const siblingConditions = [
+    person.father_id ? `father_id.eq.${person.father_id}` : null,
+    person.mother_id ? `mother_id.eq.${person.mother_id}` : null,
+  ].filter((c): c is string => c !== null);
+  const { data: siblingsRaw } =
+    siblingConditions.length > 0
+      ? await supabase
+          .from("people")
+          .select("id, full_name, surname_tag, father_id, mother_id")
+          .or(siblingConditions.join(","))
+          .order("full_name")
+      : { data: [] };
+  const siblings = (siblingsRaw ?? [])
+    .filter((s) => s.id !== person.id)
+    .map((s) => ({
+      ...s,
+      isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
+    }));
+
   const childrenByMarriage = new Map<string, typeof children>();
   const otherChildren: typeof children = [];
   for (const child of children ?? []) {
@@ -200,6 +220,22 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         </div>
+
+        {siblings.length > 0 && (
+          <div className="mt-4">
+            <div className="font-medium text-slate-500">Siblings</div>
+            <ul className="ml-4 list-disc text-sm text-slate-700">
+              {siblings.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/people/${s.id}`} className="hover:underline">
+                    {displayName(s)}
+                  </Link>
+                  {s.isHalf && <span className="text-xs text-slate-400"> (half-sibling)</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {marriages.length > 0 && (
           <div className="mt-4 space-y-3">

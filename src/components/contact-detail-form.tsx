@@ -14,7 +14,7 @@ export function ContactDetailForm({
   groups: { id: string; name: string }[];
 }) {
   const [contactType, setContactType] = useState<ContactType>("phone");
-  const [visibility, setVisibility] = useState<PrivacyVisibility>("admins_only");
+  const [visibility, setVisibility] = useState<PrivacyVisibility>("just_me");
 
   return (
     <form action={addContactDetail} className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
@@ -52,10 +52,9 @@ export function ContactDetailForm({
         value={visibility}
         onChange={(e) => setVisibility(e.target.value as PrivacyVisibility)}
       >
-        <option value="admins_only">Just admins</option>
+        <option value="just_me">Just me</option>
         <option value="everyone">Everyone in the family app</option>
         <option value="groups">Specific group(s)</option>
-        <option value="just_me">Just me</option>
       </Select>
 
       {visibility === "groups" && (

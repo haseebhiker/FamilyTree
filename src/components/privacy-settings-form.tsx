@@ -26,7 +26,16 @@ export function PrivacySettingsForm({
   currentGroupIds: Record<string, string[]>;
   groups: { id: string; name: string }[];
 }) {
-  const [visibility, setVisibility] = useState<Record<string, PrivacyVisibility>>(currentVisibility);
+  // Admins can see everything regardless of this setting, so "just admins"
+  // isn't offered as a choice here — it would misleadingly read as a real
+  // privacy tier when it isn't one. Any field already stored as
+  // admins_only (e.g. from the admin-set default on an unclaimed profile)
+  // displays as "Just me" instead, since the two are equivalent from every
+  // non-admin viewer's perspective.
+  const normalize = (v: PrivacyVisibility) => (v === "admins_only" ? "just_me" : v);
+  const [visibility, setVisibility] = useState<Record<string, PrivacyVisibility>>(
+    Object.fromEntries(Object.entries(currentVisibility).map(([field, v]) => [field, normalize(v)])),
+  );
 
   return (
     <form action={updateFieldPrivacy} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2">
@@ -36,13 +45,12 @@ export function PrivacySettingsForm({
           <Field label={FIELD_LABELS[field] ?? field.replace(/_/g, " ")}>
             <Select
               name={field}
-              value={visibility[field] ?? "admins_only"}
+              value={visibility[field] ?? "just_me"}
               onChange={(e) => setVisibility((prev) => ({ ...prev, [field]: e.target.value as PrivacyVisibility }))}
             >
-              <option value="admins_only">Just admins</option>
+              <option value="just_me">Just me</option>
               <option value="everyone">Everyone in the family app</option>
               <option value="groups">Specific group(s)</option>
-              <option value="just_me">Just me</option>
             </Select>
           </Field>
           {visibility[field] === "groups" && (

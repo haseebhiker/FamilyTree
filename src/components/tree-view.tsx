@@ -20,12 +20,14 @@ function TreeNode({
   person,
   childrenByParent,
   depth,
+  defaultExpanded,
 }: {
   person: TreeNodeData;
   childrenByParent: Map<string, TreeNodeData[]>;
   depth: number;
+  defaultExpanded: boolean;
 }) {
-  const [expanded, setExpanded] = useState(depth < 1);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const kids = childrenByParent.get(person.id) ?? [];
 
   return (
@@ -53,11 +55,18 @@ function TreeNode({
         >
           {displayName(person)}
         </Link>
+        {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
       {expanded && kids.length > 0 && (
         <ul className="ml-5 border-l border-slate-200 pl-3">
           {kids.map((child) => (
-            <TreeNode key={child.id} person={child} childrenByParent={childrenByParent} depth={depth + 1} />
+            <TreeNode
+              key={child.id}
+              person={child}
+              childrenByParent={childrenByParent}
+              depth={depth + 1}
+              defaultExpanded={depth + 1 < 1}
+            />
           ))}
         </ul>
       )}
@@ -88,6 +97,14 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
     return allPeople.filter((p) => displayName(p).toLowerCase().includes(q)).slice(0, 15);
   }, [query, allPeople]);
 
+  // roots is pre-sorted by descendant count (largest first, see page.tsx) —
+  // the first one is the real family tree; the rest are almost always tiny
+  // disconnected stubs (e.g. a spouse whose own parents were never
+  // recorded). Showing 50 of those expanded at once is exactly what made
+  // this "hard to follow," so only the main tree opens by default and the
+  // rest sit behind a single collapsed section.
+  const [mainRoot, ...otherRoots] = roots;
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -115,11 +132,24 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
         )}
       </div>
 
-      <ul>
-        {roots.map((root) => (
-          <TreeNode key={root.id} person={root} childrenByParent={childrenByParent} depth={0} />
-        ))}
-      </ul>
+      {mainRoot && (
+        <ul>
+          <TreeNode person={mainRoot} childrenByParent={childrenByParent} depth={0} defaultExpanded />
+        </ul>
+      )}
+
+      {otherRoots.length > 0 && (
+        <details className="rounded-lg border border-slate-200 bg-white">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-600">
+            Other family lines not yet connected to the main tree ({otherRoots.length})
+          </summary>
+          <ul className="border-t border-slate-100 p-4 pt-2">
+            {otherRoots.map((root) => (
+              <TreeNode key={root.id} person={root} childrenByParent={childrenByParent} depth={0} defaultExpanded={false} />
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

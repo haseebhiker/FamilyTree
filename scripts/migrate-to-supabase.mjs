@@ -62,11 +62,25 @@ async function main() {
     marriage_notes: s.marriage_notes,
   }));
 
-  console.log(`Inserting ${peopleRows.length} people...`);
+  // Two passes: a child can land in an earlier batch than their (not yet
+  // inserted) parent, since batches follow the source file's order, not a
+  // parent-before-child topological one — which would violate the
+  // father_id/mother_id foreign keys. So pass 1 inserts everyone with no
+  // parent links at all, then pass 2 upserts the full rows (parent links
+  // included) now that every id already exists to point at.
+  console.log(`Inserting ${peopleRows.length} people (pass 1/2: no parent links yet)...`);
   for (let i = 0; i < peopleRows.length; i += 500) {
-    const batch = peopleRows.slice(i, i + 500);
+    const batch = peopleRows.slice(i, i + 500).map((p) => ({ ...p, father_id: null, mother_id: null }));
     const { error } = await supabase.from("people").insert(batch);
     if (error) throw new Error(`people batch ${i}: ${error.message}`);
+    console.log(`  ${Math.min(i + 500, peopleRows.length)}/${peopleRows.length}`);
+  }
+
+  console.log(`Linking parents (pass 2/2)...`);
+  for (let i = 0; i < peopleRows.length; i += 500) {
+    const batch = peopleRows.slice(i, i + 500);
+    const { error } = await supabase.from("people").upsert(batch, { onConflict: "id" });
+    if (error) throw new Error(`people parent-link batch ${i}: ${error.message}`);
     console.log(`  ${Math.min(i + 500, peopleRows.length)}/${peopleRows.length}`);
   }
 
