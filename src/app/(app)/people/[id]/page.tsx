@@ -15,6 +15,7 @@ import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PrivacySettingsForm } from "@/components/privacy-settings-form";
 import { ContactIcons } from "@/components/contact-icons";
 import { PersonName, displayNameText } from "@/components/person-name";
+import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import type { ContactDetail, Person, PrivacyVisibility } from "@/lib/types";
 import { PRIVACY_FIELDS } from "@/lib/types";
 
@@ -65,10 +66,18 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     { data: ownerMember },
   ] = await Promise.all([
     person.father_id
-      ? supabase.from("people").select("id, full_name, preferred_name, surname_tag").eq("id", person.father_id).single()
+      ? supabase
+          .from("people")
+          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+          .eq("id", person.father_id)
+          .single()
       : Promise.resolve({ data: null }),
     person.mother_id
-      ? supabase.from("people").select("id, full_name, preferred_name, surname_tag").eq("id", person.mother_id).single()
+      ? supabase
+          .from("people")
+          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+          .eq("id", person.mother_id)
+          .single()
       : Promise.resolve({ data: null }),
     supabase.from("spouses").select("*, person_b:people!spouses_person_b_id_fkey(id, full_name, preferred_name, surname_tag)").eq("person_a_id", person.id),
     supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, preferred_name, surname_tag)").eq("person_b_id", person.id),
@@ -129,6 +138,36 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id })),
     ...(spousesAsB ?? []).map((s) => ({ spouse: s.person_a, marriage_notes: s.marriage_notes, spouseId: s.person_a_id })),
   ];
+
+  const grandparentIds = [father?.father_id, father?.mother_id, mother?.father_id, mother?.mother_id].filter(
+    (id): id is string => !!id,
+  );
+  const { data: grandparentsRaw } =
+    grandparentIds.length > 0
+      ? await supabase.from("people").select("id, full_name, preferred_name, surname_tag").in("id", grandparentIds)
+      : { data: [] as { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }[] };
+  const grandparentsById = new Map((grandparentsRaw ?? []).map((p) => [p.id, p]));
+
+  const ancestorChart: AncestorNode = {
+    id: person.id,
+    full_name: person.full_name,
+    preferred_name: person.preferred_name,
+    surname_tag: person.surname_tag,
+    father: father
+      ? {
+          ...father,
+          father: father.father_id ? (grandparentsById.get(father.father_id) as AncestorNode) ?? null : null,
+          mother: father.mother_id ? (grandparentsById.get(father.mother_id) as AncestorNode) ?? null : null,
+        }
+      : null,
+    mother: mother
+      ? {
+          ...mother,
+          father: mother.father_id ? (grandparentsById.get(mother.father_id) as AncestorNode) ?? null : null,
+          mother: mother.mother_id ? (grandparentsById.get(mother.mother_id) as AncestorNode) ?? null : null,
+        }
+      : null,
+  };
 
   const { data: children } = await supabase
     .from("people")
@@ -240,6 +279,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {ancestorChart.father || ancestorChart.mother ? (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Ancestors</h2>
+          <AncestorChart root={ancestorChart} />
+        </Card>
+      ) : null}
 
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Family</h2>
