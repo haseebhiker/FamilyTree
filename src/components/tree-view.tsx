@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { PersonName, displayNameText } from "@/components/person-name";
 
 export interface TreeNodeData {
   id: string;
@@ -11,25 +12,6 @@ export interface TreeNodeData {
   living_status: string;
   father_id: string | null;
   mother_id: string | null;
-}
-
-function formalName(p: Pick<TreeNodeData, "full_name" | "surname_tag">) {
-  return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
-}
-
-/** Plain-text label, for search matching and anywhere JSX formatting doesn't apply. */
-function displayNameText(p: TreeNodeData) {
-  return p.preferred_name ? `${p.preferred_name} ${formalName(p)}` : formalName(p);
-}
-
-/** Visual label: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree. */
-function PersonLabel({ person }: { person: TreeNodeData }) {
-  if (!person.preferred_name) return <>{formalName(person)}</>;
-  return (
-    <>
-      <span className="font-semibold">{person.preferred_name}</span> {formalName(person)}
-    </>
-  );
 }
 
 function TreeNode({
@@ -69,7 +51,7 @@ function TreeNode({
               : "text-sm text-slate-900 hover:underline"
           }
         >
-          <PersonLabel person={person} />
+          <PersonName person={person} />
         </Link>
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
@@ -140,7 +122,7 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
                   className="block px-3 py-2 text-sm hover:bg-slate-50"
                   onClick={() => setQuery("")}
                 >
-                  <PersonLabel person={p} />
+                  <PersonName person={p} />
                 </Link>
               </li>
             ))}

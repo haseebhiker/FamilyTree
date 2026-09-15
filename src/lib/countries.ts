@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
 export interface Country {
   name: string;
   iso2: string;
@@ -74,4 +76,10 @@ export function findCountry(iso2: string): Country | undefined {
 /** Strips the leading "+" for WhatsApp's wa.me links, which expect bare digits. */
 export function e164ToWhatsAppDigits(e164: string): string {
   return e164.replace(/^\+/, "");
+}
+
+/** Formats a stored E.164 number for display, e.g. "+14155551234" -> "+1 415 555 1234" — readable regardless of the viewer's own country, unlike a national-format number. */
+export function formatPhoneForDisplay(e164: string): string {
+  const parsed = parsePhoneNumberFromString(e164);
+  return parsed ? parsed.formatInternational() : e164;
 }

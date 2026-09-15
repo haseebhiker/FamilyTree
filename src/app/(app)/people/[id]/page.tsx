@@ -7,11 +7,13 @@ import { submitPersonEdit, submitAddPerson } from "@/lib/actions/pending-changes
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
+import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PrivacySettingsForm } from "@/components/privacy-settings-form";
 import { ContactIcons } from "@/components/contact-icons";
+import { PersonName, displayNameText } from "@/components/person-name";
 import type { ContactDetail, Person, PrivacyVisibility } from "@/lib/types";
 import { PRIVACY_FIELDS } from "@/lib/types";
 
@@ -20,10 +22,6 @@ const CONTACT_TYPE_LABELS: Record<string, string> = {
   email: "Email",
   address: "Address",
 };
-
-function displayName(p: Pick<Person, "full_name" | "surname_tag">) {
-  return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
-}
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -66,13 +64,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     { data: ownerMember },
   ] = await Promise.all([
     person.father_id
-      ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.father_id).single()
+      ? supabase.from("people").select("id, full_name, preferred_name, surname_tag").eq("id", person.father_id).single()
       : Promise.resolve({ data: null }),
     person.mother_id
-      ? supabase.from("people").select("id, full_name, surname_tag").eq("id", person.mother_id).single()
+      ? supabase.from("people").select("id, full_name, preferred_name, surname_tag").eq("id", person.mother_id).single()
       : Promise.resolve({ data: null }),
-    supabase.from("spouses").select("*, person_b:people!spouses_person_b_id_fkey(id, full_name, surname_tag)").eq("person_a_id", person.id),
-    supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, surname_tag)").eq("person_b_id", person.id),
+    supabase.from("spouses").select("*, person_b:people!spouses_person_b_id_fkey(id, full_name, preferred_name, surname_tag)").eq("person_a_id", person.id),
+    supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, preferred_name, surname_tag)").eq("person_b_id", person.id),
     supabase
       .from("audit_log")
       .select("*, members!audit_log_performed_by_fkey(name)")
@@ -133,7 +131,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const { data: children } = await supabase
     .from("people")
-    .select("id, full_name, surname_tag, father_id, mother_id")
+    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
 
@@ -145,7 +143,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     siblingConditions.length > 0
       ? await supabase
           .from("people")
-          .select("id, full_name, surname_tag, father_id, mother_id")
+          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
           .or(siblingConditions.join(","))
           .order("full_name")
       : { data: [] };
@@ -209,8 +207,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </div>
         )}
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{displayName(person)}</h1>
-          {person.preferred_name && <p className="text-sm text-slate-600">Goes by {person.preferred_name}</p>}
+          <h1 className="text-2xl font-semibold text-slate-900">
+            <PersonName person={person} />
+          </h1>
           {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
           <div className="mt-1 flex items-center gap-2">
             {person.living_status !== "unknown" && (
@@ -237,7 +236,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="font-medium text-slate-500">Father</div>
             {father ? (
               <Link href={`/people/${father.id}`} className="text-slate-900 hover:underline">
-                {displayName(father)}
+                <PersonName person={father} />
               </Link>
             ) : (
               <span className="italic text-slate-400">Unknown</span>
@@ -247,7 +246,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="font-medium text-slate-500">Mother</div>
             {mother ? (
               <Link href={`/people/${mother.id}`} className="text-slate-900 hover:underline">
-                {displayName(mother)}
+                <PersonName person={mother} />
               </Link>
             ) : (
               <span className="italic text-slate-400">Unknown</span>
@@ -262,7 +261,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               {siblings.map((s) => (
                 <li key={s.id}>
                   <Link href={`/people/${s.id}`} className="hover:underline">
-                    {displayName(s)}
+                    <PersonName person={s} />
                   </Link>
                   {s.isHalf && <span className="text-xs text-slate-400"> (half-sibling)</span>}
                 </li>
@@ -279,7 +278,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   Spouse:{" "}
                   {m.spouse ? (
                     <Link href={`/people/${m.spouse.id}`} className="text-slate-900 hover:underline">
-                      {displayName(m.spouse)}
+                      <PersonName person={m.spouse} />
                     </Link>
                   ) : (
                     "Unknown"
@@ -291,7 +290,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     {childrenByMarriage.get(m.spouseId ?? "")!.map((c) => (
                       <li key={c.id}>
                         <Link href={`/people/${c.id}`} className="hover:underline">
-                          {displayName(c)}
+                          <PersonName person={c} />
                         </Link>
                       </li>
                     ))}
@@ -309,7 +308,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               {otherChildren.map((c) => (
                 <li key={c.id}>
                   <Link href={`/people/${c.id}`} className="hover:underline">
-                    {displayName(c)}
+                    <PersonName person={c} />
                   </Link>
                 </li>
               ))}
@@ -372,7 +371,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     <ContactIcons contactType={entry.contact_type} value={entry.value} />
                     <span className="text-slate-800">
                       {entry.label && <span className="text-slate-400">{entry.label}: </span>}
-                      {entry.value}
+                      {entry.contact_type === "phone" ? formatPhoneForDisplay(entry.value) : entry.value}
                     </span>
                     {(isOwner || isAdmin(member)) && (
                       <form action={deleteContactDetail}>
@@ -462,7 +461,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <form action={submitAddPerson} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="relation_to_person_id" value={person.id} />
             <input type="hidden" name="relation_type" value="child" />
-            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a child of {displayName(person)}</p>
+            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a child of <PersonName person={person} /></p>
             <Field label="Child's full name"><Input name="full_name" required /></Field>
             <Field label="Surname tag"><Input name="surname_tag" /></Field>
             <Field label={`Is ${person.full_name} the father or mother?`}>
@@ -475,7 +474,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <Select name="other_parent_id" defaultValue="">
                 <option value="">— Unknown —</option>
                 {marriages.map((m) => m.spouse && (
-                  <option key={m.spouse.id} value={m.spouse.id}>{displayName(m.spouse)}</option>
+                  <option key={m.spouse.id} value={m.spouse.id}>{displayNameText(m.spouse)}</option>
                 ))}
               </Select>
             </Field>
@@ -486,7 +485,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <form action={submitAddPerson} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
             <input type="hidden" name="relation_to_person_id" value={person.id} />
             <input type="hidden" name="relation_type" value="spouse" />
-            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a spouse of {displayName(person)}</p>
+            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a spouse of <PersonName person={person} /></p>
             <Field label="Spouse's full name"><Input name="full_name" required /></Field>
             <Field label="Surname tag"><Input name="surname_tag" /></Field>
             <div className="sm:col-span-2"><Field label="Marriage notes (optional)"><Input name="marriage_notes" /></Field></div>
@@ -498,7 +497,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <form action={submitAddPerson} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
               <input type="hidden" name="relation_to_person_id" value={person.id} />
               <input type="hidden" name="relation_type" value="parent" />
-              <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a parent of {displayName(person)}</p>
+              <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a parent of <PersonName person={person} /></p>
               <Field label="Parent's full name"><Input name="full_name" required /></Field>
               <Field label="Surname tag"><Input name="surname_tag" /></Field>
               <Field label="This person is the">

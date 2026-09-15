@@ -24,7 +24,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const { data: memberships, error: membershipsError } = await supabase
     .from("group_memberships")
-    .select("*, members(id, name, email)")
+    .select("*, members!group_memberships_member_id_fkey(id, name, email)")
     .eq("group_id", id)
     .order("requested_at");
   if (membershipsError) console.error("[groups/[id]] memberships query error:", membershipsError);

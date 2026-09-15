@@ -18,6 +18,18 @@ function GearIcon() {
   );
 }
 
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 export function NavBar({
   role,
   pendingCount,
@@ -27,19 +39,21 @@ export function NavBar({
   pendingCount: number;
   pendingAccessRequestCount: number;
 }) {
-  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const moreRef = useRef<HTMLDetailsElement>(null);
+  const adminRef = useRef<HTMLDetailsElement>(null);
   const isAdmin = role === "admin" || role === "super_admin";
 
   function closeMenuOnNavClick(e: React.MouseEvent<HTMLElement>) {
     if ((e.target as HTMLElement).closest("summary")) return;
-    if (detailsRef.current) detailsRef.current.open = false;
+    if (moreRef.current) moreRef.current.open = false;
+    if (adminRef.current) adminRef.current.open = false;
   }
 
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link href="/" className="text-lg font-semibold text-slate-900">
-          Nambadavangal Family Tree
+          Nams Family Tree
         </Link>
         <nav
           onClick={closeMenuOnNavClick}
@@ -48,17 +62,27 @@ export function NavBar({
           <Link href="/" className="hover:text-slate-900">
             Tree
           </Link>
-          <Link href="/my-submissions" className="hover:text-slate-900">
-            My Submissions
-          </Link>
           <Link href="/groups" className="hover:text-slate-900">
             Groups
           </Link>
-          <Link href="/install" className="hover:text-slate-900">
-            Install App
-          </Link>
+
+          <details ref={moreRef} className="relative">
+            <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+              More
+              <ChevronIcon />
+            </summary>
+            <div className="absolute right-0 z-10 mt-2 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+              <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                My Submissions
+              </Link>
+              <Link href="/install" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Install App
+              </Link>
+            </div>
+          </details>
+
           {isAdmin && (
-            <details ref={detailsRef} className="relative">
+            <details ref={adminRef} className="relative">
               <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
                 <GearIcon />
                 Admin
