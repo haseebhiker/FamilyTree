@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { submitFamilyRelation } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Button } from "@/components/ui";
 import { PersonPicker, type PersonOption } from "@/components/person-picker";
@@ -36,6 +37,7 @@ interface FormProps {
  * form that looks like the submission never happened.
  */
 export function AddFamilyMemberForm(props: FormProps) {
+  const router = useRouter();
   const [generation, setGeneration] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,11 @@ export function AddFamilyMemberForm(props: FormProps) {
         await submitFamilyRelation(formData);
         setSubmitted(true);
         setGeneration((g) => g + 1);
+        // hasFather/hasMother (and the Family list elsewhere on the page)
+        // are props from the parent Server Component, so they'd otherwise
+        // stay stale after an admin's auto-applied add — e.g. still
+        // offering "Father" as pickable after one was just added.
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong — please try again.");
       }

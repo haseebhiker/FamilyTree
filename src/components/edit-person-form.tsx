@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Textarea, Button } from "@/components/ui";
 import type { Person } from "@/lib/types";
@@ -15,6 +16,7 @@ import type { Person } from "@/lib/types";
  * same edit being submitted three or four times over.
  */
 export function EditPersonForm({ personId, personRaw }: { personId: string; personRaw: Person }) {
+  const router = useRouter();
   const [generation, setGeneration] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,16 @@ export function EditPersonForm({ personId, personRaw }: { personId: string; pers
         await submitPersonEdit(formData);
         setSubmitted(true);
         setGeneration((g) => g + 1);
+        // The remount above only resets the form's own state — personRaw is
+        // a prop from the parent Server Component, captured at the last page
+        // load, and stays stale (still showing pre-edit values as defaults)
+        // until that component re-runs. router.refresh() re-fetches it, so
+        // an admin's auto-applied edit (or anyone re-opening the form right
+        // after) sees what was actually just saved, not what it looked like
+        // before — otherwise a field that truly did save can look like it
+        // silently reverted, and it's not obvious why re-submitting again
+        // doesn't seem to "take".
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong — please try again.");
       }
