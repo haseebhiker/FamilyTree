@@ -9,6 +9,7 @@ import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
+import { sortByAge } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
@@ -32,6 +33,9 @@ interface CousinLite {
   full_name: string;
   preferred_name: string | null;
   surname_tag: string | null;
+  birth_year: number | null;
+  birth_month: number | null;
+  birth_day: number | null;
 }
 
 /**
@@ -59,7 +63,7 @@ async function fetchCousins(
   const cousinConditions = auntUncleIds.flatMap((aid) => [`father_id.eq.${aid}`, `mother_id.eq.${aid}`]);
   const { data: cousinsRaw } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag")
+    .select("id, full_name, preferred_name, surname_tag, birth_year, birth_month, birth_day")
     .or(cousinConditions.join(","))
     .order("full_name");
   return cousinsRaw ?? [];
@@ -209,11 +213,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       : null,
   };
 
-  const { data: children } = await supabase
+  const { data: childrenRaw } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day")
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
+  const children = sortByAge(childrenRaw ?? []);
 
   const siblingConditions = [
     person.father_id ? `father_id.eq.${person.father_id}` : null,
@@ -223,23 +228,25 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     siblingConditions.length > 0
       ? await supabase
           .from("people")
-          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day")
           .or(siblingConditions.join(","))
           .order("full_name")
       : { data: [] };
-  const siblings = (siblingsRaw ?? [])
-    .filter((s) => s.id !== person.id)
-    .map((s) => ({
-      ...s,
-      isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
-    }));
+  const siblings = sortByAge(
+    (siblingsRaw ?? [])
+      .filter((s) => s.id !== person.id)
+      .map((s) => ({
+        ...s,
+        isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
+      })),
+  );
 
   const [paternalCousinsRaw, maternalCousinsRaw] = await Promise.all([
     fetchCousins(supabase, father),
     fetchCousins(supabase, mother),
   ]);
-  const paternalCousins = paternalCousinsRaw.filter((c) => c.id !== person.id);
-  const maternalCousins = maternalCousinsRaw.filter((c) => c.id !== person.id);
+  const paternalCousins = sortByAge(paternalCousinsRaw.filter((c) => c.id !== person.id));
+  const maternalCousins = sortByAge(maternalCousinsRaw.filter((c) => c.id !== person.id));
   const allCousinIds = new Set([...paternalCousins.map((c) => c.id), ...maternalCousins.map((c) => c.id)]);
 
   const { data: allPeopleForPicker } = await supabase
