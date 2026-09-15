@@ -4,6 +4,7 @@ import { createInvite, revokeInvite } from "@/lib/actions/invites";
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
+import { LocalTime } from "@/components/local-time";
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
@@ -33,6 +34,11 @@ export default async function InvitesPage() {
     .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("*")
+    .order("last_login_at", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -64,6 +70,70 @@ export default async function InvitesPage() {
             <Button type="submit">Send invite</Button>
           </div>
         </form>
+      </Card>
+
+      <Card>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Current members ({members?.filter((m) => m.status === "active").length ?? 0})</h2>
+        <p className="mb-3 text-xs text-slate-500">Everyone who has ever been approved to sign in, and whether they still can.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="py-2 pr-4 font-medium">Name</th>
+                <th className="py-2 pr-4 font-medium">Email</th>
+                <th className="py-2 pr-4 font-medium">Role</th>
+                <th className="py-2 pr-4 font-medium">Status</th>
+                <th className="py-2 pr-4 font-medium">Joined</th>
+                <th className="py-2 pr-4 font-medium">Last signed in</th>
+                <th className="py-2 pr-4 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {members?.map((m) => (
+                <tr key={m.id} className="border-b border-slate-100">
+                  <td className="py-2 pr-4">{m.name}</td>
+                  <td className="py-2 pr-4 text-slate-600">{m.email}</td>
+                  <td className="py-2 pr-4 text-slate-600">{m.role.replace(/_/g, " ")}</td>
+                  <td className="py-2 pr-4">
+                    <Badge className={m.status === "active" ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-600"}>
+                      {m.status}
+                    </Badge>
+                  </td>
+                  <td className="py-2 pr-4 whitespace-nowrap text-slate-500">
+                    <LocalTime iso={m.created_at} />
+                  </td>
+                  <td className="py-2 pr-4 whitespace-nowrap text-slate-500">
+                    <LocalTime iso={m.last_login_at} />
+                  </td>
+                  <td className="py-2 pr-4">
+                    {m.status === "active" &&
+                      m.invite_id &&
+                      m.role !== "super_admin" &&
+                      (canAssignAdmin || m.role === "member") && (
+                        <form action={revokeInvite}>
+                          <input type="hidden" name="invite_id" value={m.invite_id} />
+                          <PendingButton
+                            className="text-sm text-red-600 hover:underline"
+                            pendingChildren="Revoking…"
+                            confirmMessage={`Revoke ${m.name}'s access? They won't be able to sign in again.`}
+                          >
+                            Revoke access
+                          </PendingButton>
+                        </form>
+                      )}
+                  </td>
+                </tr>
+              ))}
+              {!members?.length && (
+                <tr>
+                  <td colSpan={7} className="py-4 text-center text-slate-500">
+                    No one has signed in yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <Card>
