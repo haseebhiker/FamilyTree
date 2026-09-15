@@ -1,14 +1,14 @@
 from PIL import Image
 import os
 
-SRC = r"C:\Users\hasee\Downloads\2004_08_aug_n_-022_2671318662_o.jpg"
+SRC = r"C:\Users\hasee\.claude\uploads\c552ecf8-69af-43c3-8fc1-cb7821d49db0\b2be2e53-image.jpg"
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
 
 def crop_square(img):
-    # Crop centered on the face (turban top through mid-beard), not the
-    # whole oval — the first attempt included too much empty background
-    # above the turban, pushing the face off-center in the final icon.
-    box = (110, 110, 670, 670)  # left, top, right, bottom -> 560x560 square
+    # Colorized portrait in an oval frame — crop centered on the face
+    # (turban top through beard), tight enough to keep the tan frame
+    # corners minimal without cutting into the garland.
+    box = (140, 90, 700, 650)  # left, top, right, bottom -> 560x560 square
     return img.crop(box)
 
 def make_icon(square, size, filename):
