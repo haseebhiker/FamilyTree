@@ -369,26 +369,28 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
       </Card>
 
-      <Card>
-        <h2 className="mb-2 text-sm font-semibold text-slate-900">About</h2>
-        {(person.place_of_birth || person.place_of_death || person.facebook_url || person.linkedin_url) && (
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            {person.place_of_birth && (
-              <div><dt className="font-medium text-slate-500">Place of birth</dt><dd>{person.place_of_birth}</dd></div>
-            )}
-            {person.place_of_death && (
-              <div><dt className="font-medium text-slate-500">Place of death</dt><dd>{person.place_of_death}</dd></div>
-            )}
-            {person.facebook_url && (
-              <div><dt className="font-medium text-slate-500">Facebook</dt><dd><a className="text-slate-900 hover:underline" href={person.facebook_url} target="_blank" rel="noreferrer">{person.facebook_url}</a></dd></div>
-            )}
-            {person.linkedin_url && (
-              <div><dt className="font-medium text-slate-500">LinkedIn</dt><dd><a className="text-slate-900 hover:underline" href={person.linkedin_url} target="_blank" rel="noreferrer">{person.linkedin_url}</a></dd></div>
-            )}
-          </dl>
-        )}
-        {person.bio && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{person.bio}</p>}
-      </Card>
+      {(person.place_of_birth || person.place_of_death || person.facebook_url || person.linkedin_url || person.bio) && (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">About</h2>
+          {(person.place_of_birth || person.place_of_death || person.facebook_url || person.linkedin_url) && (
+            <dl className="grid gap-2 text-sm sm:grid-cols-2">
+              {person.place_of_birth && (
+                <div><dt className="font-medium text-slate-500">Place of birth</dt><dd>{person.place_of_birth}</dd></div>
+              )}
+              {person.place_of_death && (
+                <div><dt className="font-medium text-slate-500">Place of death</dt><dd>{person.place_of_death}</dd></div>
+              )}
+              {person.facebook_url && (
+                <div><dt className="font-medium text-slate-500">Facebook</dt><dd><a className="text-slate-900 hover:underline" href={person.facebook_url} target="_blank" rel="noreferrer">{person.facebook_url}</a></dd></div>
+              )}
+              {person.linkedin_url && (
+                <div><dt className="font-medium text-slate-500">LinkedIn</dt><dd><a className="text-slate-900 hover:underline" href={person.linkedin_url} target="_blank" rel="noreferrer">{person.linkedin_url}</a></dd></div>
+              )}
+            </dl>
+          )}
+          {person.bio && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{person.bio}</p>}
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
