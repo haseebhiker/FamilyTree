@@ -5,6 +5,7 @@ import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import { submitAccessRequest } from "@/lib/actions/access-requests";
+import { ApprovedReloadGuard } from "@/components/approved-reload-guard";
 
 export default async function NotAuthorizedPage() {
   const supabase = await createClient();
@@ -41,6 +42,7 @@ export default async function NotAuthorizedPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
         <meta httpEquiv="refresh" content={`4;url=${continueUrl}`} />
+        <ApprovedReloadGuard />
         <Card className="w-full max-w-md text-center">
           <h1 className="mb-1 text-xl font-semibold text-slate-900">You&apos;re approved!</h1>
           <p className="mb-6 text-sm text-slate-500">
