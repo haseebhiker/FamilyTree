@@ -1,15 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PersonName, displayNameText } from "@/components/person-name";
 
 export interface PersonOption {
   id: string;
   full_name: string;
   surname_tag: string | null;
-}
-
-function displayName(p: PersonOption) {
-  return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
+  preferred_name?: string | null;
 }
 
 /** A type-to-search combobox for picking one person out of a long list — submits `name` as a hidden input, since a plain <select> with 1000+ options isn't realistically searchable. */
@@ -25,14 +23,14 @@ export function PersonPicker({
   defaultPersonId?: string;
 }) {
   const defaultPerson = people.find((p) => p.id === defaultPersonId);
-  const [query, setQuery] = useState(defaultPerson ? displayName(defaultPerson) : "");
+  const [query, setQuery] = useState(defaultPerson ? displayNameText(defaultPerson) : "");
   const [selectedId, setSelectedId] = useState(defaultPersonId ?? "");
   const [open, setOpen] = useState(false);
 
   const results = useMemo(() => {
     if (query.trim().length < 1) return [];
     const q = query.trim().toLowerCase();
-    return people.filter((p) => displayName(p).toLowerCase().includes(q)).slice(0, 20);
+    return people.filter((p) => displayNameText(p).toLowerCase().includes(q)).slice(0, 20);
   }, [query, people]);
 
   return (
@@ -66,12 +64,12 @@ export function PersonPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setSelectedId(p.id);
-                  setQuery(displayName(p));
+                  setQuery(displayNameText(p));
                   setOpen(false);
                 }}
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
               >
-                {displayName(p)}
+                <PersonName person={p} />
               </button>
             </li>
           ))}

@@ -3,6 +3,7 @@ import { softDeletePerson, restorePerson, mergePeople } from "@/lib/actions/peop
 import { Card, Input, Button, Field } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
+import { PersonName } from "@/components/person-name";
 import Link from "next/link";
 
 export default async function PeopleManagementPage({
@@ -15,7 +16,7 @@ export default async function PeopleManagementPage({
 
   let query = supabase
     .from("people")
-    .select("id, full_name, surname_tag")
+    .select("id, full_name, preferred_name, surname_tag")
     .is("deleted_at", null)
     .order("full_name")
     .limit(200);
@@ -24,14 +25,14 @@ export default async function PeopleManagementPage({
 
   const { data: allPeopleForSelect } = await supabase
     .from("people")
-    .select("id, full_name, surname_tag")
+    .select("id, full_name, preferred_name, surname_tag")
     .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
 
   const { data: deletedPeople } = await supabase
     .from("people")
-    .select("id, full_name, surname_tag, delete_reason, deleted_at")
+    .select("id, full_name, preferred_name, surname_tag, delete_reason, deleted_at")
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false });
 
@@ -57,8 +58,7 @@ export default async function PeopleManagementPage({
                 <tr key={p.id} className="border-b border-slate-100">
                   <td className="py-2 pr-4">
                     <Link href={`/people/${p.id}`} className="hover:underline">
-                      {p.full_name}
-                      {p.surname_tag ? ` /${p.surname_tag}/` : ""}
+                      <PersonName person={p} />
                     </Link>
                   </td>
                   <td className="py-2 pr-4">
@@ -128,8 +128,7 @@ export default async function PeopleManagementPage({
               <li key={p.id} className="flex items-center justify-between border-b border-slate-100 pb-2 text-sm">
                 <div>
                   <span className="text-slate-700">
-                    {p.full_name}
-                    {p.surname_tag ? ` /${p.surname_tag}/` : ""}
+                    <PersonName person={p} />
                   </span>
                   {p.delete_reason && <p className="text-xs text-slate-400">{p.delete_reason}</p>}
                 </div>

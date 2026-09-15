@@ -4,6 +4,7 @@ import { clearAuditLog } from "@/lib/actions/audit-log";
 import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
+import { PersonName } from "@/components/person-name";
 
 export default async function AuditLogPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function AuditLogPage() {
   const personIds = [...new Set((entries ?? []).map((e) => e.person_id).filter(Boolean))];
   const { data: people } =
     personIds.length > 0
-      ? await supabase.from("people").select("id, full_name, surname_tag").in("id", personIds)
+      ? await supabase.from("people").select("id, full_name, preferred_name, surname_tag").in("id", personIds)
       : { data: [] };
   const peopleById = new Map((people ?? []).map((p) => [p.id, p]));
 
@@ -62,7 +63,7 @@ export default async function AuditLogPage() {
                     <td className="py-2 pr-4">
                       {person ? (
                         <Link href={`/people/${person.id}`} className="hover:underline">
-                          {person.full_name}
+                          <PersonName person={person} />
                         </Link>
                       ) : (
                         <span className="text-slate-400">—</span>

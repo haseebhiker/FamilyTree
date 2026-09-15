@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/members";
 import { Card, Badge } from "@/components/ui";
+import { PersonName } from "@/components/person-name";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -31,7 +32,7 @@ export default async function MySubmissionsPage() {
   const targetIds = [...new Set((changes ?? []).map((c) => c.target_person_id).filter(Boolean))];
   const { data: targetPeople } =
     targetIds.length > 0
-      ? await supabase.from("people").select("id, full_name, surname_tag").in("id", targetIds)
+      ? await supabase.from("people").select("id, full_name, preferred_name, surname_tag").in("id", targetIds)
       : { data: [] };
   const peopleById = new Map((targetPeople ?? []).map((p) => [p.id, p]));
 
@@ -54,9 +55,7 @@ export default async function MySubmissionsPage() {
               <div>
                 <Badge className="bg-slate-100 text-slate-700">{CHANGE_TYPE_LABELS[change.change_type]}</Badge>{" "}
                 <span className="text-sm text-slate-700">
-                  {target
-                    ? `${target.full_name}${target.surname_tag ? ` /${target.surname_tag}/` : ""}`
-                    : String(change.proposed_data?.full_name ?? "New person")}
+                  {target ? <PersonName person={target} /> : String(change.proposed_data?.full_name ?? "New person")}
                 </span>
               </div>
               <Badge className={STATUS_STYLES[change.status]}>{change.status}</Badge>

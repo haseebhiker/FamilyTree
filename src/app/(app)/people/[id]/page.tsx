@@ -202,7 +202,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     !person.father_id || !person.mother_id
       ? await supabase
           .from("people")
-          .select("id, full_name, surname_tag")
+          .select("id, full_name, preferred_name, surname_tag")
           .is("deleted_at", null)
           .neq("id", person.id)
           .order("full_name")

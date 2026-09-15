@@ -108,8 +108,25 @@ for (const list of childrenByParent.values()) {
   list.sort((a, b) => byId.get(a).full_name.localeCompare(byId.get(b).full_name));
 }
 
-function displayName(p) {
+function formalName(p) {
   return p.surname_tag ? p.full_name + " /" + p.surname_tag + "/" : p.full_name;
+}
+function displayName(p) {
+  return p.preferred_name ? p.preferred_name + " " + formalName(p) : formalName(p);
+}
+function nameHtml(p) {
+  return p.preferred_name ? "<b>" + p.preferred_name + "</b> " + formalName(p) : formalName(p);
+}
+function renderNameInto(el, p) {
+  el.textContent = "";
+  if (p.preferred_name) {
+    const b = document.createElement("b");
+    b.textContent = p.preferred_name;
+    el.appendChild(b);
+    el.appendChild(document.createTextNode(" " + formalName(p)));
+  } else {
+    el.appendChild(document.createTextNode(formalName(p)));
+  }
 }
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -141,7 +158,7 @@ function buildNode(personId, depth) {
 
   const nameBtn = document.createElement("button");
   nameBtn.className = "name-btn";
-  nameBtn.textContent = displayName(p);
+  renderNameInto(nameBtn, p);
   nameBtn.onclick = () => showDetail(personId);
   row.appendChild(nameBtn);
 
@@ -183,7 +200,7 @@ function showDetail(personId) {
 
   const birthDisplay = formatPartialDate(p.birth_year, p.birth_month, p.birth_day);
   const deathDisplay = formatPartialDate(p.death_year, p.death_month, p.death_day);
-  let html = '<h2>' + displayName(p) + '</h2>';
+  let html = '<h2>' + nameHtml(p) + '</h2>';
   html += '<div class="meta">' + p.living_status;
   if (birthDisplay || deathDisplay) {
     html += ' · ' + (birthDisplay || '?') + ' – ' + (p.living_status === 'living' ? 'present' : (deathDisplay || '?'));
@@ -192,13 +209,13 @@ function showDetail(personId) {
   if (p.preferred_name) html += '<p>Goes by ' + p.preferred_name + '</p>';
   if (p.other_names) html += '<p>Also known as ' + p.other_names + '</p>';
   html += '<dl>';
-  if (father) html += '<dt>Father</dt><dd><button class="name-btn" onclick="showDetail(\\'' + father.id + '\\')">' + displayName(father) + '</button></dd>';
-  if (mother) html += '<dt>Mother</dt><dd><button class="name-btn" onclick="showDetail(\\'' + mother.id + '\\')">' + displayName(mother) + '</button></dd>';
+  if (father) html += '<dt>Father</dt><dd><button class="name-btn" onclick="showDetail(\\'' + father.id + '\\')">' + nameHtml(father) + '</button></dd>';
+  if (mother) html += '<dt>Mother</dt><dd><button class="name-btn" onclick="showDetail(\\'' + mother.id + '\\')">' + nameHtml(mother) + '</button></dd>';
   if (marriages.length) {
-    html += '<dt>Spouse(s)</dt><dd>' + marriages.map(m => '<button class="name-btn" onclick="showDetail(\\'' + m.id + '\\')">' + displayName(m) + '</button>').join(', ') + '</dd>';
+    html += '<dt>Spouse(s)</dt><dd>' + marriages.map(m => '<button class="name-btn" onclick="showDetail(\\'' + m.id + '\\')">' + nameHtml(m) + '</button>').join(', ') + '</dd>';
   }
   if (kids.length) {
-    html += '<dt>Children</dt><dd>' + kids.map(c => '<button class="name-btn" onclick="showDetail(\\'' + c.id + '\\')">' + displayName(c) + '</button>').join(', ') + '</dd>';
+    html += '<dt>Children</dt><dd>' + kids.map(c => '<button class="name-btn" onclick="showDetail(\\'' + c.id + '\\')">' + nameHtml(c) + '</button>').join(', ') + '</dd>';
   }
   if (p.place_of_birth) html += '<dt>Place of birth</dt><dd>' + p.place_of_birth + '</dd>';
   if (p.place_of_death) html += '<dt>Place of death</dt><dd>' + p.place_of_death + '</dd>';
@@ -218,7 +235,7 @@ searchInput.addEventListener('input', () => {
   resultsEl.innerHTML = '';
   matches.forEach(p => {
     const div = document.createElement('div');
-    div.textContent = displayName(p);
+    renderNameInto(div, p);
     div.onclick = () => { showDetail(p.id); resultsEl.hidden = true; searchInput.value = ''; };
     resultsEl.appendChild(div);
   });
