@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { NavBar } from "@/components/nav-bar";
-import { TipOfTheDay } from "@/components/tip-of-the-day";
+import { Tip } from "@/components/tip";
 
 export default async function AppLayout({
   children,
@@ -41,7 +41,7 @@ export default async function AppLayout({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">{children}</div>
         <aside className="lg:w-64 lg:shrink-0">
-          <TipOfTheDay />
+          <Tip seed={`${member.id}:${member.last_login_at}`} />
         </aside>
       </main>
     </div>

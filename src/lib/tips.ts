@@ -16,13 +16,20 @@ export const TIPS: string[] = [
   "Have a question about how the app works? Check the FAQ in the ☰ menu.",
 ];
 
-function dayOfYear(date: Date): number {
-  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
-  const today = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-  return Math.floor((today - start) / 86_400_000);
+function hashString(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
-/** Same tip for everyone on a given calendar day (UTC), rotating through the list. */
-export function getTipOfTheDay(): string {
-  return TIPS[dayOfYear(new Date()) % TIPS.length];
+/**
+ * A new tip each time you sign in, not each page load — driven by the
+ * member's own last_login_at (already updated on every sign-in, stable
+ * across page loads within that session) rather than a client-side
+ * random pick or a calendar day shared by everyone.
+ */
+export function getTip(seed: string): string {
+  return TIPS[hashString(seed) % TIPS.length];
 }
