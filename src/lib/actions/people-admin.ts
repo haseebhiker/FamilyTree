@@ -100,8 +100,33 @@ export async function mergePeople(formData: FormData) {
 
   await supabase.from("people").update({ father_id: keeperId }).eq("father_id", loserId);
   await supabase.from("people").update({ mother_id: keeperId }).eq("mother_id", loserId);
-  await supabase.from("spouses").update({ person_a_id: keeperId }).eq("person_a_id", loserId);
-  await supabase.from("spouses").update({ person_b_id: keeperId }).eq("person_b_id", loserId);
+
+  // Spouse pairs are unique (least/greatest person id), so a duplicate who
+  // shares the keeper's own spouse can't just be repointed — that would
+  // collide with the keeper's existing row and silently fail. Drop the
+  // now-redundant link instead; only repoint one to a partner the keeper
+  // doesn't already have.
+  const { data: keeperSpouses } = await supabase
+    .from("spouses")
+    .select("person_a_id, person_b_id")
+    .or(`person_a_id.eq.${keeperId},person_b_id.eq.${keeperId}`);
+  const keeperPartnerIds = new Set(
+    (keeperSpouses ?? []).map((s) => (s.person_a_id === keeperId ? s.person_b_id : s.person_a_id)),
+  );
+  const { data: loserSpouses } = await supabase
+    .from("spouses")
+    .select("id, person_a_id, person_b_id")
+    .or(`person_a_id.eq.${loserId},person_b_id.eq.${loserId}`);
+  for (const s of loserSpouses ?? []) {
+    const partnerId = s.person_a_id === loserId ? s.person_b_id : s.person_a_id;
+    if (keeperPartnerIds.has(partnerId)) {
+      await supabase.from("spouses").delete().eq("id", s.id);
+    } else {
+      const field = s.person_a_id === loserId ? "person_a_id" : "person_b_id";
+      await supabase.from("spouses").update({ [field]: keeperId }).eq("id", s.id);
+    }
+  }
+
   await supabase.from("members").update({ person_id: keeperId }).eq("person_id", loserId);
   await supabase.from("invites").update({ person_id: keeperId }).eq("person_id", loserId);
 
