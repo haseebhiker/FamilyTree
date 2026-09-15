@@ -15,7 +15,15 @@ async function requireAdmin() {
   return { supabase, member: member! };
 }
 
-export async function hardDeletePerson(formData: FormData) {
+/**
+ * Soft delete only — genealogy data should never be truly destroyed by a
+ * mistake. Marks the profile deleted_at/deleted_by/delete_reason instead
+ * of removing the row; it disappears from normal browsing/search but an
+ * admin can find and restore it from People Management at any time, and
+ * anyone who still lands on it via an old link sees a "this profile has
+ * been deleted" placeholder rather than a bare 404.
+ */
+export async function softDeletePerson(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   const personId = String(formData.get("person_id") ?? "");
   const confirmName = String(formData.get("confirm_name") ?? "").trim();
@@ -27,27 +35,56 @@ export async function hardDeletePerson(formData: FormData) {
     throw new Error("Typed name doesn't match — deletion cancelled");
   }
 
+  const { error } = await supabase
+    .from("people")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: member.id, delete_reason: reason })
+    .eq("id", personId);
+  if (error) throw new Error(error.message);
+
   await supabase.from("audit_log").insert({
     person_id: personId,
-    change_type: "hard_delete",
+    change_type: "soft_delete",
     old_value: person,
     new_value: null,
     performed_by: member.id,
     note: reason,
   });
 
-  const { error } = await supabase.from("people").delete().eq("id", personId);
+  revalidatePath("/admin/people");
+  revalidatePath(`/people/${personId}`);
+  revalidatePath("/");
+}
+
+export async function restorePerson(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  const personId = String(formData.get("person_id") ?? "");
+  if (!personId) throw new Error("Missing person id");
+
+  const { error } = await supabase
+    .from("people")
+    .update({ deleted_at: null, deleted_by: null, delete_reason: null })
+    .eq("id", personId);
   if (error) throw new Error(error.message);
 
+  await supabase.from("audit_log").insert({
+    person_id: personId,
+    change_type: "restore",
+    old_value: null,
+    new_value: null,
+    performed_by: member.id,
+  });
+
   revalidatePath("/admin/people");
+  revalidatePath(`/people/${personId}`);
   revalidatePath("/");
 }
 
 /**
  * Merges `loser_id` into `keeper_id`: repoints every father/mother/spouse
- * reference from loser to keeper, then deletes the loser. Used from
- * People Management to resolve the duplicate-name candidates the legacy
- * import flagged (design doc §9).
+ * reference from loser to keeper, then soft-deletes the loser (see
+ * softDeletePerson above — never a real delete). Used from People
+ * Management to resolve the duplicate-name candidates the legacy import
+ * flagged (design doc §9).
  */
 export async function mergePeople(formData: FormData) {
   const { supabase, member } = await requireAdmin();
@@ -59,6 +96,7 @@ export async function mergePeople(formData: FormData) {
 
   const { data: loser } = await supabase.from("people").select("*").eq("id", loserId).single();
   if (!loser) throw new Error("Person not found");
+  const { data: keeper } = await supabase.from("people").select("full_name").eq("id", keeperId).single();
 
   await supabase.from("people").update({ father_id: keeperId }).eq("father_id", loserId);
   await supabase.from("people").update({ mother_id: keeperId }).eq("mother_id", loserId);
@@ -66,6 +104,16 @@ export async function mergePeople(formData: FormData) {
   await supabase.from("spouses").update({ person_b_id: keeperId }).eq("person_b_id", loserId);
   await supabase.from("members").update({ person_id: keeperId }).eq("person_id", loserId);
   await supabase.from("invites").update({ person_id: keeperId }).eq("person_id", loserId);
+
+  const { error } = await supabase
+    .from("people")
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: member.id,
+      delete_reason: `Merged into ${keeper?.full_name ?? keeperId}`,
+    })
+    .eq("id", loserId);
+  if (error) throw new Error(error.message);
 
   await supabase.from("audit_log").insert({
     person_id: keeperId,
@@ -75,9 +123,6 @@ export async function mergePeople(formData: FormData) {
     performed_by: member.id,
     note: `Merged ${loser.full_name} (${loserId}) into this profile`,
   });
-
-  const { error } = await supabase.from("people").delete().eq("id", loserId);
-  if (error) throw new Error(error.message);
 
   revalidatePath("/admin/people");
   revalidatePath("/");

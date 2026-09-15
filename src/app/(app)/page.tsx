@@ -14,7 +14,8 @@ export default async function HomePage() {
   for (let from = 0; ; from += 1000) {
     const { data: page } = await supabase
       .from("people")
-      .select("id, full_name, surname_tag, living_status, father_id, mother_id")
+      .select("id, full_name, preferred_name, surname_tag, living_status, father_id, mother_id")
+      .is("deleted_at", null)
       .order("full_name")
       .range(from, from + 999);
     if (!page || page.length === 0) break;

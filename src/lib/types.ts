@@ -63,6 +63,9 @@ export interface Person {
   facebook_url: string | null;
   linkedin_url: string | null;
   legacy_id: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
+  delete_reason: string | null;
   created_at: string;
   updated_at: string;
 }

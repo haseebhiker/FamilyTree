@@ -21,6 +21,7 @@ export default async function AccessRequestsPage() {
   const { data: people } = await supabase
     .from("people")
     .select("id, full_name, surname_tag")
+    .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
 

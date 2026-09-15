@@ -63,6 +63,7 @@ async function notifySubmitterOfDecision() {
 async function applyChange(
   supabase: SupabaseClient,
   change: { change_type: PendingChangeType; target_person_id: string | null; proposed_data: Record<string, unknown> },
+  actingMemberId: string,
 ): Promise<string | null> {
   const proposedData = change.proposed_data;
 
@@ -109,9 +110,13 @@ async function applyChange(
   }
 
   if (change.change_type === "propose_deletion") {
-    const { error } = await supabase.from("people").delete().eq("id", change.target_person_id);
+    // Soft delete only — see softDeletePerson in people-admin.ts for why.
+    const { error } = await supabase
+      .from("people")
+      .update({ deleted_at: new Date().toISOString(), deleted_by: actingMemberId })
+      .eq("id", change.target_person_id);
     if (error) throw new Error(error.message);
-    return null;
+    return change.target_person_id;
   }
 
   return change.target_person_id;
@@ -134,7 +139,7 @@ async function applyOrQueue(
   },
 ): Promise<boolean> {
   if (isAdmin(member)) {
-    const appliedPersonId = await applyChange(supabase, input);
+    const appliedPersonId = await applyChange(supabase, input, member.id);
     const { data: insertedChange, error } = await supabase
       .from("pending_changes")
       .insert({
@@ -304,11 +309,15 @@ export async function approvePendingChange(formData: FormData) {
     }
   }
 
-  const appliedPersonId = await applyChange(supabase, {
-    change_type: change.change_type,
-    target_person_id: change.target_person_id,
-    proposed_data: proposedData,
-  });
+  const appliedPersonId = await applyChange(
+    supabase,
+    {
+      change_type: change.change_type,
+      target_person_id: change.target_person_id,
+      proposed_data: proposedData,
+    },
+    member.id,
+  );
 
   const { error: updateError } = await supabase
     .from("pending_changes")

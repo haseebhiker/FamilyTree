@@ -6,14 +6,30 @@ import Link from "next/link";
 export interface TreeNodeData {
   id: string;
   full_name: string;
+  preferred_name: string | null;
   surname_tag: string | null;
   living_status: string;
   father_id: string | null;
   mother_id: string | null;
 }
 
-function displayName(p: Pick<TreeNodeData, "full_name" | "surname_tag">) {
+function formalName(p: Pick<TreeNodeData, "full_name" | "surname_tag">) {
   return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
+}
+
+/** Plain-text label, for search matching and anywhere JSX formatting doesn't apply. */
+function displayNameText(p: TreeNodeData) {
+  return p.preferred_name ? `${p.preferred_name} ${formalName(p)}` : formalName(p);
+}
+
+/** Visual label: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree. */
+function PersonLabel({ person }: { person: TreeNodeData }) {
+  if (!person.preferred_name) return <>{formalName(person)}</>;
+  return (
+    <>
+      <span className="font-semibold">{person.preferred_name}</span> {formalName(person)}
+    </>
+  );
 }
 
 function TreeNode({
@@ -53,7 +69,7 @@ function TreeNode({
               : "text-sm text-slate-900 hover:underline"
           }
         >
-          {displayName(person)}
+          <PersonLabel person={person} />
         </Link>
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
@@ -94,7 +110,7 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
   const searchResults = useMemo(() => {
     if (query.trim().length < 2) return [];
     const q = query.trim().toLowerCase();
-    return allPeople.filter((p) => displayName(p).toLowerCase().includes(q)).slice(0, 15);
+    return allPeople.filter((p) => displayNameText(p).toLowerCase().includes(q)).slice(0, 15);
   }, [query, allPeople]);
 
   // roots is pre-sorted by descendant count (largest first, see page.tsx) —
@@ -124,7 +140,7 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
                   className="block px-3 py-2 text-sm hover:bg-slate-50"
                   onClick={() => setQuery("")}
                 >
-                  {displayName(p)}
+                  <PersonLabel person={p} />
                 </Link>
               </li>
             ))}

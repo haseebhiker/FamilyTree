@@ -32,11 +32,24 @@ create table people (
   facebook_url text,
   linkedin_url text,
   legacy_id text unique,
+  -- Soft delete only — genealogy data should never be truly destroyed by a
+  -- mistake. A "deleted" profile is excluded from normal browsing/search
+  -- and shows a minimal "this profile has been deleted" placeholder to
+  -- everyone but an admin (who sees the full record plus a Restore
+  -- button); anyone who still lands on it via an old link is told it's
+  -- deleted rather than getting a bare 404. deleted_by references
+  -- auth.users directly (not members) purely to dodge the same
+  -- forward-reference ordering issue members has elsewhere in this file.
+  deleted_at timestamptz,
+  deleted_by uuid references auth.users(id),
+  delete_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (birth_day is null or birth_month is not null),
   check (death_day is null or death_month is not null)
 );
+
+create index people_deleted_at_idx on people(deleted_at) where deleted_at is not null;
 
 create index people_father_idx on people(father_id);
 create index people_mother_idx on people(mother_id);

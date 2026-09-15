@@ -30,6 +30,7 @@ export default async function InvitesPage() {
   const { data: people } = await supabase
     .from("people")
     .select("id, full_name, surname_tag")
+    .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
 
@@ -43,9 +44,13 @@ export default async function InvitesPage() {
           <Field label="Name">
             <Input name="name" required placeholder="Full name" />
           </Field>
-          <Field label="Gmail address">
+          <Field label="Google account email">
             <Input name="email" type="email" required placeholder="name@gmail.com" />
           </Field>
+          <p className="text-xs text-slate-400 sm:col-span-2 sm:-mt-2">
+            Doesn&apos;t need to be @gmail.com — any email that has a Google account linked to it works (many people
+            already have one without realizing, e.g. from YouTube or Google Drive).
+          </p>
           <Field label="Role">
             <Select name="role" defaultValue="member" disabled={!canAssignAdmin}>
               <option value="member">Member</option>

@@ -5,6 +5,7 @@ import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
 import { submitPersonEdit, submitAddPerson, submitProposeDeletion } from "@/lib/actions/pending-changes";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
+import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
 import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
@@ -35,6 +36,18 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const { data: personRaw, error: personError } = await supabase.from("people").select("*").eq("id", id).maybeSingle();
   if (personError) console.error("[people/[id]] query error:", personError);
   if (!personRaw) notFound();
+
+  // Soft-deleted: reads exactly like a normal "not here" page to anyone but
+  // an admin, on purpose — see softDeletePerson in people-admin.ts. An
+  // admin instead sees the full profile plus how/why it was removed and a
+  // way to undo it.
+  if (personRaw.deleted_at && !isAdmin(member)) {
+    return (
+      <Card className="mx-auto max-w-md text-center">
+        <p className="text-sm text-slate-500">This profile isn&apos;t available.</p>
+      </Card>
+    );
+  }
 
   const person = await applyPrivacy(supabase, personRaw as Person, member);
   const isOwner = member?.person_id === person.id;
@@ -165,6 +178,27 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
+      {personRaw.deleted_at && (
+        <Card className="border-red-200 bg-red-50">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-red-800">
+              <span className="font-medium">Deleted</span> on {new Date(personRaw.deleted_at).toLocaleDateString()}.
+              {personRaw.delete_reason && <> Reason: {personRaw.delete_reason}</>} Hidden from browsing and search —
+              only admins can see this page.
+            </p>
+            <form action={restorePerson}>
+              <input type="hidden" name="person_id" value={person.id} />
+              <PendingButton
+                className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+                pendingChildren="Restoring…"
+              >
+                Restore
+              </PendingButton>
+            </form>
+          </div>
+        </Card>
+      )}
+
       <div className="flex items-start gap-4">
         {person.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
