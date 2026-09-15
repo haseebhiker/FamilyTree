@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
@@ -33,12 +32,19 @@ export default async function NotAuthorizedPage() {
           <p className="mb-6 text-sm text-slate-500">
             Your access to the family tree has been set up.
           </p>
-          <Link
+          {/*
+            A plain <a>, not next/link's client-side transition: this page
+            is often reached from a messaging app's in-app browser, which
+            can silently fail Next.js's JS-driven soft navigation and leave
+            a blank screen. A real full-page load is far more compatible.
+          */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
             href="/"
             className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
           >
             Continue to the family tree
-          </Link>
+          </a>
         </Card>
       </main>
     );
