@@ -77,6 +77,9 @@ export function NavBar({
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
               </Link>
+              <Link href="/compare" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Compare Two People
+              </Link>
               <Link href="/install" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Install App
               </Link>
