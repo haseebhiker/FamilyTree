@@ -283,23 +283,29 @@ async function applyChange(
 /**
  * Backend guard against the exact shape of duplicate that a form double-tap
  * or a network retry produces: the same member submitting the same
- * add-a-relative request for the same target person again within a short
- * window. Only checked for add_person/add_relationship — the two change
- * types a resubmitted "Add a family member" tap can produce — since
- * "identical" doesn't carry the same meaning for an edit or a deletion
- * request. Checked regardless of the earlier submission's status (pending,
- * approved, or rejected) since a double-tap duplicate lands with the same
- * status as the one that beat it there either way.
+ * add-a-relative request, or the same edit, for the same target person
+ * again within a short window. Not checked for propose_deletion, where a
+ * second identical request isn't really a "duplicate" in a harmful sense.
+ * Checked regardless of the earlier submission's status (pending, approved,
+ * or rejected) since a double-tap duplicate lands with the same status as
+ * the one that beat it there either way.
  */
 async function isRecentDuplicate(
   supabase: SupabaseClient,
   member: Member,
   input: { change_type: PendingChangeType; target_person_id: string | null; proposed_data: Record<string, unknown> },
 ): Promise<boolean> {
-  if (input.change_type !== "add_person" && input.change_type !== "add_relationship") return false;
-  const identityFields: Record<string, unknown> = {};
-  for (const key of ["relation_to_person_id", "existing_person_id", "full_name", "relation_type", "mode"]) {
-    if (input.proposed_data[key] !== undefined) identityFields[key] = input.proposed_data[key];
+  if (input.change_type === "propose_deletion") return false;
+  let identityFields: Record<string, unknown> = {};
+  if (input.change_type === "edit_person") {
+    // The whole proposed_data *is* the identity here — two edits are "the
+    // same" exactly when they propose the same field values.
+    identityFields = input.proposed_data;
+    if (Object.keys(identityFields).length === 0) return false;
+  } else {
+    for (const key of ["relation_to_person_id", "existing_person_id", "full_name", "relation_type", "mode"]) {
+      if (input.proposed_data[key] !== undefined) identityFields[key] = input.proposed_data[key];
+    }
   }
   const { data } = await supabase
     .from("pending_changes")

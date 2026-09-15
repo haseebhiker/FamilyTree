@@ -3,13 +3,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
-import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { AddFamilyMemberForm } from "@/components/add-family-member-form";
+import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
 import { formatPhoneForDisplay } from "@/lib/countries";
-import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
+import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -427,66 +427,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
           Suggest an edit
         </summary>
-        <form action={submitPersonEdit} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2">
-          <input type="hidden" name="person_id" value={person.id} />
-          <Field label="Full name"><Input name="full_name" defaultValue={personRaw.full_name} /></Field>
-          <Field label="Preferred name"><Input name="preferred_name" defaultValue={personRaw.preferred_name ?? ""} /></Field>
-          <Field label="Surname tag"><Input name="surname_tag" defaultValue={personRaw.surname_tag ?? ""} /></Field>
-          <Field label="Other names"><Input name="other_names" defaultValue={personRaw.other_names ?? ""} /></Field>
-          <Field label="Gender">
-            <Select name="gender" defaultValue={personRaw.gender ?? ""}>
-              <option value="">Unknown</option>
-              <option value="M">Male</option>
-              <option value="F">Female</option>
-            </Select>
-          </Field>
-          <Field label="Living status">
-            <Select name="living_status" defaultValue={personRaw.living_status}>
-              <option value="unknown">Unknown</option>
-              <option value="living">Living</option>
-              <option value="deceased">Deceased</option>
-            </Select>
-          </Field>
-          <Field label="Current location (city, country)"><Input name="current_location" defaultValue={personRaw.current_location ?? ""} /></Field>
-
-          <div className="sm:col-span-2">
-            <Field label="Date of birth (any part can be left blank)">
-              <div className="flex gap-2">
-                <Input name="birth_year" type="number" placeholder="Year" defaultValue={personRaw.birth_year ?? ""} />
-                <Select name="birth_month" defaultValue={personRaw.birth_month ?? ""}>
-                  <option value="">Month</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
-                  ))}
-                </Select>
-                <Input name="birth_day" type="number" placeholder="Day" defaultValue={personRaw.birth_day ?? ""} />
-              </div>
-            </Field>
-          </div>
-          <div className="sm:col-span-2">
-            <Field label="Date of death (any part can be left blank)">
-              <div className="flex gap-2">
-                <Input name="death_year" type="number" placeholder="Year" defaultValue={personRaw.death_year ?? ""} />
-                <Select name="death_month" defaultValue={personRaw.death_month ?? ""}>
-                  <option value="">Month</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
-                  ))}
-                </Select>
-                <Input name="death_day" type="number" placeholder="Day" defaultValue={personRaw.death_day ?? ""} />
-              </div>
-            </Field>
-          </div>
-
-          <Field label="Place of birth"><Input name="place_of_birth" defaultValue={personRaw.place_of_birth ?? ""} /></Field>
-          <Field label="Place of death"><Input name="place_of_death" defaultValue={personRaw.place_of_death ?? ""} /></Field>
-          <Field label="Photo URL"><Input name="photo_url" defaultValue={personRaw.photo_url ?? ""} /></Field>
-          <Field label="Facebook URL"><Input name="facebook_url" defaultValue={personRaw.facebook_url ?? ""} /></Field>
-          <Field label="LinkedIn URL"><Input name="linkedin_url" defaultValue={personRaw.linkedin_url ?? ""} /></Field>
-          <div className="sm:col-span-2"><Field label="Bio / notes"><Textarea name="bio" rows={3} defaultValue={personRaw.bio ?? ""} /></Field></div>
-          <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" placeholder="e.g. source for this info" /></Field></div>
-          <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
-        </form>
+        <div className="border-t border-slate-100">
+          <EditPersonForm personId={person.id} personRaw={personRaw as Person} />
+        </div>
       </details>
 
       <details className="group rounded-lg border border-slate-200 bg-white">
