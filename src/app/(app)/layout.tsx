@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { NavBar } from "@/components/nav-bar";
 import { Tip } from "@/components/tip";
+import { PageViewTracker } from "@/components/page-view-tracker";
 
 export default async function AppLayout({
   children,
@@ -35,6 +36,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
+      <PageViewTracker />
       <NavBar
         role={member.role}
         personId={member.person_id}
