@@ -14,6 +14,30 @@ export interface TreeNodeData {
   mother_id: string | null;
 }
 
+/**
+ * The chain of ancestors from `myPersonId` straight up the paternal line
+ * (father, father's father, ...) to whichever root it connects to. Follows
+ * father_id only, not mother_id: the family line this tree is organized
+ * around is patrilineal, so the default view shouldn't wander onto a
+ * maternal branch just because it happens to reach a root first.
+ */
+function computePathToMe(myPersonId: string | null | undefined, allPeople: TreeNodeData[], roots: TreeNodeData[]): Set<string> {
+  if (!myPersonId) return new Set();
+  const byId = new Map(allPeople.map((p) => [p.id, p]));
+  const rootIds = new Set(roots.map((r) => r.id));
+  if (!byId.has(myPersonId)) return new Set();
+
+  const path: string[] = [myPersonId];
+  let currentId = myPersonId;
+  while (!rootIds.has(currentId)) {
+    const person = byId.get(currentId);
+    if (!person?.father_id) return new Set();
+    currentId = person.father_id;
+    path.push(currentId);
+  }
+  return new Set(path);
+}
+
 function TreeNode({
   person,
   childrenByParent,
@@ -82,35 +106,12 @@ export function TreeView({
 }) {
   const [query, setQuery] = useState("");
 
-  // The chain of ancestors from "me" up to whichever root it connects to
-  // (there can be two candidate lines — paternal and maternal — so this
-  // explores both and keeps the one that actually reaches a root, shortest
-  // first) — every id on it auto-expands, so opening the tree lands you
-  // looking at your own direct lineage instead of a wall of collapsed
-  // branches.
-  const pathToMeIds = useMemo(() => {
-    if (!myPersonId) return new Set<string>();
-    const byId = new Map(allPeople.map((p) => [p.id, p]));
-    const rootIds = new Set(roots.map((r) => r.id));
-    if (!byId.has(myPersonId)) return new Set<string>();
-
-    const queue: string[][] = [[myPersonId]];
-    const visited = new Set([myPersonId]);
-    while (queue.length > 0) {
-      const path = queue.shift()!;
-      const lastId = path[path.length - 1];
-      if (rootIds.has(lastId)) return new Set(path);
-      const person = byId.get(lastId);
-      if (!person) continue;
-      for (const parentId of [person.father_id, person.mother_id]) {
-        if (parentId && !visited.has(parentId)) {
-          visited.add(parentId);
-          queue.push([...path, parentId]);
-        }
-      }
-    }
-    return new Set<string>();
-  }, [allPeople, roots, myPersonId]);
+  // Every id on this auto-expands, so opening the tree lands you looking at
+  // your own direct paternal lineage instead of a wall of collapsed branches.
+  const pathToMeIds = useMemo(
+    () => computePathToMe(myPersonId, allPeople, roots),
+    [allPeople, roots, myPersonId],
+  );
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, TreeNodeData[]>();
