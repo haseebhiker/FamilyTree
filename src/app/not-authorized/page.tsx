@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
@@ -25,26 +26,33 @@ export default async function NotAuthorizedPage() {
   // "Continue" click turns that failure mode into "click again", not
   // ERR_TOO_MANY_REDIRECTS.
   if (member) {
+    // Absolute, not "/" — reached almost exclusively from a messaging app's
+    // in-app browser (WhatsApp, SMS), and those have repeatedly shown a
+    // stuck/blank screen on this exact link even after switching it to a
+    // plain <a> (a real page load, not next/link's JS-driven transition).
+    // A relative URL asks the browser to resolve it against whatever base
+    // it thinks the current page has, which is exactly the kind of thing
+    // an embedded webview gets wrong; spelling out the full origin removes
+    // that step entirely. The meta-refresh is a second, independent path
+    // to the same place that doesn't depend on the tap/click registering
+    // at all, in case that's the part failing.
+    const host = (await headers()).get("host");
+    const continueUrl = host ? `${host.includes("localhost") ? "http" : "https"}://${host}/` : "/";
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
+        <meta httpEquiv="refresh" content={`4;url=${continueUrl}`} />
         <Card className="w-full max-w-md text-center">
           <h1 className="mb-1 text-xl font-semibold text-slate-900">You&apos;re approved!</h1>
           <p className="mb-6 text-sm text-slate-500">
             Your access to the family tree has been set up.
           </p>
-          {/*
-            A plain <a>, not next/link's client-side transition: this page
-            is often reached from a messaging app's in-app browser, which
-            can silently fail Next.js's JS-driven soft navigation and leave
-            a blank screen. A real full-page load is far more compatible.
-          */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
-            href="/"
+            href={continueUrl}
             className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
           >
             Continue to the family tree
           </a>
+          <p className="mt-3 text-xs text-slate-400">You&apos;ll be taken there automatically in a few seconds.</p>
         </Card>
       </main>
     );
