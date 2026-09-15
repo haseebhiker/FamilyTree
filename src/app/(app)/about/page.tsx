@@ -7,9 +7,9 @@ export default function AboutPage() {
       <Card>
         <div className="space-y-3 text-sm leading-relaxed text-slate-700">
           <p>
-            This family tree started more than 20 years ago. It&apos;s me, Haseeb Anna, with a lot of help from
-            Sajjad — we interviewed many people over the years, primarily the elders in our family, to piece
-            together as much of our shared history as we could.
+            This family tree started more than 20 years ago. It&apos;s me, Haseeb, with a lot of help from Sajjad —
+            we interviewed many people over the years, primarily the elders in our family, to piece together as
+            much of our shared history as we could.
           </p>
           <p>
             What began as those conversations has grown into this app, now holding over a thousand people across
