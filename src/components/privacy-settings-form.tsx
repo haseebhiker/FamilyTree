@@ -45,12 +45,12 @@ export function PrivacySettingsForm({
           <Field label={FIELD_LABELS[field] ?? field.replace(/_/g, " ")}>
             <Select
               name={field}
-              value={visibility[field] ?? "just_me"}
+              value={visibility[field] ?? "everyone"}
               onChange={(e) => setVisibility((prev) => ({ ...prev, [field]: e.target.value as PrivacyVisibility }))}
             >
-              <option value="just_me">Just me</option>
               <option value="everyone">Everyone in the family app</option>
               <option value="groups">Specific group(s)</option>
+              <option value="just_me">Just me (not recommended)</option>
             </Select>
           </Field>
           {visibility[field] === "groups" && (
