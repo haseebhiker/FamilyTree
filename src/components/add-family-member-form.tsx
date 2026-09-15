@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { submitFamilyRelation } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Button } from "@/components/ui";
 import { PersonPicker, type PersonOption } from "@/components/person-picker";
@@ -19,23 +19,70 @@ const RELATIONS: { value: Relation; label: string }[] = [
   { value: "wife", label: "Wife" },
 ];
 
-export function AddFamilyMemberForm({
-  personId,
-  hasFather,
-  hasMother,
-  people,
-}: {
+interface FormProps {
   personId: string;
   hasFather: boolean;
   hasMother: boolean;
   people: PersonOption[];
-}) {
+}
+
+/**
+ * The outer component owns the submission lifecycle (pending/success/error)
+ * and a "generation" key; the inner one owns the actual field state. Bumping
+ * the key after a successful submit remounts the fields component fresh —
+ * clearing every input (including PersonPicker's own internal state, which
+ * a plain form.reset() wouldn't touch) and resetting relation/mode back to
+ * their defaults — instead of leaving stale data sitting in an unconfirmed
+ * form that looks like the submission never happened.
+ */
+export function AddFamilyMemberForm(props: FormProps) {
+  const [generation, setGeneration] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(formData: FormData) {
+    setSubmitted(false);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await submitFamilyRelation(formData);
+        setSubmitted(true);
+        setGeneration((g) => g + 1);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Something went wrong — please try again.");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      {submitted && (
+        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Submitted — an admin will review it soon. It won&apos;t show up here yet, so there&apos;s no need to
+          submit it again.
+        </p>
+      )}
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <FormFields key={generation} {...props} onSubmit={handleSubmit} isPending={isPending} />
+    </div>
+  );
+}
+
+function FormFields({
+  personId,
+  hasFather,
+  hasMother,
+  people,
+  onSubmit,
+  isPending,
+}: FormProps & { onSubmit: (formData: FormData) => void; isPending: boolean }) {
   const [relation, setRelation] = useState<Relation>("son");
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const isSpouse = relation === "husband" || relation === "wife";
 
   return (
-    <form action={submitFamilyRelation} className="grid gap-3 sm:grid-cols-2">
+    <form action={onSubmit} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="person_id" value={personId} />
 
       <div className="sm:col-span-2">
@@ -135,7 +182,9 @@ export function AddFamilyMemberForm({
         </Field>
       </div>
       <div className="sm:col-span-2">
-        <Button type="submit">Submit for review</Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Submitting…" : "Submit for review"}
+        </Button>
       </div>
     </form>
   );
