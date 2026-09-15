@@ -1,31 +1,26 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import type { Role } from "@/lib/types";
 
-function GearIcon() {
+function SearchIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
       <path
         fillRule="evenodd"
-        d="M8.34 1.8a1.5 1.5 0 0 1 1.32-.8h.68a1.5 1.5 0 0 1 1.32.8l.44.86a6.5 6.5 0 0 1 1.2.7l.94-.28a1.5 1.5 0 0 1 1.62.62l.34.58a1.5 1.5 0 0 1-.2 1.72l-.66.74a6.5 6.5 0 0 1 0 1.4l.66.74a1.5 1.5 0 0 1 .2 1.72l-.34.58a1.5 1.5 0 0 1-1.62.62l-.94-.28a6.5 6.5 0 0 1-1.2.7l-.44.86a1.5 1.5 0 0 1-1.32.8h-.68a1.5 1.5 0 0 1-1.32-.8l-.44-.86a6.5 6.5 0 0 1-1.2-.7l-.94.28a1.5 1.5 0 0 1-1.62-.62l-.34-.58a1.5 1.5 0 0 1 .2-1.72l.66-.74a6.5 6.5 0 0 1 0-1.4l-.66-.74a1.5 1.5 0 0 1-.2-1.72l.34-.58a1.5 1.5 0 0 1 1.62-.62l.94.28a6.5 6.5 0 0 1 1.2-.7l.44-.86ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+        d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z"
         clipRule="evenodd"
       />
     </svg>
   );
 }
 
-function ChevronIcon() {
+function MenuIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-      <path
-        fillRule="evenodd"
-        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-        clipRule="evenodd"
-      />
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+      <path fillRule="evenodd" d="M2 5a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm1 4a1 1 0 1 0 0 2h14a1 1 0 1 0 0-2H3Z" clipRule="evenodd" />
     </svg>
   );
 }
@@ -41,15 +36,8 @@ export function NavBar({
   pendingCount: number;
   pendingAccessRequestCount: number;
 }) {
-  const moreRef = useRef<HTMLDetailsElement>(null);
-  const adminRef = useRef<HTMLDetailsElement>(null);
   const isAdmin = role === "admin" || role === "super_admin";
-
-  function closeMenuOnNavClick(e: React.MouseEvent<HTMLElement>) {
-    if ((e.target as HTMLElement).closest("summary")) return;
-    if (moreRef.current) moreRef.current.open = false;
-    if (adminRef.current) adminRef.current.open = false;
-  }
+  const badgeCount = pendingCount + pendingAccessRequestCount;
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -57,10 +45,7 @@ export function NavBar({
         <Link href="/" className="text-lg font-semibold text-slate-900">
           Nams Family Tree
         </Link>
-        <nav
-          onClick={closeMenuOnNavClick}
-          className="flex items-center gap-4 text-sm font-medium text-slate-600"
-        >
+        <nav className="flex items-center gap-4 text-sm font-medium text-slate-600">
           {personId && (
             <Link href={`/people/${personId}`} className="hover:text-slate-900">
               Me
@@ -69,97 +54,102 @@ export function NavBar({
           <Link href="/tree" className="hover:text-slate-900">
             Tree
           </Link>
-          <Link href="/groups" className="hover:text-slate-900">
-            Groups
+          <Link href="/tree" aria-label="Search for a person" className="hover:text-slate-900">
+            <SearchIcon />
           </Link>
 
-          <details
-            ref={moreRef}
-            className="relative"
-            onToggle={() => {
-              if (moreRef.current?.open && adminRef.current) adminRef.current.open = false;
-            }}
-          >
-            <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
-              More
-              <ChevronIcon />
+          <details className="group relative">
+            <summary
+              className="relative flex cursor-pointer list-none items-center hover:text-slate-900 [&::-webkit-details-marker]:hidden"
+              aria-label="Menu"
+            >
+              <MenuIcon />
+              {badgeCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                  {badgeCount}
+                </span>
+              )}
             </summary>
-            <div className="absolute right-0 z-10 mt-2 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+            <div className="absolute right-0 z-10 mt-2 w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+              <Link href="/groups" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Groups
+              </Link>
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
               </Link>
               <Link href="/install" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Install App
               </Link>
+              {personId && (
+                <Link href="/privacy" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                  My Privacy Settings
+                </Link>
+              )}
+              <Link href="/faq" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                FAQ
+              </Link>
+
+              {isAdmin && (
+                <>
+                  <div className="my-1 border-t border-slate-100" />
+                  <div className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">Admin</div>
+                  <Link
+                    href="/admin/pending"
+                    className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    Pending Approvals
+                    {pendingCount > 0 && (
+                      <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    href="/admin/access-requests"
+                    className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    Access Requests
+                    {pendingAccessRequestCount > 0 && (
+                      <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                        {pendingAccessRequestCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link href="/admin/invites" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Invite Management
+                  </Link>
+                  <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    People Management
+                  </Link>
+                  <Link href="/admin/audit-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Audit Log
+                  </Link>
+                  <Link href="/admin/login-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Login Log
+                  </Link>
+                  <Link
+                    href="/admin/privacy-defaults"
+                    className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    Privacy Defaults
+                  </Link>
+                  <Link href="/admin/export" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Data Export
+                  </Link>
+                </>
+              )}
+
+              <div className="my-1 border-t border-slate-100" />
+              <form action={signOut}>
+                <PendingButton
+                  className="block w-full px-3 py-2 text-left hover:bg-slate-50 hover:text-slate-900"
+                  pendingChildren="Signing out…"
+                >
+                  Sign out
+                </PendingButton>
+              </form>
             </div>
           </details>
-
-          {isAdmin && (
-            <details
-              ref={adminRef}
-              className="relative"
-              onToggle={() => {
-                if (adminRef.current?.open && moreRef.current) moreRef.current.open = false;
-              }}
-            >
-              <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
-                <GearIcon />
-                Admin
-                {pendingCount + pendingAccessRequestCount > 0 && (
-                  <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
-                    {pendingCount + pendingAccessRequestCount}
-                  </span>
-                )}
-              </summary>
-              <div className="absolute right-0 z-10 mt-2 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-                <Link
-                  href="/admin/pending"
-                  className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
-                >
-                  Pending Approvals
-                  {pendingCount > 0 && (
-                    <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
-                      {pendingCount}
-                    </span>
-                  )}
-                </Link>
-                <Link
-                  href="/admin/access-requests"
-                  className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
-                >
-                  Access Requests
-                  {pendingAccessRequestCount > 0 && (
-                    <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
-                      {pendingAccessRequestCount}
-                    </span>
-                  )}
-                </Link>
-                <Link href="/admin/invites" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  Invite Management
-                </Link>
-                <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  People Management
-                </Link>
-                <Link href="/admin/audit-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  Audit Log
-                </Link>
-                <Link href="/admin/login-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  Login Log
-                </Link>
-                <Link href="/admin/privacy-defaults" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  Privacy Defaults
-                </Link>
-                <Link href="/admin/export" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                  Data Export
-                </Link>
-              </div>
-            </details>
-          )}
-          <form action={signOut}>
-            <PendingButton className="hover:text-slate-900" pendingChildren="Signing out…">
-              Sign out
-            </PendingButton>
-          </form>
         </nav>
       </div>
     </header>

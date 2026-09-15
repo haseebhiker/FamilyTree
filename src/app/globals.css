@@ -33,7 +33,11 @@ body {
 }
 .ancestor-chart {
   display: flex;
-  justify-content: center;
+  /* "safe" keeps this scrollable to the left when the chart is wider than
+     its container — plain `center` lets overflowing content clip on
+     whichever side the scroll position can't reach, since scrollLeft
+     can't go negative to reveal it. */
+  justify-content: safe center;
 }
 .ancestor-chart li {
   display: flex;
@@ -44,7 +48,7 @@ body {
 }
 .ancestor-chart li > ul {
   display: flex;
-  justify-content: center;
+  justify-content: safe center;
   padding-top: 20px;
   position: relative;
 }

@@ -38,7 +38,7 @@ export function PrivacySettingsForm({
   );
 
   return (
-    <form action={updateFieldPrivacy} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-2">
+    <form action={updateFieldPrivacy} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="person_id" value={personId} />
       {PRIVACY_FIELDS.map((field) => (
         <div key={field}>
