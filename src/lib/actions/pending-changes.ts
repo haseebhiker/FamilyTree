@@ -20,6 +20,8 @@ const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spo
   wife: { type: "spouse", gender: "F" },
 };
 
+const URL_FIELDS = new Set(["photo_url", "facebook_url", "linkedin_url"]);
+
 const EDITABLE_PERSON_TEXT_FIELDS = [
   "full_name",
   "preferred_name",
@@ -279,6 +281,39 @@ async function applyChange(
 }
 
 /**
+ * Backend guard against the exact shape of duplicate that a form double-tap
+ * or a network retry produces: the same member submitting the same
+ * add-a-relative request for the same target person again within a short
+ * window. Only checked for add_person/add_relationship — the two change
+ * types a resubmitted "Add a family member" tap can produce — since
+ * "identical" doesn't carry the same meaning for an edit or a deletion
+ * request. Checked regardless of the earlier submission's status (pending,
+ * approved, or rejected) since a double-tap duplicate lands with the same
+ * status as the one that beat it there either way.
+ */
+async function isRecentDuplicate(
+  supabase: SupabaseClient,
+  member: Member,
+  input: { change_type: PendingChangeType; target_person_id: string | null; proposed_data: Record<string, unknown> },
+): Promise<boolean> {
+  if (input.change_type !== "add_person" && input.change_type !== "add_relationship") return false;
+  const identityFields: Record<string, unknown> = {};
+  for (const key of ["relation_to_person_id", "existing_person_id", "full_name", "relation_type", "mode"]) {
+    if (input.proposed_data[key] !== undefined) identityFields[key] = input.proposed_data[key];
+  }
+  const { data } = await supabase
+    .from("pending_changes")
+    .select("id")
+    .eq("change_type", input.change_type)
+    .eq("target_person_id", input.target_person_id)
+    .eq("submitted_by", member.id)
+    .contains("proposed_data", identityFields)
+    .gte("created_at", new Date(Date.now() - 5 * 60000).toISOString())
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+/**
  * If the acting member is an admin, applies the change immediately and
  * logs it as self-approved (design doc §6.5); otherwise inserts a
  * pending_changes row for later review. Returns true if auto-applied.
@@ -294,6 +329,8 @@ async function applyOrQueue(
     note: string | null;
   },
 ): Promise<boolean> {
+  if (await isRecentDuplicate(supabase, member, input)) return false;
+
   if (isAdmin(member)) {
     const appliedPersonId = await applyChange(supabase, input, member.id);
     const { data: insertedChange, error } = await supabase
@@ -349,6 +386,9 @@ export async function submitPersonEdit(formData: FormData) {
   for (const field of EDITABLE_PERSON_TEXT_FIELDS) {
     if (!formData.has(field)) continue;
     const value = String(formData.get(field) ?? "").trim() || null;
+    if (value && URL_FIELDS.has(field) && !/^https?:\/\//i.test(value)) {
+      throw new Error(`${field.replace(/_/g, " ")} needs to be a link starting with https:// — not a name or plain text.`);
+    }
     const currentValue = (current as Person)[field as keyof Person] ?? null;
     if (value !== currentValue) {
       proposed[field] = value;
