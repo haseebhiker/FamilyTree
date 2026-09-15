@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { provisionMemberFromInvite } from "@/lib/members";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -12,7 +11,17 @@ export async function GET(request: Request) {
     if (error) console.error("[auth/callback] exchangeCodeForSession failed:", error.message, error);
 
     if (!error && data.user) {
-      const member = await provisionMemberFromInvite(supabase, data.user);
+      // Always the accept_invite() RPC directly here, not the cheap
+      // read-first provisionMemberFromInvite path used by the
+      // per-navigation middleware: this route only fires on an actual sign-in,
+      // so the extra round trip doesn't matter, and the RPC's own upsert is
+      // what refreshes last_login_at — the plain read used elsewhere never
+      // touches it, which is why it used to only ever reflect someone's
+      // very first sign-in and go stale after that. Also a members-table
+      // update would need the RPC's elevated privilege anyway: a
+      // non-admin's own plain client update to their own row is blocked
+      // by RLS (only admins can update members directly).
+      const { data: member } = await supabase.rpc("accept_invite");
 
       if (member) {
         // Recorded on every sign-in, not just the first — see
