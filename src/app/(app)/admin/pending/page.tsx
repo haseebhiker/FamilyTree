@@ -12,6 +12,54 @@ const CHANGE_TYPE_LABELS: Record<string, string> = {
   propose_deletion: "Remove profile",
 };
 
+const RELATION_WORD: Record<string, Record<string, string>> = {
+  child: { M: "son", F: "daughter" },
+  parent: { M: "father", F: "mother" },
+  sibling: { M: "brother", F: "sister" },
+  spouse: { M: "husband", F: "wife" },
+};
+
+/**
+ * A plain-English sentence for what a change actually does, since the raw
+ * field-by-field dump below it (relation_type, parent_gender,
+ * relation_to_person_id, ...) reads like a database export, not a request —
+ * admins were mistaking "add a new child" for "re-adding the person whose
+ * profile this is" more than once.
+ */
+function describeChange(
+  change: PendingChange,
+  peopleById: Map<string, { id: string; full_name: string; preferred_name?: string | null; surname_tag: string | null }>,
+): string | null {
+  const d = change.proposed_data ?? {};
+  const nameOf = (id: unknown) => (typeof id === "string" ? (peopleById.get(id)?.full_name ?? "someone not in the tree") : "someone not in the tree");
+
+  if (change.change_type === "add_person") {
+    const relationType = String(d.relation_type ?? "");
+    const word = RELATION_WORD[relationType]?.[String(d.gender ?? "")] ?? (relationType || "relative");
+    return `Add a new person, ${d.full_name ?? "(unnamed)"}, as ${nameOf(d.relation_to_person_id)}'s ${word}.`;
+  }
+
+  if (change.change_type === "add_relationship") {
+    if (d.mode === "sibling") {
+      return `Make ${nameOf(change.target_person_id)} a sibling of ${nameOf(d.relation_to_person_id)} (same parents).`;
+    }
+    if (d.mode === "spouse") {
+      return `Add ${nameOf(d.existing_person_id)} as ${nameOf(d.relation_to_person_id)}'s spouse.`;
+    }
+    // The remaining shape covers both directions ("add an existing person as
+    // my parent" and "add an existing person as my child") — target_person_id
+    // is always who ends up with the new father_id/mother_id link, and
+    // existing_person_id is always the person being placed into that slot.
+    return `Link ${nameOf(d.existing_person_id)} as a parent of ${nameOf(change.target_person_id)}.`;
+  }
+
+  if (change.change_type === "propose_deletion") {
+    return `Remove ${nameOf(change.target_person_id)}'s profile from the tree.`;
+  }
+
+  return null;
+}
+
 function DiffRow({ field, oldValue, newValue, editable }: { field: string; oldValue: unknown; newValue: unknown; editable: boolean }) {
   return (
     <div className="grid grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-100 py-1.5 text-sm">
@@ -65,6 +113,7 @@ export default async function PendingApprovalsPage() {
         const target = change.target_person_id ? peopleById.get(change.target_person_id) : null;
         const isEditType = change.change_type === "edit_person";
         const proposedEntries = Object.entries(change.proposed_data ?? {});
+        const summary = describeChange(change, peopleById);
 
         return (
           <Card key={change.id}>
@@ -80,6 +129,8 @@ export default async function PendingApprovalsPage() {
                 {new Date(change.created_at).toLocaleDateString()}
               </span>
             </div>
+
+            {summary && <p className="mb-3 text-sm font-medium text-slate-900">{summary}</p>}
 
             {change.note && (
               <p className="mb-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
@@ -109,24 +160,29 @@ export default async function PendingApprovalsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-slate-200 p-3 text-sm">
-                  {proposedEntries.map(([field, value]) => {
-                    const isPersonRef = field === "existing_person_id" || field === "relation_to_person_id";
-                    const linkedPerson = isPersonRef && typeof value === "string" ? peopleById.get(value) : null;
-                    return (
-                      <div key={field} className="border-b border-slate-100 py-1 last:border-0">
-                        <span className="font-medium text-slate-500">{field.replace(/_/g, " ")}: </span>
-                        {value == null || value === "" ? (
-                          <span className="italic text-slate-400">empty</span>
-                        ) : linkedPerson ? (
-                          <PersonName person={linkedPerson} />
-                        ) : (
-                          String(value)
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <details className="rounded-md border border-slate-200 text-sm">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-500">
+                    Show raw submitted details
+                  </summary>
+                  <div className="border-t border-slate-100 p-3">
+                    {proposedEntries.map(([field, value]) => {
+                      const isPersonRef = field === "existing_person_id" || field === "relation_to_person_id";
+                      const linkedPerson = isPersonRef && typeof value === "string" ? peopleById.get(value) : null;
+                      return (
+                        <div key={field} className="border-b border-slate-100 py-1 last:border-0">
+                          <span className="font-medium text-slate-500">{field.replace(/_/g, " ")}: </span>
+                          {value == null || value === "" ? (
+                            <span className="italic text-slate-400">empty</span>
+                          ) : linkedPerson ? (
+                            <PersonName person={linkedPerson} />
+                          ) : (
+                            String(value)
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
               )}
 
               <div className="flex items-center gap-2 pt-1">
