@@ -633,11 +633,15 @@ create policy "admin updates pending changes" on pending_changes
   for update using (is_admin());
 
 -- audit_log: readable by all signed-in members (simplified "history" tab
--- per profile, §6); only admins/the system write to it.
+-- per profile, §6); only admins/the system write to it. Kept forever by
+-- default (unlike login_log's 30-day rolling expiry) — an admin can wipe
+-- it manually, but nothing clears it automatically.
 create policy "members can read audit_log" on audit_log
   for select using (auth.role() = 'authenticated');
 create policy "admins write audit_log" on audit_log
   for insert with check (is_admin());
+create policy "admins delete audit_log" on audit_log
+  for delete using (is_admin());
 
 -- login_log: admin-only read (who signed in, and when, is sensitive —
 -- unlike audit_log's data-change history, this isn't shown to members).

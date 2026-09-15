@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { clearAuditLog } from "@/lib/actions/audit-log";
 import { Card } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 
 export default async function AuditLogPage() {
   const supabase = await createClient();
@@ -19,7 +21,23 @@ export default async function AuditLogPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-slate-900">Audit Log</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Audit Log</h1>
+          <p className="mt-1 text-sm text-slate-500">Kept forever unless you clear it — no automatic expiry.</p>
+        </div>
+        {entries && entries.length > 0 && (
+          <form action={clearAuditLog}>
+            <PendingButton
+              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+              pendingChildren="Clearing…"
+              confirmMessage="Clear the entire audit log? This can't be undone."
+            >
+              Clear log
+            </PendingButton>
+          </form>
+        )}
+      </div>
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
