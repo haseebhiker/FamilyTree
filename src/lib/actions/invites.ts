@@ -41,6 +41,28 @@ export async function createInvite(formData: FormData) {
   revalidatePath("/admin/invites");
 }
 
+/**
+ * Links an already-signed-in member's account to a tree profile after the
+ * fact (e.g. someone who joined before the "link to existing profile"
+ * invite field existed). Super-admin only, matching the members table's
+ * own members_block_self_escalation trigger — direct SQL can't do this
+ * either outside an authenticated app session, since that trigger checks
+ * is_super_admin() via auth.uid().
+ */
+export async function linkMemberToPerson(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  if (!isSuperAdmin(member)) throw new Error("Only a super admin can link an account to a profile");
+
+  const memberId = String(formData.get("member_id") ?? "");
+  const personId = String(formData.get("person_id") ?? "");
+  if (!memberId || !personId) throw new Error("Choose a profile to link");
+
+  const { error } = await supabase.from("members").update({ person_id: personId }).eq("id", memberId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/invites");
+}
+
 export async function revokeInvite(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   const inviteId = String(formData.get("invite_id") ?? "");

@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
-import { createInvite, revokeInvite } from "@/lib/actions/invites";
+import { createInvite, revokeInvite, linkMemberToPerson } from "@/lib/actions/invites";
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
+import { PersonName } from "@/components/person-name";
 import { LocalTime } from "@/components/local-time";
 
 function statusBadge(status: string) {
@@ -39,6 +40,8 @@ export default async function InvitesPage() {
     .from("members")
     .select("*")
     .order("last_login_at", { ascending: false });
+
+  const peopleById = new Map((people ?? []).map((p) => [p.id, p]));
 
   return (
     <div className="space-y-6">
@@ -82,6 +85,7 @@ export default async function InvitesPage() {
                 <th className="py-2 pr-4 font-medium">Name</th>
                 <th className="py-2 pr-4 font-medium">Email</th>
                 <th className="py-2 pr-4 font-medium">Role</th>
+                <th className="py-2 pr-4 font-medium">Linked profile</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 pr-4 font-medium">Joined</th>
                 <th className="py-2 pr-4 font-medium">Last signed in</th>
@@ -89,11 +93,33 @@ export default async function InvitesPage() {
               </tr>
             </thead>
             <tbody>
-              {members?.map((m) => (
+              {members?.map((m) => {
+                const linkedPerson = m.person_id ? peopleById.get(m.person_id) : null;
+                return (
                 <tr key={m.id} className="border-b border-slate-100">
                   <td className="py-2 pr-4">{m.name}</td>
                   <td className="py-2 pr-4 text-slate-600">{m.email}</td>
                   <td className="py-2 pr-4 text-slate-600">{m.role.replace(/_/g, " ")}</td>
+                  <td className="py-2 pr-4 text-slate-600">
+                    {linkedPerson ? (
+                      <PersonName person={linkedPerson} />
+                    ) : canAssignAdmin ? (
+                      <form action={linkMemberToPerson} className="flex items-center gap-1">
+                        <input type="hidden" name="member_id" value={m.id} />
+                        <div className="w-40">
+                          <PersonPicker name="person_id" people={people ?? []} placeholder="Search…" />
+                        </div>
+                        <PendingButton
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          pendingChildren="…"
+                        >
+                          Link
+                        </PendingButton>
+                      </form>
+                    ) : (
+                      <span className="italic text-slate-400">Not linked</span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4">
                     <Badge className={m.status === "active" ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-600"}>
                       {m.status}
@@ -123,10 +149,11 @@ export default async function InvitesPage() {
                       )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {!members?.length && (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-slate-500">
+                  <td colSpan={8} className="py-4 text-center text-slate-500">
                     No one has signed in yet.
                   </td>
                 </tr>
