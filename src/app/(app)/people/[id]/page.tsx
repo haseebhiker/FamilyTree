@@ -16,6 +16,8 @@ import { PrivacySettingsForm } from "@/components/privacy-settings-form";
 import { ContactIcons } from "@/components/contact-icons";
 import { PersonName, displayNameText } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
+import { RelationshipFinder } from "@/components/relationship-finder";
+import { findRelationshipPaths } from "@/lib/relationship";
 import type { ContactDetail, Person, PrivacyVisibility } from "@/lib/types";
 import { PRIVACY_FIELDS } from "@/lib/types";
 
@@ -52,6 +54,48 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const person = await applyPrivacy(supabase, personRaw as Person, member);
   const isOwner = member?.person_id === person.id;
   const canManagePrivacy = isOwner || isAdmin(member);
+
+  // "How you're related" — only meaningful once the viewer's own account is
+  // linked to a person, and not on your own page. Loads the full tree as a
+  // plain graph (paginated past Supabase's 1000-row cap, same as the home
+  // page's tree) since it needs to search the whole thing, not just this
+  // profile's neighborhood.
+  let relationshipFinder: {
+    paths: ReturnType<typeof findRelationshipPaths>["paths"];
+    genders: ReturnType<typeof findRelationshipPaths>["genders"];
+    peopleById: Map<string, { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }>;
+  } | null = null;
+  if (member?.person_id && member.person_id !== person.id) {
+    const graphPeople: { id: string; father_id: string | null; mother_id: string | null }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page } = await supabase
+        .from("people")
+        .select("id, father_id, mother_id")
+        .is("deleted_at", null)
+        .range(from, from + 999);
+      if (!page || page.length === 0) break;
+      graphPeople.push(...page);
+      if (page.length < 1000) break;
+    }
+    const graphSpouses: { person_a_id: string; person_b_id: string }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data: page } = await supabase.from("spouses").select("person_a_id, person_b_id").range(from, from + 999);
+      if (!page || page.length === 0) break;
+      graphSpouses.push(...page);
+      if (page.length < 1000) break;
+    }
+
+    const { paths, genders } = findRelationshipPaths(graphPeople, graphSpouses, member.person_id, person.id, 5);
+    if (paths.length > 0) {
+      const involvedIds = [...new Set(paths.flat().map((s) => s.id))];
+      const { data: involvedPeople } = await supabase
+        .from("people")
+        .select("id, full_name, preferred_name, surname_tag")
+        .in("id", involvedIds);
+      const peopleById = new Map((involvedPeople ?? []).map((p) => [p.id, p]));
+      relationshipFinder = { paths, genders, peopleById };
+    }
+  }
 
   const [
     { data: father },
@@ -270,6 +314,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {relationshipFinder && (
+        <RelationshipFinder
+          paths={relationshipFinder.paths}
+          genders={relationshipFinder.genders}
+          peopleById={relationshipFinder.peopleById}
+        />
+      )}
 
       {ancestorChart.father || ancestorChart.mother ? (
         <Card>
