@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
@@ -25,6 +26,44 @@ const CONTACT_TYPE_LABELS: Record<string, string> = {
   email: "Email",
   address: "Address",
 };
+
+interface CousinLite {
+  id: string;
+  full_name: string;
+  preferred_name: string | null;
+  surname_tag: string | null;
+}
+
+/**
+ * First cousins on one side: children of `parent`'s own siblings (i.e. this
+ * person's aunts/uncles on that side) — mirrors how the Siblings section
+ * above finds siblings, just one generation up first. Half-aunts/uncles
+ * (sharing only one of `parent`'s own parents) are included, same as the
+ * Siblings section includes half-siblings.
+ */
+async function fetchCousins(
+  supabase: SupabaseClient,
+  parent: { id: string; father_id: string | null; mother_id: string | null } | null,
+): Promise<CousinLite[]> {
+  if (!parent) return [];
+  const auntUncleConditions = [
+    parent.father_id ? `father_id.eq.${parent.father_id}` : null,
+    parent.mother_id ? `mother_id.eq.${parent.mother_id}` : null,
+  ].filter((c): c is string => c !== null);
+  if (auntUncleConditions.length === 0) return [];
+
+  const { data: auntsUnclesRaw } = await supabase.from("people").select("id").or(auntUncleConditions.join(","));
+  const auntUncleIds = (auntsUnclesRaw ?? []).map((a) => a.id).filter((aid) => aid !== parent.id);
+  if (auntUncleIds.length === 0) return [];
+
+  const cousinConditions = auntUncleIds.flatMap((aid) => [`father_id.eq.${aid}`, `mother_id.eq.${aid}`]);
+  const { data: cousinsRaw } = await supabase
+    .from("people")
+    .select("id, full_name, preferred_name, surname_tag")
+    .or(cousinConditions.join(","))
+    .order("full_name");
+  return cousinsRaw ?? [];
+}
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -195,6 +234,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
     }));
 
+  const [paternalCousinsRaw, maternalCousinsRaw] = await Promise.all([
+    fetchCousins(supabase, father),
+    fetchCousins(supabase, mother),
+  ]);
+  const paternalCousins = paternalCousinsRaw.filter((c) => c.id !== person.id);
+  const maternalCousins = maternalCousinsRaw.filter((c) => c.id !== person.id);
+  const allCousinIds = new Set([...paternalCousins.map((c) => c.id), ...maternalCousins.map((c) => c.id)]);
+
   const { data: allPeopleForPicker } = await supabase
     .from("people")
     .select("id, full_name, preferred_name, surname_tag")
@@ -351,6 +398,44 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               ))}
             </ul>
           </div>
+        )}
+
+        {allCousinIds.size > 0 && (
+          <details className="mt-5">
+            <summary className="cursor-pointer text-sm font-medium text-slate-500 hover:text-slate-700">
+              Cousins ({allCousinIds.size})
+            </summary>
+            <div className="mt-2 grid gap-4 sm:grid-cols-2">
+              {paternalCousins.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-slate-400">Dad&apos;s side</div>
+                  <ul className="ml-4 list-disc text-sm text-slate-700">
+                    {paternalCousins.map((c) => (
+                      <li key={c.id}>
+                        <Link href={`/people/${c.id}`} className="hover:underline">
+                          <PersonName person={c} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {maternalCousins.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-slate-400">Mom&apos;s side</div>
+                  <ul className="ml-4 list-disc text-sm text-slate-700">
+                    {maternalCousins.map((c) => (
+                      <li key={c.id}>
+                        <Link href={`/people/${c.id}`} className="hover:underline">
+                          <PersonName person={c} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
         )}
       </Card>
 
