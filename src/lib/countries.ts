@@ -78,8 +78,18 @@ export function e164ToWhatsAppDigits(e164: string): string {
   return e164.replace(/^\+/, "");
 }
 
-/** Formats a stored E.164 number for display, e.g. "+14155551234" -> "+1 415 555 1234" — readable regardless of the viewer's own country, unlike a national-format number. */
+/**
+ * Formats a stored E.164 number for display, e.g. "+14155551234" -> "+1 (415) 555 1234".
+ * NANP numbers (US/Canada) get their familiar parens-around-area-code style; everywhere
+ * else uses the standard international format — mixing that style into other countries'
+ * numbers would wrongly keep a domestic trunk prefix (e.g. a stray leading "0") that
+ * shouldn't be dialed when calling from abroad.
+ */
 export function formatPhoneForDisplay(e164: string): string {
   const parsed = parsePhoneNumberFromString(e164);
-  return parsed ? parsed.formatInternational() : e164;
+  if (!parsed) return e164;
+  if (parsed.countryCallingCode === "1") {
+    return `+1 ${parsed.formatNational().replace(/-/g, " ")}`;
+  }
+  return parsed.formatInternational();
 }
