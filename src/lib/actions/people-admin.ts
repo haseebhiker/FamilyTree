@@ -80,6 +80,60 @@ export async function restorePerson(formData: FormData) {
 }
 
 /**
+ * Unlinks a person from their father or mother — the parent-child equivalent
+ * of "remove" on a contact detail. There's deliberately no "change
+ * relationship" action: a wrong relationship (e.g. someone added as a son
+ * who should actually be a husband) is fixed by removing the wrong link
+ * here and then adding the correct one via the ordinary "Add a family
+ * member" form, rather than a single action trying to handle every
+ * from-type/to-type combination.
+ */
+export async function removeParentLink(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  const personId = String(formData.get("person_id") ?? "");
+  const which = String(formData.get("which") ?? "");
+  if (!personId || (which !== "father" && which !== "mother")) throw new Error("Missing person or parent");
+
+  const field = which === "father" ? "father_id" : "mother_id";
+  const { data: before } = await supabase.from("people").select(field).eq("id", personId).single();
+
+  const { error } = await supabase.from("people").update({ [field]: null }).eq("id", personId);
+  if (error) throw new Error(error.message);
+
+  await supabase.from("audit_log").insert({
+    person_id: personId,
+    change_type: "remove_relationship",
+    old_value: before,
+    new_value: { [field]: null },
+    performed_by: member.id,
+  });
+
+  revalidatePath(`/people/${personId}`);
+}
+
+/** Removes one spouse pairing entirely. See removeParentLink for why there's no direct "change" action. */
+export async function removeSpouseLink(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  const spouseRowId = String(formData.get("spouse_row_id") ?? "");
+  const personId = String(formData.get("person_id") ?? "");
+  if (!spouseRowId || !personId) throw new Error("Missing spouse link");
+
+  const { data: before } = await supabase.from("spouses").select("*").eq("id", spouseRowId).single();
+  const { error } = await supabase.from("spouses").delete().eq("id", spouseRowId);
+  if (error) throw new Error(error.message);
+
+  await supabase.from("audit_log").insert({
+    person_id: personId,
+    change_type: "remove_relationship",
+    old_value: before,
+    new_value: null,
+    performed_by: member.id,
+  });
+
+  revalidatePath(`/people/${personId}`);
+}
+
+/**
  * Merges `loser_id` into `keeper_id`: repoints every father/mother/spouse
  * reference from loser to keeper, then soft-deletes the loser (see
  * softDeletePerson above — never a real delete). Used from People

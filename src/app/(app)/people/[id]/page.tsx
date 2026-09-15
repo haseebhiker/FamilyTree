@@ -7,7 +7,7 @@ import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
 import { AddFamilyMemberForm } from "@/components/add-family-member-form";
 import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
-import { restorePerson } from "@/lib/actions/people-admin";
+import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
 import { sortByAge } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
@@ -179,8 +179,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   );
 
   const marriages = [
-    ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id })),
-    ...(spousesAsB ?? []).map((s) => ({ spouse: s.person_a, marriage_notes: s.marriage_notes, spouseId: s.person_a_id })),
+    ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id, spouseRowId: s.id })),
+    ...(spousesAsB ?? []).map((s) => ({ spouse: s.person_a, marriage_notes: s.marriage_notes, spouseId: s.person_a_id, spouseRowId: s.id })),
   ];
 
   const grandparentIds = [father?.father_id, father?.mother_id, mother?.father_id, mother?.mother_id].filter(
@@ -347,6 +347,15 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     "Unknown"
                   )}
                   {m.marriage_notes && <span className="text-xs text-slate-400"> — {m.marriage_notes}</span>}
+                  {isAdmin(member) && (
+                    <form action={removeSpouseLink} className="inline">
+                      <input type="hidden" name="person_id" value={person.id} />
+                      <input type="hidden" name="spouse_row_id" value={m.spouseRowId} />
+                      <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                        remove
+                      </PendingButton>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>
@@ -357,9 +366,20 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <div>
             <div className="font-medium text-slate-500">Father</div>
             {father ? (
-              <Link href={`/people/${father.id}`} className="text-slate-900 hover:underline">
-                <PersonName person={father} />
-              </Link>
+              <div>
+                <Link href={`/people/${father.id}`} className="text-slate-900 hover:underline">
+                  <PersonName person={father} />
+                </Link>
+                {isAdmin(member) && (
+                  <form action={removeParentLink} className="inline">
+                    <input type="hidden" name="person_id" value={person.id} />
+                    <input type="hidden" name="which" value="father" />
+                    <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                      remove
+                    </PendingButton>
+                  </form>
+                )}
+              </div>
             ) : (
               <span className="italic text-slate-400">Unknown</span>
             )}
@@ -367,9 +387,20 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <div>
             <div className="font-medium text-slate-500">Mother</div>
             {mother ? (
-              <Link href={`/people/${mother.id}`} className="text-slate-900 hover:underline">
-                <PersonName person={mother} />
-              </Link>
+              <div>
+                <Link href={`/people/${mother.id}`} className="text-slate-900 hover:underline">
+                  <PersonName person={mother} />
+                </Link>
+                {isAdmin(member) && (
+                  <form action={removeParentLink} className="inline">
+                    <input type="hidden" name="person_id" value={person.id} />
+                    <input type="hidden" name="which" value="mother" />
+                    <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                      remove
+                    </PendingButton>
+                  </form>
+                )}
+              </div>
             ) : (
               <span className="italic text-slate-400">Unknown</span>
             )}
