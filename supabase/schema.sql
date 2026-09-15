@@ -466,7 +466,11 @@ create trigger members_block_self_escalation
 -- RLS) so it can check the invites table and create/reactivate a members
 -- row for a user who, by definition, isn't an admin yet. Only usable by an
 -- authenticated session, and only ever acts on that session's own
--- email/user id — never a caller-supplied one.
+-- email/user id — never a caller-supplied one. Safe to call on every
+-- sign-in, not just the first: person_id is coalesced, not overwritten,
+-- so linking someone to their profile after their invite was created
+-- (Invite Management's "Linked profile" flow) can never get clobbered
+-- back to the invite's own (often still-null) person_id on a later login.
 create or replace function accept_invite()
 returns members
 language plpgsql
@@ -496,7 +500,7 @@ begin
     status = 'active',
     name = excluded.name,
     role = excluded.role,
-    person_id = excluded.person_id,
+    person_id = coalesce(members.person_id, excluded.person_id),
     invite_id = excluded.invite_id,
     last_login_at = now()
   returning * into v_member;
