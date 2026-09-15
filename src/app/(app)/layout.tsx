@@ -21,13 +21,16 @@ export default async function AppLayout({
 
   let pendingCount = 0;
   let pendingAccessRequestCount = 0;
+  let openSuggestionCount = 0;
   if (isAdmin(member)) {
-    const [{ count: changeCount }, { count: requestCount }] = await Promise.all([
+    const [{ count: changeCount }, { count: requestCount }, { count: suggestionCount }] = await Promise.all([
       supabase.from("pending_changes").select("id", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("access_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("suggestions").select("id", { count: "exact", head: true }).eq("status", "open"),
     ]);
     pendingCount = changeCount ?? 0;
     pendingAccessRequestCount = requestCount ?? 0;
+    openSuggestionCount = suggestionCount ?? 0;
   }
 
   return (
@@ -37,6 +40,7 @@ export default async function AppLayout({
         personId={member.person_id}
         pendingCount={pendingCount}
         pendingAccessRequestCount={pendingAccessRequestCount}
+        openSuggestionCount={openSuggestionCount}
       />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">{children}</div>

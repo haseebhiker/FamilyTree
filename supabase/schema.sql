@@ -256,6 +256,20 @@ create table pending_changes (
 create index pending_changes_status_idx on pending_changes(status);
 create index pending_changes_submitted_by_idx on pending_changes(submitted_by);
 
+-- Freeform feedback/feature requests about the app itself, separate from
+-- pending_changes (which is about edits to the family data).
+create table suggestions (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid not null references members(id) on delete cascade,
+  message text not null,
+  status text not null default 'open' check (status in ('open', 'reviewed', 'done')),
+  admin_note text,
+  created_at timestamptz not null default now()
+);
+
+create index suggestions_member_idx on suggestions(member_id);
+create index suggestions_status_idx on suggestions(status);
+
 create table audit_log (
   id uuid primary key default gen_random_uuid(),
   person_id uuid references people(id) on delete set null,
@@ -366,6 +380,7 @@ alter table field_privacy_groups enable row level security;
 alter table contact_details enable row level security;
 alter table contact_detail_groups enable row level security;
 alter table pending_changes enable row level security;
+alter table suggestions enable row level security;
 alter table audit_log enable row level security;
 alter table login_log enable row level security;
 alter table privacy_defaults enable row level security;
@@ -614,6 +629,15 @@ create policy "member reads own, admin reads all" on pending_changes
     submitted_by = auth.uid() or is_admin()
   );
 create policy "admin updates pending changes" on pending_changes
+  for update using (is_admin());
+
+-- suggestions: a member can create and read their own; admins can read all
+-- and update status/admin_note.
+create policy "member can insert own suggestion" on suggestions
+  for insert with check (member_id = auth.uid());
+create policy "member reads own, admin reads all suggestions" on suggestions
+  for select using (member_id = auth.uid() or is_admin());
+create policy "admin updates suggestions" on suggestions
   for update using (is_admin());
 
 -- audit_log: readable by all signed-in members (simplified "history" tab

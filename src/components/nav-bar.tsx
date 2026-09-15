@@ -32,14 +32,16 @@ export function NavBar({
   personId,
   pendingCount,
   pendingAccessRequestCount,
+  openSuggestionCount,
 }: {
   role: Role;
   personId: string | null;
   pendingCount: number;
   pendingAccessRequestCount: number;
+  openSuggestionCount: number;
 }) {
   const isAdmin = role === "admin" || role === "super_admin";
-  const badgeCount = pendingCount + pendingAccessRequestCount;
+  const badgeCount = pendingCount + pendingAccessRequestCount + openSuggestionCount;
   const pathname = usePathname();
   const menuRef = useRef<HTMLDetailsElement>(null);
 
@@ -92,6 +94,17 @@ export function NavBar({
               </Link>
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
+              </Link>
+              <Link
+                href="/suggestions"
+                className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+              >
+                Suggestions
+                {isAdmin && openSuggestionCount > 0 && (
+                  <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                    {openSuggestionCount}
+                  </span>
+                )}
               </Link>
               <Link href="/install" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Install App
