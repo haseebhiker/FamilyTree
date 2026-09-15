@@ -266,25 +266,6 @@ export async function submitAddPerson(formData: FormData) {
   if (relationTo) revalidatePath(`/people/${relationTo}`);
 }
 
-export async function submitProposeDeletion(formData: FormData) {
-  const { supabase, member } = await requireMember();
-  const targetPersonId = String(formData.get("person_id") ?? "");
-  if (!targetPersonId) throw new Error("Missing person id");
-  const note = String(formData.get("note") ?? "").trim();
-  if (!note) throw new Error("Please explain why this profile should be removed");
-
-  await applyOrQueue(supabase, member, {
-    change_type: "propose_deletion",
-    target_person_id: targetPersonId,
-    proposed_data: {},
-    previous_data: {},
-    note,
-  });
-
-  revalidatePath("/my-submissions");
-  revalidatePath("/admin/pending");
-}
-
 export async function approvePendingChange(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   const changeId = String(formData.get("change_id") ?? "");

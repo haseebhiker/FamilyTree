@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
-import { submitPersonEdit, submitAddPerson, submitProposeDeletion } from "@/lib/actions/pending-changes";
+import { submitPersonEdit, submitAddPerson } from "@/lib/actions/pending-changes";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
@@ -541,19 +541,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             ))}
           </ul>
         </div>
-      </details>
-
-      <details className="rounded-lg border border-red-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-red-700">
-          Propose removing this profile
-        </summary>
-        <form action={submitProposeDeletion} className="space-y-3 border-t border-red-100 p-4">
-          <input type="hidden" name="person_id" value={person.id} />
-          <Field label="Why should this profile be removed?">
-            <Textarea name="note" rows={2} required />
-          </Field>
-          <Button type="submit" variant="danger">Submit for review</Button>
-        </form>
       </details>
     </div>
   );
