@@ -24,8 +24,20 @@ function AncestorNodeItem({ node, isRoot = false }: { node: AncestorNode; isRoot
       </Link>
       {hasParents && (
         <ul>
-          <li>{node.father ? <AncestorNodeItem node={node.father} /> : <span className="ancestor-blank" />}</li>
-          <li>{node.mother ? <AncestorNodeItem node={node.mother} /> : <span className="ancestor-blank" />}</li>
+          {node.father ? (
+            <AncestorNodeItem node={node.father} />
+          ) : (
+            <li>
+              <span className="ancestor-blank" />
+            </li>
+          )}
+          {node.mother ? (
+            <AncestorNodeItem node={node.mother} />
+          ) : (
+            <li>
+              <span className="ancestor-blank" />
+            </li>
+          )}
         </ul>
       )}
     </li>
