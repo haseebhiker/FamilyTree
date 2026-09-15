@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Textarea, Button } from "@/components/ui";
+import { PhotoUrlField } from "@/components/photo-url-field";
 import type { Person } from "@/lib/types";
 
 /**
@@ -66,6 +67,7 @@ function FormFields({
       <Field label="Preferred name"><Input name="preferred_name" defaultValue={personRaw.preferred_name ?? ""} /></Field>
       <Field label="Surname tag"><Input name="surname_tag" defaultValue={personRaw.surname_tag ?? ""} /></Field>
       <Field label="Other names"><Input name="other_names" defaultValue={personRaw.other_names ?? ""} /></Field>
+      <PhotoUrlField personId={personId} defaultValue={personRaw.photo_url ?? ""} />
       <Field label="Gender">
         <Select name="gender" defaultValue={personRaw.gender ?? ""}>
           <option value="">Unknown</option>
@@ -113,7 +115,6 @@ function FormFields({
 
       <Field label="Place of birth"><Input name="place_of_birth" defaultValue={personRaw.place_of_birth ?? ""} /></Field>
       <Field label="Place of death"><Input name="place_of_death" defaultValue={personRaw.place_of_death ?? ""} /></Field>
-      <Field label="Photo URL"><Input name="photo_url" defaultValue={personRaw.photo_url ?? ""} /></Field>
       <Field label="Facebook URL"><Input name="facebook_url" defaultValue={personRaw.facebook_url ?? ""} /></Field>
       <Field label="LinkedIn URL"><Input name="linkedin_url" defaultValue={personRaw.linkedin_url ?? ""} /></Field>
       <div className="sm:col-span-2"><Field label="Bio / notes"><Textarea name="bio" rows={3} defaultValue={personRaw.bio ?? ""} /></Field></div>
