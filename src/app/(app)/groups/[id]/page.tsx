@@ -8,8 +8,9 @@ import {
   removeMemberFromGroup,
   promoteToGroupAdmin,
 } from "@/lib/actions/groups";
-import { Card, Select, Button, Badge } from "@/components/ui";
+import { Card, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { PersonPicker } from "@/components/person-picker";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,11 +37,14 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const approved = memberships?.filter((m) => m.status === "approved") ?? [];
   const pending = memberships?.filter((m) => m.status === "pending") ?? [];
 
-  const { data: allMembers } = canManage
-    ? await supabase.from("members").select("id, name, email").order("name")
+  const { data: allPeopleForPicker } = canManage
+    ? await supabase
+        .from("people")
+        .select("id, full_name, surname_tag")
+        .is("deleted_at", null)
+        .order("full_name")
+        .limit(2000)
     : { data: [] };
-  const currentMemberIds = new Set((memberships ?? []).map((m) => m.member_id));
-  const addableMembers = (allMembers ?? []).filter((m) => !currentMemberIds.has(m.id));
 
   return (
     <div className="space-y-6">
@@ -127,14 +131,15 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       {canManage && (
         <Card>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Add someone directly</h2>
-          <form action={addMemberToGroup} className="flex gap-2">
+          <p className="mb-3 text-xs text-slate-500">
+            Search anyone in the family tree. If they&apos;ve already signed in to the app, they&apos;re added right
+            away — if not, you&apos;ll be told so you can invite them first.
+          </p>
+          <form action={addMemberToGroup} className="flex flex-wrap gap-2">
             <input type="hidden" name="group_id" value={group.id} />
-            <Select name="member_id" required defaultValue="" className="max-w-xs">
-              <option value="" disabled>Choose a member…</option>
-              {addableMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
-              ))}
-            </Select>
+            <div className="w-full max-w-xs">
+              <PersonPicker name="person_id" people={allPeopleForPicker ?? []} placeholder="Search by name…" />
+            </div>
             <Button type="submit">Add</Button>
           </form>
         </Card>

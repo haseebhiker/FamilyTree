@@ -107,21 +107,37 @@ export async function rejectGroupMembership(formData: FormData) {
 
 export async function addMemberToGroup(formData: FormData) {
   const groupId = String(formData.get("group_id") ?? "");
-  const memberId = String(formData.get("member_id") ?? "");
-  if (!groupId || !memberId) throw new Error("Missing id");
+  const personId = String(formData.get("person_id") ?? "");
+  if (!groupId || !personId) throw new Error("Choose a person to add");
   const { supabase, member: actor } = await requireGroupAdmin(groupId);
+
+  // Groups control who can see shared contact info, which only makes sense
+  // for someone with an actual account — so the picker searches the full
+  // 1000+ person tree, but this resolves back to that person's members
+  // row (if any) rather than taking a member id directly.
+  const { data: personMember } = await supabase
+    .from("members")
+    .select("id, name")
+    .eq("person_id", personId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!personMember) {
+    throw new Error(
+      "That person hasn't signed in to the app yet, so there's no account to add to this group. Invite them from Admin > Invite Management first — once they sign in, you'll be able to add them here.",
+    );
+  }
 
   const { data: existing } = await supabase
     .from("group_memberships")
     .select("id")
     .eq("group_id", groupId)
-    .eq("member_id", memberId)
+    .eq("member_id", personMember.id)
     .maybeSingle();
-  if (existing) throw new Error("That person is already in this group");
+  if (existing) throw new Error(`${personMember.name} is already in this group`);
 
   const { error } = await supabase.from("group_memberships").insert({
     group_id: groupId,
-    member_id: memberId,
+    member_id: personMember.id,
     role: "member",
     status: "approved",
     approved_by: actor.id,
