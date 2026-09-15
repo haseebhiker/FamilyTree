@@ -32,10 +32,12 @@ function ChevronIcon() {
 
 export function NavBar({
   role,
+  personId,
   pendingCount,
   pendingAccessRequestCount,
 }: {
   role: Role;
+  personId: string | null;
   pendingCount: number;
   pendingAccessRequestCount: number;
 }) {
@@ -59,6 +61,11 @@ export function NavBar({
           onClick={closeMenuOnNavClick}
           className="flex items-center gap-4 text-sm font-medium text-slate-600"
         >
+          {personId && (
+            <Link href={`/people/${personId}`} className="hover:text-slate-900">
+              Me
+            </Link>
+          )}
           <Link href="/tree" className="hover:text-slate-900">
             Tree
           </Link>
