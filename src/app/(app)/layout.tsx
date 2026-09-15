@@ -45,7 +45,7 @@ export default async function AppLayout({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">{children}</div>
         <aside className="lg:w-64 lg:shrink-0">
-          <Tip seed={`${member.id}:${member.last_login_at}`} />
+          <Tip seed={`${member.id}:${member.last_login_at}`} isAdmin={isAdmin(member)} />
         </aside>
       </main>
     </div>
