@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { clearLoginLog } from "@/lib/actions/login-log";
 import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { LocalTime } from "@/components/local-time";
 
 export default async function LoginLogPage() {
   const supabase = await createClient();
@@ -40,7 +41,7 @@ export default async function LoginLogPage() {
               <tr className="border-b border-slate-200 text-slate-500">
                 <th className="py-2 pr-4 font-medium">Name</th>
                 <th className="py-2 pr-4 font-medium">Email</th>
-                <th className="py-2 pr-4 font-medium">Signed in</th>
+                <th className="py-2 pr-4 font-medium">Signed in (your local time)</th>
               </tr>
             </thead>
             <tbody>
@@ -48,7 +49,9 @@ export default async function LoginLogPage() {
                 <tr key={e.id} className="border-b border-slate-100">
                   <td className="py-2 pr-4">{e.members?.name ?? "—"}</td>
                   <td className="py-2 pr-4 text-slate-600">{e.email}</td>
-                  <td className="py-2 pr-4 text-slate-500">{new Date(e.logged_in_at).toLocaleString()}</td>
+                  <td className="py-2 pr-4 text-slate-500">
+                    <LocalTime iso={e.logged_in_at} />
+                  </td>
                 </tr>
               ))}
               {!entries?.length && (

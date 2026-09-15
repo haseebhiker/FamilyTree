@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { clearAuditLog } from "@/lib/actions/audit-log";
 import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { LocalTime } from "@/components/local-time";
 
 export default async function AuditLogPage() {
   const supabase = await createClient();
@@ -43,7 +44,7 @@ export default async function AuditLogPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-4 font-medium">When</th>
+                <th className="py-2 pr-4 font-medium">When (your local time)</th>
                 <th className="py-2 pr-4 font-medium">Person</th>
                 <th className="py-2 pr-4 font-medium">Change</th>
                 <th className="py-2 pr-4 font-medium">Submitted by</th>
@@ -56,7 +57,7 @@ export default async function AuditLogPage() {
                 return (
                   <tr key={e.id} className="border-b border-slate-100">
                     <td className="py-2 pr-4 whitespace-nowrap text-slate-500">
-                      {new Date(e.created_at).toLocaleString()}
+                      <LocalTime iso={e.created_at} />
                     </td>
                     <td className="py-2 pr-4">
                       {person ? (
