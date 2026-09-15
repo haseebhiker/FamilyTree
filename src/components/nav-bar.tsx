@@ -59,7 +59,7 @@ export function NavBar({
           onClick={closeMenuOnNavClick}
           className="flex items-center gap-4 text-sm font-medium text-slate-600"
         >
-          <Link href="/" className="hover:text-slate-900">
+          <Link href="/tree" className="hover:text-slate-900">
             Tree
           </Link>
           <Link href="/groups" className="hover:text-slate-900">

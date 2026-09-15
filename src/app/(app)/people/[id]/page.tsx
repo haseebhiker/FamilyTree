@@ -229,19 +229,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
     }));
 
-  const childrenByMarriage = new Map<string, typeof children>();
-  const otherChildren: typeof children = [];
-  for (const child of children ?? []) {
-    const otherParent = child.father_id === person.id ? child.mother_id : child.father_id;
-    if (otherParent && marriages.some((m) => m.spouseId === otherParent)) {
-      const list = childrenByMarriage.get(otherParent) ?? [];
-      list.push(child);
-      childrenByMarriage.set(otherParent, list);
-    } else {
-      otherChildren.push(child);
-    }
-  }
-
   const { data: allPeopleForPicker } =
     !person.father_id || !person.mother_id
       ? await supabase
@@ -332,7 +319,28 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Family</h2>
-        <div className="grid gap-3 text-sm sm:grid-cols-2">
+
+        {marriages.length > 0 && (
+          <div>
+            <div className="font-medium text-slate-500">Spouse{marriages.length > 1 ? "s" : ""}</div>
+            <ul className="ml-4 list-disc text-sm text-slate-700">
+              {marriages.map((m, i) => (
+                <li key={m.spouseId ?? i}>
+                  {m.spouse ? (
+                    <Link href={`/people/${m.spouse.id}`} className="hover:underline">
+                      <PersonName person={m.spouse} />
+                    </Link>
+                  ) : (
+                    "Unknown"
+                  )}
+                  {m.marriage_notes && <span className="text-xs text-slate-400"> — {m.marriage_notes}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className={`grid gap-3 text-sm sm:grid-cols-2 ${marriages.length > 0 ? "mt-5" : ""}`}>
           <div>
             <div className="font-medium text-slate-500">Father</div>
             {father ? (
@@ -355,8 +363,23 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
+        {(children ?? []).length > 0 && (
+          <div className="mt-5">
+            <div className="font-medium text-slate-500">Children</div>
+            <ul className="ml-4 list-disc text-sm text-slate-700">
+              {(children ?? []).map((c) => (
+                <li key={c.id}>
+                  <Link href={`/people/${c.id}`} className="hover:underline">
+                    <PersonName person={c} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {siblings.length > 0 && (
-          <div className="mt-4">
+          <div className="mt-5">
             <div className="font-medium text-slate-500">Siblings</div>
             <ul className="ml-4 list-disc text-sm text-slate-700">
               {siblings.map((s) => (
@@ -365,52 +388,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     <PersonName person={s} />
                   </Link>
                   {s.isHalf && <span className="text-xs text-slate-400"> (half-sibling)</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {marriages.length > 0 && (
-          <div className="mt-4 space-y-3">
-            {marriages.map((m, i) => (
-              <div key={m.spouseId ?? i}>
-                <div className="font-medium text-slate-500">
-                  Spouse:{" "}
-                  {m.spouse ? (
-                    <Link href={`/people/${m.spouse.id}`} className="text-slate-900 hover:underline">
-                      <PersonName person={m.spouse} />
-                    </Link>
-                  ) : (
-                    "Unknown"
-                  )}
-                </div>
-                {m.marriage_notes && <p className="text-xs text-slate-500">{m.marriage_notes}</p>}
-                {(childrenByMarriage.get(m.spouseId ?? "") ?? []).length > 0 && (
-                  <ul className="mt-1 ml-4 list-disc text-slate-700">
-                    {childrenByMarriage.get(m.spouseId ?? "")!.map((c) => (
-                      <li key={c.id}>
-                        <Link href={`/people/${c.id}`} className="hover:underline">
-                          <PersonName person={c} />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {otherChildren.length > 0 && (
-          <div className="mt-4">
-            <div className="font-medium text-slate-500">Children</div>
-            <ul className="ml-4 list-disc text-sm text-slate-700">
-              {otherChildren.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/people/${c.id}`} className="hover:underline">
-                    <PersonName person={c} />
-                  </Link>
                 </li>
               ))}
             </ul>
