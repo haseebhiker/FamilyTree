@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import type { Role } from "@/lib/types";
@@ -38,6 +40,12 @@ export function NavBar({
 }) {
   const isAdmin = role === "admin" || role === "super_admin";
   const badgeCount = pendingCount + pendingAccessRequestCount;
+  const pathname = usePathname();
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (menuRef.current) menuRef.current.open = false;
+  }, [pathname]);
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -58,7 +66,7 @@ export function NavBar({
             <SearchIcon />
           </Link>
 
-          <details className="group relative">
+          <details ref={menuRef} className="group relative">
             <summary
               className="relative flex cursor-pointer list-none items-center hover:text-slate-900 [&::-webkit-details-marker]:hidden"
               aria-label="Menu"
@@ -70,7 +78,12 @@ export function NavBar({
                 </span>
               )}
             </summary>
-            <div className="absolute right-0 z-10 mt-2 w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+            <div
+              onClick={() => {
+                if (menuRef.current) menuRef.current.open = false;
+              }}
+              className="absolute right-0 z-10 mt-2 w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+            >
               <Link href="/groups" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Groups
               </Link>
