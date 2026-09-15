@@ -37,7 +37,10 @@ export async function createInvite(formData: FormData) {
     invited_by: member.id,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") throw new Error(`${email} has already been invited — check the list below.`);
+    throw new Error(error.message);
+  }
   revalidatePath("/admin/invites");
 }
 
