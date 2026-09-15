@@ -35,12 +35,13 @@ export default function InstallHelpPage() {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-base font-semibold text-slate-900">iPhone / iPad (Safari)</h2>
+        <h2 className="mb-3 text-base font-semibold text-slate-900">iPhone / iPad</h2>
         <Steps>
-          <li>Open this site in the <strong>Safari</strong> app (this only works in Safari, not Chrome, on iPhone)</li>
+          <li>Open this site in <strong>Safari</strong> or <strong>Chrome</strong></li>
           <li>
             Tap the <ShareIcon />
-            <strong>Share</strong> button — the square with an arrow pointing up, at the bottom of the screen
+            <strong>Share</strong> button — the square with an arrow pointing up, at the bottom of the screen (in
+            Safari) or top of the screen (in Chrome)
           </li>
           <li>Scroll down the menu that pops up and tap <strong>&quot;Add to Home Screen&quot;</strong></li>
           <li>Tap <strong>&quot;Add&quot;</strong> in the top-right corner</li>
