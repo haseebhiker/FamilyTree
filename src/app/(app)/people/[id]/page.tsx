@@ -213,17 +213,17 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           {person.preferred_name && <p className="text-sm text-slate-600">Goes by {person.preferred_name}</p>}
           {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
           <div className="mt-1 flex items-center gap-2">
-            <Badge
-              className={
-                person.living_status === "deceased"
-                  ? "bg-slate-200 text-slate-700"
-                  : person.living_status === "living"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-slate-100 text-slate-500"
-              }
-            >
-              {person.living_status}
-            </Badge>
+            {person.living_status !== "unknown" && (
+              <Badge
+                className={
+                  person.living_status === "deceased"
+                    ? "bg-slate-200 text-slate-700"
+                    : "bg-green-100 text-green-800"
+                }
+              >
+                {person.living_status}
+              </Badge>
+            )}
             {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
             {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
           </div>
