@@ -19,11 +19,13 @@ function TreeNode({
   childrenByParent,
   depth,
   defaultExpanded,
+  pathToMeIds,
 }: {
   person: TreeNodeData;
   childrenByParent: Map<string, TreeNodeData[]>;
   depth: number;
   defaultExpanded: boolean;
+  pathToMeIds: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const kids = childrenByParent.get(person.id) ?? [];
@@ -45,11 +47,7 @@ function TreeNode({
         )}
         <Link
           href={`/people/${person.id}`}
-          className={
-            person.living_status === "deceased"
-              ? "text-sm text-slate-500 hover:underline"
-              : "text-sm text-slate-900 hover:underline"
-          }
+          className={`text-sm hover:underline ${pathToMeIds.has(person.id) ? "font-semibold text-slate-900" : "text-slate-900"}`}
         >
           <PersonName person={person} />
         </Link>
@@ -63,7 +61,8 @@ function TreeNode({
               person={child}
               childrenByParent={childrenByParent}
               depth={depth + 1}
-              defaultExpanded={depth + 1 < 1}
+              defaultExpanded={pathToMeIds.size > 0 ? pathToMeIds.has(child.id) : depth + 1 < 1}
+              pathToMeIds={pathToMeIds}
             />
           ))}
         </ul>
@@ -72,8 +71,46 @@ function TreeNode({
   );
 }
 
-export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeople: TreeNodeData[] }) {
+export function TreeView({
+  roots,
+  allPeople,
+  myPersonId,
+}: {
+  roots: TreeNodeData[];
+  allPeople: TreeNodeData[];
+  myPersonId?: string | null;
+}) {
   const [query, setQuery] = useState("");
+
+  // The chain of ancestors from "me" up to whichever root it connects to
+  // (there can be two candidate lines — paternal and maternal — so this
+  // explores both and keeps the one that actually reaches a root, shortest
+  // first) — every id on it auto-expands, so opening the tree lands you
+  // looking at your own direct lineage instead of a wall of collapsed
+  // branches.
+  const pathToMeIds = useMemo(() => {
+    if (!myPersonId) return new Set<string>();
+    const byId = new Map(allPeople.map((p) => [p.id, p]));
+    const rootIds = new Set(roots.map((r) => r.id));
+    if (!byId.has(myPersonId)) return new Set<string>();
+
+    const queue: string[][] = [[myPersonId]];
+    const visited = new Set([myPersonId]);
+    while (queue.length > 0) {
+      const path = queue.shift()!;
+      const lastId = path[path.length - 1];
+      if (rootIds.has(lastId)) return new Set(path);
+      const person = byId.get(lastId);
+      if (!person) continue;
+      for (const parentId of [person.father_id, person.mother_id]) {
+        if (parentId && !visited.has(parentId)) {
+          visited.add(parentId);
+          queue.push([...path, parentId]);
+        }
+      }
+    }
+    return new Set<string>();
+  }, [allPeople, roots, myPersonId]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, TreeNodeData[]>();
@@ -132,18 +169,31 @@ export function TreeView({ roots, allPeople }: { roots: TreeNodeData[]; allPeopl
 
       {mainRoot && (
         <ul>
-          <TreeNode person={mainRoot} childrenByParent={childrenByParent} depth={0} defaultExpanded />
+          <TreeNode
+            person={mainRoot}
+            childrenByParent={childrenByParent}
+            depth={0}
+            defaultExpanded
+            pathToMeIds={pathToMeIds}
+          />
         </ul>
       )}
 
       {otherRoots.length > 0 && (
-        <details className="rounded-lg border border-slate-200 bg-white">
+        <details className="rounded-lg border border-slate-200 bg-white" open={otherRoots.some((r) => pathToMeIds.has(r.id))}>
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-600">
             Other family lines not yet connected to the main tree ({otherRoots.length})
           </summary>
           <ul className="border-t border-slate-100 p-4 pt-2">
             {otherRoots.map((root) => (
-              <TreeNode key={root.id} person={root} childrenByParent={childrenByParent} depth={0} defaultExpanded={false} />
+              <TreeNode
+                key={root.id}
+                person={root}
+                childrenByParent={childrenByParent}
+                depth={0}
+                defaultExpanded={pathToMeIds.has(root.id)}
+                pathToMeIds={pathToMeIds}
+              />
             ))}
           </ul>
         </details>

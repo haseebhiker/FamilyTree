@@ -1,9 +1,15 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentMember } from "@/lib/members";
 import { TreeView, type TreeNodeData } from "@/components/tree-view";
 import { Card } from "@/components/ui";
 
 export default async function TreePage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const member = await getCurrentMember(supabase, user!.id);
 
   // Supabase's project-level "Max Rows" API setting (default 1000) caps
   // any single request regardless of an explicit .limit() — silently, with
@@ -62,8 +68,14 @@ export default async function TreePage() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
+        <span className="text-slate-900">Tree</span>
+        <Link href="/tree/surnames" className="hover:text-slate-900">
+          Surnames
+        </Link>
+      </div>
       <p className="text-sm text-slate-500">{allPeople.length} people</p>
-      <TreeView roots={roots} allPeople={allPeople} />
+      <TreeView roots={roots} allPeople={allPeople} myPersonId={member?.person_id} />
     </div>
   );
 }
