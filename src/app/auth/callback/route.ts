@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { provisionMemberFromInvite } from "@/lib/members";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -11,17 +12,21 @@ export async function GET(request: Request) {
     if (error) console.error("[auth/callback] exchangeCodeForSession failed:", error.message, error);
 
     if (!error && data.user) {
-      // Always the accept_invite() RPC directly here, not the cheap
-      // read-first provisionMemberFromInvite path used by the
-      // per-navigation middleware: this route only fires on an actual sign-in,
-      // so the extra round trip doesn't matter, and the RPC's own upsert is
-      // what refreshes last_login_at — the plain read used elsewhere never
-      // touches it, which is why it used to only ever reflect someone's
-      // very first sign-in and go stale after that. Also a members-table
-      // update would need the RPC's elevated privilege anyway: a
-      // non-admin's own plain client update to their own row is blocked
-      // by RLS (only admins can update members directly).
-      const { data: member } = await supabase.rpc("accept_invite");
+      // Reverted to the cheap read-first path (provisionMemberFromInvite)
+      // instead of always calling accept_invite(): that RPC's upsert sets
+      // person_id = the INVITE's own person_id unconditionally on every
+      // call, including for an EXISTING member on a routine returning
+      // sign-in. An invite's person_id is normally only ever set at invite
+      // creation — linking someone to their tree profile LATER (the
+      // "Linked profile" flow in Invite Management, linkMemberToPerson)
+      // only updates the members row, never the original invite. So
+      // calling accept_invite() on every login was silently WIPING
+      // person_id back to null for anyone linked after the fact, on their
+      // very next sign-in. Confirmed this happened to a real account.
+      // The last_login_at freshness this was fixing needs a different
+      // approach — one that doesn't re-run accept_invite()'s full upsert
+      // on every login — see the pending fix to accept_invite() itself.
+      const member = await provisionMemberFromInvite(supabase, data.user);
 
       if (member) {
         // Recorded on every sign-in, not just the first — see
