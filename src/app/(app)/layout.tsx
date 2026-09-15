@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { NavBar } from "@/components/nav-bar";
+import { TipOfTheDay } from "@/components/tip-of-the-day";
 
 export default async function AppLayout({
   children,
@@ -32,8 +33,11 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <NavBar role={member.role} pendingCount={pendingCount} pendingAccessRequestCount={pendingAccessRequestCount} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
-        {children}
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">{children}</div>
+        <aside className="lg:w-64 lg:shrink-0">
+          <TipOfTheDay />
+        </aside>
       </main>
     </div>
   );
