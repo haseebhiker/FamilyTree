@@ -49,7 +49,8 @@ export default async function InvitesPage() {
 
       <Card>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Invite someone new</h2>
-        <form action={createInvite} className="grid gap-3 sm:grid-cols-2">
+        {/* key forces a fresh form (clearing every field) once the invite list actually grows, since these are uncontrolled inputs that otherwise keep their typed values after the server action completes. */}
+        <form key={invites?.length ?? 0} action={createInvite} className="grid gap-3 sm:grid-cols-2">
           <Field label="Name">
             <Input name="name" required placeholder="Full name" />
           </Field>
