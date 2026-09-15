@@ -16,11 +16,13 @@ export function PersonPicker({
   people,
   placeholder = "Search by name…",
   defaultPersonId,
+  autoFocus,
 }: {
   name: string;
   people: PersonOption[];
   placeholder?: string;
   defaultPersonId?: string;
+  autoFocus?: boolean;
 }) {
   const defaultPerson = people.find((p) => p.id === defaultPersonId);
   const [query, setQuery] = useState(defaultPerson ? displayNameText(defaultPerson) : "");
@@ -48,6 +50,7 @@ export function PersonPicker({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder}
         autoComplete="off"
+        autoFocus={autoFocus}
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
       />
       {selectedId && (

@@ -71,7 +71,7 @@ export default async function ComparePage({
       <Card>
         <form method="GET" className="grid gap-3 sm:grid-cols-2">
           <Field label="Person A">
-            <PersonPicker name="a" people={people ?? []} defaultPersonId={a} placeholder="Search by name…" />
+            <PersonPicker name="a" people={people ?? []} defaultPersonId={a} placeholder="Search by name…" autoFocus />
           </Field>
           <Field label="Person B">
             <PersonPicker name="b" people={people ?? []} defaultPersonId={b} placeholder="Search by name…" />

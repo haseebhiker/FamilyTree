@@ -5,6 +5,7 @@ import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
 import { PersonName } from "@/components/person-name";
+import { AutoSubmitCheckbox } from "@/components/auto-submit-checkbox";
 
 const PATH_LABELS: Record<string, string> = {
   "/": "Home",
@@ -24,13 +25,33 @@ const PATH_LABELS: Record<string, string> = {
 
 const PERSON_PATH = /^\/people\/([0-9a-f-]{36})$/;
 
-export default async function ActivityLogPage() {
+export default async function ActivityLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ showMine?: string }>;
+}) {
+  const { showMine } = await searchParams;
+  const includeMine = showMine === "1";
+
   const supabase = await createClient();
-  const { data: entries } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Defaults to hiding the viewing admin's own activity — an admin testing
+  // the app generates far more entries than anyone else, burying the
+  // actual "who's using this and how" signal this log exists for. The
+  // checkbox lets them bring their own rows back just to sanity-check the
+  // log itself is working.
+  let query = supabase
     .from("page_view_log")
     .select("*, members(name)")
     .order("viewed_at", { ascending: false })
     .limit(500);
+  if (!includeMine && user) {
+    query = query.neq("member_id", user.id);
+  }
+  const { data: entries } = await query;
 
   const personIds = new Set<string>();
   for (const e of entries ?? []) {
@@ -55,6 +76,9 @@ export default async function ActivityLogPage() {
             Every page a member visits, kept for 7 days automatically (older entries clear themselves out — no
             action needed).
           </p>
+          <div className="mt-2">
+            <AutoSubmitCheckbox param="showMine" defaultChecked={includeMine} label="Show my own activity too" />
+          </div>
         </div>
         {entries && entries.length > 0 && (
           <form action={clearPageViewLog}>
