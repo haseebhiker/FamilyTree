@@ -69,6 +69,45 @@ async function notifySubmitterOfDecision() {
 }
 
 /**
+ * Which slot (father_id/mother_id) `personId` should fill as a NEW child's
+ * parent — this is about `personId`'s OWN gender, never the new child's.
+ * Prefers the recorded `gender` column; falls back to inferring it from
+ * where else `personId` already appears (as someone's father_id/mother_id,
+ * or as a spouse of someone whose own gender is known) before giving up.
+ */
+async function resolveParentGender(supabase: SupabaseClient, personId: string): Promise<"father" | "mother" | null> {
+  const { data: person } = await supabase.from("people").select("gender").eq("id", personId).maybeSingle();
+  if (person?.gender === "M") return "father";
+  if (person?.gender === "F") return "mother";
+
+  const { count: asFather } = await supabase
+    .from("people")
+    .select("id", { count: "exact", head: true })
+    .eq("father_id", personId);
+  if ((asFather ?? 0) > 0) return "father";
+  const { count: asMother } = await supabase
+    .from("people")
+    .select("id", { count: "exact", head: true })
+    .eq("mother_id", personId);
+  if ((asMother ?? 0) > 0) return "mother";
+
+  const { data: spouseRow } = await supabase
+    .from("spouses")
+    .select("person_a_id, person_b_id")
+    .or(`person_a_id.eq.${personId},person_b_id.eq.${personId}`)
+    .limit(1)
+    .maybeSingle();
+  if (spouseRow) {
+    const spouseId = spouseRow.person_a_id === personId ? spouseRow.person_b_id : spouseRow.person_a_id;
+    const { data: spouse } = await supabase.from("people").select("gender").eq("id", spouseId).maybeSingle();
+    if (spouse?.gender === "M") return "mother";
+    if (spouse?.gender === "F") return "father";
+  }
+
+  return null;
+}
+
+/**
  * Applies one change's proposed_data to the live tables. Shared by (a) the
  * admin approval action and (b) an admin's own edit, which — per design
  * doc §6.5 — auto-applies instead of sitting in the queue. Returns the id
@@ -104,8 +143,16 @@ async function applyChange(
     const insertPayload: Record<string, unknown> = { ...personFields };
 
     if (relation_type === "child" && relation_to_person_id) {
-      insertPayload.father_id = parent_gender === "mother" ? other_parent_id ?? null : relation_to_person_id;
-      insertPayload.mother_id = parent_gender === "mother" ? relation_to_person_id : other_parent_id ?? null;
+      // `parent_gender` in proposed_data reflects the RELATION picked at
+      // submission time (e.g. "daughter"), which is the new child's own
+      // gender, not relation_to_person_id's — using it directly would file
+      // a father under mother_id any time someone adds a daughter to his
+      // profile. Resolve relation_to_person_id's actual gender fresh here
+      // instead, falling back to the submitted value only if that's
+      // genuinely undeterminable.
+      const resolvedGender = (await resolveParentGender(supabase, relation_to_person_id as string)) ?? parent_gender;
+      insertPayload.father_id = resolvedGender === "mother" ? other_parent_id ?? null : relation_to_person_id;
+      insertPayload.mother_id = resolvedGender === "mother" ? relation_to_person_id : other_parent_id ?? null;
     }
 
     if (relation_type === "sibling" && relation_to_person_id) {
@@ -203,7 +250,13 @@ async function applyChange(
       return change.target_person_id;
     }
 
-    const parentField = parent_gender === "mother" ? "mother_id" : "father_id";
+    // The correct slot always tracks existing_person_id's OWN gender (the
+    // person actually being written into father_id/mother_id) — resolve it
+    // fresh rather than trusting parent_gender, which for the "add this
+    // existing person as a child" shape was computed from the CHILD's
+    // gender at submission time, not the parent being linked.
+    const resolvedGender = (await resolveParentGender(supabase, existing_person_id as string)) ?? parent_gender;
+    const parentField = resolvedGender === "mother" ? "mother_id" : "father_id";
     const { error } = await supabase
       .from("people")
       .update({ [parentField]: existing_person_id })
