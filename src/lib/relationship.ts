@@ -227,7 +227,7 @@ export function findRelationshipPaths(
   spouses: SpouseEdge[],
   sourceId: string,
   targetId: string,
-  maxPaths = 5,
+  maxPaths = 20,
 ): { paths: PathStep[][]; genders: Map<string, Gender> } {
   const fullAdjacency = buildAdjacency(people, spouses);
   const genders = inferGenders(people);
@@ -321,6 +321,37 @@ function blood(steps: PathStep[], genders: Map<string, Gender>): string | null {
   if (up + down !== steps.length || steps.length === 0) return null;
   const gender = genders.get(steps[steps.length - 1].id) ?? null;
   return describeBlood(up, down, gender);
+}
+
+/**
+ * A more specific phrase than the canonical headline term, disambiguating
+ * which side or which sibling a relationship runs through — e.g. "father's
+ * sister" rather than just "aunt". Only defined for the two shapes with an
+ * obvious one-hop English decomposition (aunt/uncle, niece/nephew); a
+ * direct-line or sibling term is already as specific as it gets, and
+ * cousins/deeper/in-law paths don't have as clean a one-line phrase, so
+ * those return null — the caller falls back to just the canonical term
+ * plus the full step-by-step chain, which is always shown regardless.
+ */
+export function describeSpecificBlood(steps: PathStep[], genders: Map<string, Gender>): string | null {
+  const up = steps.filter((s) => s.kind === "father" || s.kind === "mother").length;
+  const down = steps.filter((s) => s.kind === "child").length;
+  if (up + down !== steps.length || steps.length === 0) return null;
+
+  if (up === 2 && down === 1) {
+    // aunt/uncle: "{first hop}'s {sibling term}"
+    const targetGender = genders.get(steps[steps.length - 1].id) ?? null;
+    const siblingTerm = targetGender === "M" ? "brother" : targetGender === "F" ? "sister" : "sibling";
+    return `${stepLabel(steps[0].kind, null)}'s ${siblingTerm}`;
+  }
+  if (up === 1 && down === 2) {
+    // niece/nephew: "{sibling term}'s {final hop}"
+    const siblingGender = genders.get(steps[1].id) ?? null;
+    const siblingTerm = siblingGender === "M" ? "brother" : siblingGender === "F" ? "sister" : "sibling";
+    const finalGender = genders.get(steps[steps.length - 1].id) ?? null;
+    return `${siblingTerm}'s ${stepLabel(steps[steps.length - 1].kind, finalGender)}`;
+  }
+  return null;
 }
 
 /**

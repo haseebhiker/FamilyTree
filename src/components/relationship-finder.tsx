@@ -1,8 +1,14 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { PersonName } from "@/components/person-name";
-import { stepLabel, describeRelationship, type PathStep, type Gender } from "@/lib/relationship";
+import {
+  stepLabel,
+  describeRelationship,
+  describeSpecificBlood,
+  type PathStep,
+  type Gender,
+} from "@/lib/relationship";
 
 interface PersonLite {
   id: string;
@@ -11,66 +17,126 @@ interface PersonLite {
   surname_tag: string | null;
 }
 
+function RelationshipPath({
+  steps,
+  genders,
+  peopleById,
+  sourceLabel,
+  possessive,
+}: {
+  steps: PathStep[];
+  genders: Map<string, Gender>;
+  peopleById: Map<string, PersonLite>;
+  sourceLabel: ReactNode;
+  possessive: string;
+}) {
+  const summary = describeRelationship(steps, genders);
+  const specific = describeSpecificBlood(steps, genders);
+  const last = peopleById.get(steps[steps.length - 1].id);
+
+  return (
+    <details className="rounded-md border border-slate-200 p-3">
+      <summary className="cursor-pointer list-none text-sm text-slate-800">
+        {summary ? (
+          <>
+            {last ? <PersonName person={last} /> : "They"} is {possessive} <span className="font-semibold">{summary}</span>
+          </>
+        ) : (
+          <>See the connection ({steps.length} steps)</>
+        )}
+      </summary>
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        {specific && (
+          <p className="mb-2 text-xs text-slate-600">
+            Specifically: <span className="font-medium">{specific}</span>
+          </p>
+        )}
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-3 text-xs">
+          <div className="text-center">
+            <div className="font-medium text-slate-900">{sourceLabel}</div>
+          </div>
+          {steps.map((step) => {
+            const person = peopleById.get(step.id);
+            const gender = genders.get(step.id) ?? null;
+            return (
+              <Fragment key={step.id}>
+                <span className="pt-1 text-slate-300">→</span>
+                <div className="text-center">
+                  {person ? (
+                    <Link href={`/people/${person.id}`} className="font-medium text-slate-900 hover:underline">
+                      <PersonName person={person} />
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-slate-400">Unknown</span>
+                  )}
+                  <div className="text-slate-400">{stepLabel(step.kind, gender)}</div>
+                </div>
+              </Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export function RelationshipFinder({
   paths,
   genders,
   peopleById,
+  title = "How you're related",
+  sourceLabel = "You",
+  possessive = "your",
 }: {
   paths: PathStep[][];
   genders: Map<string, Gender>;
   peopleById: Map<string, PersonLite>;
+  title?: string;
+  sourceLabel?: ReactNode;
+  possessive?: string;
 }) {
   if (paths.length === 0) return null;
 
+  const visible = paths.slice(0, 2);
+  const rest = paths.slice(2);
+
   return (
     <Card>
-      <h2 className="mb-1 text-sm font-semibold text-slate-900">How you&apos;re related</h2>
+      <h2 className="mb-1 text-sm font-semibold text-slate-900">{title}</h2>
       {paths.length > 1 && (
         <p className="mb-3 text-xs text-slate-500">Related {paths.length} different ways — see each below.</p>
       )}
       <div className="space-y-2">
-        {paths.map((steps, i) => {
-          const summary = describeRelationship(steps, genders);
-          const last = peopleById.get(steps[steps.length - 1].id);
-          return (
-            <details key={i} className="rounded-md border border-slate-200 p-3">
-              <summary className="cursor-pointer list-none text-sm text-slate-800">
-                {summary ? (
-                  <>
-                    {last ? <PersonName person={last} /> : "They"} is your <span className="font-semibold">{summary}</span>
-                  </>
-                ) : (
-                  <>See the connection ({steps.length} steps)</>
-                )}
-              </summary>
-              <div className="mt-3 flex flex-wrap items-start gap-x-2 gap-y-3 border-t border-slate-100 pt-3 text-xs">
-                <div className="text-center">
-                  <div className="font-medium text-slate-900">You</div>
-                </div>
-                {steps.map((step) => {
-                  const person = peopleById.get(step.id);
-                  const gender = genders.get(step.id) ?? null;
-                  return (
-                    <Fragment key={step.id}>
-                      <span className="pt-1 text-slate-300">→</span>
-                      <div className="text-center">
-                        {person ? (
-                          <Link href={`/people/${person.id}`} className="font-medium text-slate-900 hover:underline">
-                            <PersonName person={person} />
-                          </Link>
-                        ) : (
-                          <span className="font-medium text-slate-400">Unknown</span>
-                        )}
-                        <div className="text-slate-400">{stepLabel(step.kind, gender)}</div>
-                      </div>
-                    </Fragment>
-                  );
-                })}
-              </div>
-            </details>
-          );
-        })}
+        {visible.map((steps, i) => (
+          <RelationshipPath
+            key={i}
+            steps={steps}
+            genders={genders}
+            peopleById={peopleById}
+            sourceLabel={sourceLabel}
+            possessive={possessive}
+          />
+        ))}
       </div>
+      {rest.length > 0 && (
+        <details className="mt-2 rounded-md border border-slate-200">
+          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-slate-500">
+            Show {rest.length} more {rest.length === 1 ? "relationship" : "relationships"}
+          </summary>
+          <div className="space-y-2 border-t border-slate-100 p-2">
+            {rest.map((steps, i) => (
+              <RelationshipPath
+                key={i}
+                steps={steps}
+                genders={genders}
+                peopleById={peopleById}
+                sourceLabel={sourceLabel}
+                possessive={possessive}
+              />
+            ))}
+          </div>
+        </details>
+      )}
     </Card>
   );
 }

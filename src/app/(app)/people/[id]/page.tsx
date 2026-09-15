@@ -299,6 +299,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
             {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
           </div>
+          <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
+            Compare relationship with someone else…
+          </Link>
         </div>
       </div>
 
