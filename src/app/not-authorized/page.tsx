@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
+import { Card, Field, Input, Textarea, Badge } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import { submitAccessRequest } from "@/lib/actions/access-requests";
@@ -121,9 +121,12 @@ export default async function NotAuthorizedPage() {
             <Field label="Anything else? (optional)">
               <Textarea name="notes" rows={2} />
             </Field>
-            <Button type="submit" className="w-full">
+            <PendingButton
+              className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+              pendingChildren="Submitting…"
+            >
               {existingRequest?.status === "rejected" ? "Submit another request" : "Request access"}
-            </Button>
+            </PendingButton>
           </form>
         )}
 

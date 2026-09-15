@@ -4,6 +4,7 @@ import { approveAccessRequest, rejectAccessRequest } from "@/lib/actions/access-
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
+import { PersonName } from "@/components/person-name";
 
 export default async function AccessRequestsPage() {
   const supabase = await createClient();
@@ -24,6 +25,7 @@ export default async function AccessRequestsPage() {
     .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
+  const peopleById = new Map((people ?? []).map((p) => [p.id, p]));
 
   const pending = requests?.filter((r) => r.status === "pending") ?? [];
   const decided = requests?.filter((r) => r.status !== "pending") ?? [];
@@ -47,6 +49,12 @@ export default async function AccessRequestsPage() {
             </div>
             <span className="text-xs text-slate-400">{new Date(req.created_at).toLocaleDateString()}</span>
           </div>
+          {req.known_person_id && peopleById.has(req.known_person_id) && (
+            <p className="mb-1 text-sm text-slate-700">
+              <span className="font-medium text-slate-500">Says they know: </span>
+              <PersonName person={peopleById.get(req.known_person_id)!} />
+            </p>
+          )}
           <p className="mb-1 text-sm text-slate-700">
             <span className="font-medium text-slate-500">Relation: </span>
             {req.relation_description}
@@ -68,7 +76,12 @@ export default async function AccessRequestsPage() {
             </Field>
             <Field label="Link to existing profile (optional)">
               <div className="min-w-56">
-                <PersonPicker name="person_id" people={people ?? []} placeholder="Search by name…" />
+                <PersonPicker
+                  name="person_id"
+                  people={people ?? []}
+                  placeholder="Search by name…"
+                  defaultPersonId={req.known_person_id ?? undefined}
+                />
               </div>
             </Field>
             <PendingButton
