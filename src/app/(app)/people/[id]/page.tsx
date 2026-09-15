@@ -3,7 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
-import { submitPersonEdit, submitAddPerson } from "@/lib/actions/pending-changes";
+import { submitPersonEdit, submitAddPerson, submitLinkExistingParent } from "@/lib/actions/pending-changes";
+import { PersonPicker } from "@/components/person-picker";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
@@ -166,6 +167,17 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       otherChildren.push(child);
     }
   }
+
+  const { data: allPeopleForPicker } =
+    !person.father_id || !person.mother_id
+      ? await supabase
+          .from("people")
+          .select("id, full_name, surname_tag")
+          .is("deleted_at", null)
+          .neq("id", person.id)
+          .order("full_name")
+          .limit(2000)
+      : { data: [] };
 
   const birthDisplay = formatPartialDate({ year: person.birth_year, month: person.birth_month, day: person.birth_day });
   const deathDisplay = formatPartialDate({ year: person.death_year, month: person.death_month, day: person.death_day });
@@ -500,6 +512,26 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a parent of <PersonName person={person} /></p>
               <Field label="Parent's full name"><Input name="full_name" required /></Field>
               <Field label="Surname tag"><Input name="surname_tag" /></Field>
+              <Field label="This person is the">
+                <Select name="parent_gender" defaultValue="father">
+                  {!person.father_id && <option value="father">Father</option>}
+                  {!person.mother_id && <option value="mother">Mother</option>}
+                </Select>
+              </Field>
+              <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" /></Field></div>
+              <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
+            </form>
+          )}
+
+          {(!person.father_id || !person.mother_id) && (
+            <form action={submitLinkExistingParent} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+              <input type="hidden" name="person_id" value={person.id} />
+              <p className="text-sm font-medium text-slate-700 sm:col-span-2">
+                Or link someone already in the tree as a parent of <PersonName person={person} />
+              </p>
+              <Field label="Search for the person">
+                <PersonPicker name="parent_person_id" people={allPeopleForPicker ?? []} />
+              </Field>
               <Field label="This person is the">
                 <Select name="parent_gender" defaultValue="father">
                   {!person.father_id && <option value="father">Father</option>}

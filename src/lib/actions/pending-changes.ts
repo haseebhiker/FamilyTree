@@ -109,6 +109,17 @@ async function applyChange(
     return newPerson.id;
   }
 
+  if (change.change_type === "add_relationship") {
+    const { existing_person_id, parent_gender } = proposedData;
+    const parentField = parent_gender === "mother" ? "mother_id" : "father_id";
+    const { error } = await supabase
+      .from("people")
+      .update({ [parentField]: existing_person_id })
+      .eq("id", change.target_person_id);
+    if (error) throw new Error(error.message);
+    return change.target_person_id;
+  }
+
   if (change.change_type === "propose_deletion") {
     // Soft delete only — see softDeletePerson in people-admin.ts for why.
     const { error } = await supabase
@@ -264,6 +275,36 @@ export async function submitAddPerson(formData: FormData) {
   revalidatePath("/my-submissions");
   revalidatePath("/admin/pending");
   if (relationTo) revalidatePath(`/people/${relationTo}`);
+}
+
+export async function submitLinkExistingParent(formData: FormData) {
+  const { supabase, member } = await requireMember();
+
+  const targetPersonId = String(formData.get("person_id") ?? "").trim();
+  const parentPersonId = String(formData.get("parent_person_id") ?? "").trim();
+  const parentGender = String(formData.get("parent_gender") ?? "").trim();
+
+  if (!targetPersonId) throw new Error("Missing person id");
+  if (!parentPersonId) throw new Error("Choose a person to link");
+  if (parentPersonId === targetPersonId) throw new Error("A person can't be their own parent");
+  if (parentGender !== "father" && parentGender !== "mother") throw new Error("Invalid parent type");
+
+  await applyOrQueue(supabase, member, {
+    change_type: "add_relationship",
+    target_person_id: targetPersonId,
+    proposed_data: {
+      relation_to_person_id: targetPersonId,
+      existing_person_id: parentPersonId,
+      parent_gender: parentGender,
+    },
+    previous_data: {},
+    note: String(formData.get("note") ?? "").trim() || null,
+  });
+
+  revalidatePath("/my-submissions");
+  revalidatePath("/admin/pending");
+  revalidatePath(`/people/${targetPersonId}`);
+  revalidatePath(`/people/${parentPersonId}`);
 }
 
 export async function approvePendingChange(formData: FormData) {

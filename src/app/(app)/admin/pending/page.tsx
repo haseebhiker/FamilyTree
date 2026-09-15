@@ -37,7 +37,13 @@ export default async function PendingApprovalsPage() {
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
-  const targetIds = [...new Set((changes ?? []).map((c) => c.target_person_id).filter(Boolean))];
+  const targetIds = [
+    ...new Set(
+      (changes ?? [])
+        .flatMap((c) => [c.target_person_id, c.proposed_data?.existing_person_id])
+        .filter(Boolean),
+    ),
+  ];
   const { data: targetPeople } =
     targetIds.length > 0
       ? await supabase.from("people").select("id, full_name, surname_tag").in("id", targetIds)
@@ -103,16 +109,22 @@ export default async function PendingApprovalsPage() {
                 </div>
               ) : (
                 <div className="rounded-md border border-slate-200 p-3 text-sm">
-                  {proposedEntries.map(([field, value]) => (
-                    <div key={field} className="border-b border-slate-100 py-1 last:border-0">
-                      <span className="font-medium text-slate-500">{field.replace(/_/g, " ")}: </span>
-                      {value == null || value === "" ? (
-                        <span className="italic text-slate-400">empty</span>
-                      ) : (
-                        String(value)
-                      )}
-                    </div>
-                  ))}
+                  {proposedEntries.map(([field, value]) => {
+                    const isPersonRef = field === "existing_person_id" || field === "relation_to_person_id";
+                    const linkedPerson = isPersonRef && typeof value === "string" ? peopleById.get(value) : null;
+                    return (
+                      <div key={field} className="border-b border-slate-100 py-1 last:border-0">
+                        <span className="font-medium text-slate-500">{field.replace(/_/g, " ")}: </span>
+                        {value == null || value === "" ? (
+                          <span className="italic text-slate-400">empty</span>
+                        ) : linkedPerson ? (
+                          `${linkedPerson.full_name}${linkedPerson.surname_tag ? ` /${linkedPerson.surname_tag}/` : ""}`
+                        ) : (
+                          String(value)
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
