@@ -22,11 +22,12 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   const { data: group } = await supabase.from("groups").select("*").eq("id", id).maybeSingle();
   if (!group) notFound();
 
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("group_memberships")
     .select("*, members(id, name, email)")
     .eq("group_id", id)
     .order("requested_at");
+  if (membershipsError) console.error("[groups/[id]] memberships query error:", membershipsError);
 
   const myMembership = memberships?.find((m) => m.member_id === member!.id);
   const isGroupAdmin = myMembership?.role === "admin" && myMembership.status === "approved";

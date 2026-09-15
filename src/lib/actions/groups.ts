@@ -111,6 +111,14 @@ export async function addMemberToGroup(formData: FormData) {
   if (!groupId || !memberId) throw new Error("Missing id");
   const { supabase, member: actor } = await requireGroupAdmin(groupId);
 
+  const { data: existing } = await supabase
+    .from("group_memberships")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("member_id", memberId)
+    .maybeSingle();
+  if (existing) throw new Error("That person is already in this group");
+
   const { error } = await supabase.from("group_memberships").insert({
     group_id: groupId,
     member_id: memberId,
