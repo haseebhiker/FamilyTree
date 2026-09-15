@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentMember } from "@/lib/members";
+import { provisionMemberFromInvite } from "@/lib/members";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/not-authorized"];
 
@@ -45,11 +45,16 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  const member = await getCurrentMember(supabase, user.id);
+  // Falls back to (re-)provisioning from an invite, not just a plain read:
+  // someone approved after their last sign-in (direct invite or an access
+  // request) has a session that predates their members row, and the
+  // /not-authorized page's own "You're approved!" step only confirms that
+  // in THAT request — this is the very next one, on a fresh connection, so
+  // it re-checks for real instead of trusting a bare read that raced the
+  // approval and sending them right back to /not-authorized.
+  const member = await provisionMemberFromInvite(supabase, user);
 
   if (!member) {
-    // Authenticated with Google but not on the invite list (or the auth
-    // callback hasn't provisioned them yet, e.g. a revoked invite).
     if (request.nextUrl.pathname !== "/not-authorized" && !isPublicPath) {
       const notAuthorizedUrl = request.nextUrl.clone();
       notAuthorizedUrl.pathname = "/not-authorized";
