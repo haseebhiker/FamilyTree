@@ -159,6 +159,9 @@ export function NavBar({
                   <Link href="/admin/login-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Login Log
                   </Link>
+                  <Link href="/admin/activity-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Activity Log
+                  </Link>
                   <Link
                     href="/admin/privacy-defaults"
                     className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900"

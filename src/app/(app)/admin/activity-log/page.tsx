@@ -1,0 +1,119 @@
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { clearPageViewLog } from "@/lib/actions/page-view-log";
+import { Card } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { LocalTime } from "@/components/local-time";
+import { PersonName } from "@/components/person-name";
+
+const PATH_LABELS: Record<string, string> = {
+  "/": "Home",
+  "/tree": "Family Tree",
+  "/compare": "Compare Relationship",
+  "/privacy": "Privacy Settings",
+  "/admin/invites": "Admin: Invite Management",
+  "/admin/people": "Admin: People Management",
+  "/admin/pending": "Admin: Pending Approvals",
+  "/admin/audit-log": "Admin: Audit Log",
+  "/admin/login-log": "Admin: Login Log",
+  "/admin/activity-log": "Admin: Activity Log",
+  "/admin/access-requests": "Admin: Access Requests",
+  "/admin/privacy-defaults": "Admin: Privacy Defaults",
+  "/admin/export": "Admin: Data Export",
+};
+
+const PERSON_PATH = /^\/people\/([0-9a-f-]{36})$/;
+
+export default async function ActivityLogPage() {
+  const supabase = await createClient();
+  const { data: entries } = await supabase
+    .from("page_view_log")
+    .select("*, members(name)")
+    .order("viewed_at", { ascending: false })
+    .limit(500);
+
+  const personIds = new Set<string>();
+  for (const e of entries ?? []) {
+    const match = e.path.match(PERSON_PATH);
+    if (match) personIds.add(match[1]);
+  }
+  const { data: people } =
+    personIds.size > 0
+      ? await supabase
+          .from("people")
+          .select("id, full_name, preferred_name, surname_tag")
+          .in("id", Array.from(personIds))
+      : { data: [] };
+  const peopleById = new Map((people ?? []).map((p) => [p.id, p]));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Activity Log</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Every page a member visits, kept for 7 days automatically (older entries clear themselves out — no
+            action needed).
+          </p>
+        </div>
+        {entries && entries.length > 0 && (
+          <form action={clearPageViewLog}>
+            <PendingButton
+              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+              pendingChildren="Clearing…"
+              confirmMessage="Clear the entire activity log? This can't be undone."
+            >
+              Clear log
+            </PendingButton>
+          </form>
+        )}
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="py-2 pr-4 font-medium">Name</th>
+                <th className="py-2 pr-4 font-medium">Page</th>
+                <th className="py-2 pr-4 font-medium">Viewed (your local time)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries?.map((e) => {
+                const match = e.path.match(PERSON_PATH);
+                const person = match ? peopleById.get(match[1]) : null;
+                return (
+                  <tr key={e.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-4">{e.members?.name ?? "—"}</td>
+                    <td className="py-2 pr-4 text-slate-600">
+                      {person ? (
+                        <Link href={e.path} className="hover:underline">
+                          <PersonName person={person} />
+                        </Link>
+                      ) : match ? (
+                        <span className="italic text-slate-400">Deleted profile</span>
+                      ) : (
+                        (PATH_LABELS[e.path] ?? e.path)
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-500">
+                      <LocalTime iso={e.viewed_at} />
+                    </td>
+                  </tr>
+                );
+              })}
+              {!entries?.length && (
+                <tr>
+                  <td colSpan={3} className="py-4 text-center text-slate-500">
+                    No activity recorded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
