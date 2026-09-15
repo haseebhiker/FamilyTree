@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
 import { signOut } from "@/app/login/actions";
@@ -17,7 +18,31 @@ export default async function NotAuthorizedPage() {
   // invite) since this session started, so this session's own sign-in
   // doesn't need to happen again for it to take effect.
   const { data: member } = await supabase.rpc("accept_invite");
-  if (member) redirect("/");
+
+  // Deliberately not an automatic redirect("/") here: if the plain
+  // members-table read that the app layout relies on ever disagrees with
+  // what this SECURITY DEFINER call just saw (e.g. a transient blip), an
+  // auto-redirect would bounce right back here and loop forever. A manual
+  // "Continue" click turns that failure mode into "click again", not
+  // ERR_TOO_MANY_REDIRECTS.
+  if (member) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
+        <Card className="w-full max-w-md text-center">
+          <h1 className="mb-1 text-xl font-semibold text-slate-900">You&apos;re approved!</h1>
+          <p className="mb-6 text-sm text-slate-500">
+            Your access to the family tree has been set up.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            Continue to the family tree
+          </Link>
+        </Card>
+      </main>
+    );
+  }
 
   const { data: existingRequest } = await supabase
     .from("access_requests")

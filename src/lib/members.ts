@@ -10,12 +10,17 @@ export async function getCurrentMember(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<Member | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("members")
     .select("*")
     .eq("id", userId)
     .eq("status", "active")
     .maybeSingle();
+  // A query error (RLS denial, transient network issue, etc.) must not be
+  // treated the same as "genuinely not a member" — that conflation is what
+  // can turn a one-off blip into a "/" <-> "/not-authorized" redirect loop
+  // for someone who actually is a valid, active member.
+  if (error) console.error("[getCurrentMember] query error:", error);
   return data;
 }
 
