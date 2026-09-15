@@ -71,15 +71,6 @@ export function findCountry(iso2: string): Country | undefined {
   return COUNTRIES.find((c) => c.iso2 === iso2);
 }
 
-/** Combines a country + a locally-typed number into a full E.164 string (digits only, plus-prefixed). */
-export function toE164(iso2: string, localNumber: string): string {
-  const country = findCountry(iso2);
-  if (!country) throw new Error("Unknown country");
-  const digits = localNumber.replace(/\D/g, "").replace(/^0+/, "");
-  if (!digits) throw new Error("Phone number is required");
-  return `+${country.dialCode}${digits}`;
-}
-
 /** Strips the leading "+" for WhatsApp's wa.me links, which expect bare digits. */
 export function e164ToWhatsAppDigits(e164: string): string {
   return e164.replace(/^\+/, "");

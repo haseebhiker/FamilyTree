@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AsYouType, type CountryCode } from "libphonenumber-js";
 import { addContactDetail } from "@/lib/actions/contact-details";
 import { Field, Input, Select, Button } from "@/components/ui";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO2 } from "@/lib/countries";
@@ -22,6 +23,24 @@ export function ContactDetailForm({
   const [contactType, setContactType] = useState<ContactType>("phone");
   const [visibility, setVisibility] = useState<PrivacyVisibility>("everyone");
   const [label, setLabel] = useState(LABEL_OPTIONS.phone[0]);
+  const [countryIso2, setCountryIso2] = useState(DEFAULT_COUNTRY_ISO2);
+  const [localNumber, setLocalNumber] = useState("");
+
+  function reformat(rawDigits: string, iso2: string) {
+    return new AsYouType(iso2 as CountryCode).input(rawDigits);
+  }
+
+  function handleNumberChange(value: string) {
+    setLocalNumber(reformat(value, countryIso2));
+  }
+
+  function handleCountryChange(iso2: string) {
+    setCountryIso2(iso2);
+    // Re-format whatever digits are already typed against the new country's
+    // conventions, rather than just resetting the field.
+    const digitsOnly = localNumber.replace(/\D/g, "");
+    setLocalNumber(digitsOnly ? reformat(digitsOnly, iso2) : "");
+  }
 
   return (
     <form action={addContactDetail} className="mt-3 space-y-2 border-t border-slate-100 pt-3">
@@ -59,7 +78,13 @@ export function ContactDetailForm({
         )}
 
         {contactType === "phone" && (
-          <Select name="country_iso2" required defaultValue={DEFAULT_COUNTRY_ISO2} className="w-32 shrink-0">
+          <Select
+            name="country_iso2"
+            required
+            value={countryIso2}
+            onChange={(e) => handleCountryChange(e.target.value)}
+            className="w-32 shrink-0"
+          >
             {COUNTRIES.map((c) => (
               <option key={c.iso2} value={c.iso2}>
                 +{c.dialCode} {c.name}
@@ -69,7 +94,15 @@ export function ContactDetailForm({
         )}
 
         {contactType === "phone" ? (
-          <Input name="local_number" placeholder="Phone number" required className="min-w-32 flex-1" />
+          <Input
+            name="local_number"
+            placeholder="Phone number"
+            required
+            className="min-w-32 flex-1"
+            value={localNumber}
+            onChange={(e) => handleNumberChange(e.target.value)}
+            inputMode="tel"
+          />
         ) : (
           <Input
             name="value"
@@ -85,7 +118,7 @@ export function ContactDetailForm({
           onChange={(e) => setVisibility(e.target.value as PrivacyVisibility)}
           className="w-40 shrink-0"
         >
-          <option value="everyone">Everyone</option>
+          <option value="everyone">Everyone in Nams Family App</option>
           <option value="groups">Specific group(s)</option>
           <option value="just_me">Just me (not recommended)</option>
         </Select>

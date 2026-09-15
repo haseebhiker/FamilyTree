@@ -48,7 +48,7 @@ export function PrivacySettingsForm({
               value={visibility[field] ?? "everyone"}
               onChange={(e) => setVisibility((prev) => ({ ...prev, [field]: e.target.value as PrivacyVisibility }))}
             >
-              <option value="everyone">Everyone in the family app</option>
+              <option value="everyone">Everyone in Nams Family App</option>
               <option value="groups">Specific group(s)</option>
               <option value="just_me">Just me (not recommended)</option>
             </Select>

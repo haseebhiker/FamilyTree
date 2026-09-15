@@ -343,8 +343,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <p>
             <span className="font-medium">Privacy &amp; security:</span> everyone here only sees this person&apos;s
             name and current location by default. Everything else — birthday, contact info, social links — is
-            encrypted and stays private until they choose to share it, either with everyone in the app or with
-            specific groups they&apos;re in.
+            encrypted and stays private until they choose to share it, either with everyone in Nams Family App or
+            with specific groups they&apos;re in.
           </p>
         </div>
       </Card>

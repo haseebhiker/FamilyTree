@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { encryptValue } from "@/lib/vault-crypto";
-import { toE164 } from "@/lib/countries";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import type { ContactType, PrivacyVisibility } from "@/lib/types";
 
 async function requireOwnerOrAdmin(personId: string) {
@@ -34,7 +34,9 @@ export async function addContactDetail(formData: FormData) {
     const localNumber = String(formData.get("local_number") ?? "").trim();
     if (!countryIso2) throw new Error("Country is required for a phone number");
     if (!localNumber) throw new Error("Phone number is required");
-    plainValue = toE164(countryIso2, localNumber);
+    const parsed = parsePhoneNumberFromString(localNumber, countryIso2 as CountryCode);
+    if (!parsed || !parsed.isValid()) throw new Error("That doesn't look like a valid phone number for the selected country");
+    plainValue = parsed.number; // E.164, e.g. +14155551234
   } else {
     plainValue = String(formData.get("value") ?? "").trim();
     if (!plainValue) throw new Error("Value is required");

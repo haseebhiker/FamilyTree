@@ -5,8 +5,10 @@ SRC = r"C:\Users\hasee\Downloads\2004_08_aug_n_-022_2671318662_o.jpg"
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
 
 def crop_square(img):
-    # Crop to the oval portrait area (headshot), leaving out the mat border.
-    box = (45, 15, 635, 605)  # left, top, right, bottom -> 590x590 square
+    # Crop centered on the face (turban top through mid-beard), not the
+    # whole oval — the first attempt included too much empty background
+    # above the turban, pushing the face off-center in the final icon.
+    box = (110, 110, 670, 670)  # left, top, right, bottom -> 560x560 square
     return img.crop(box)
 
 def make_icon(square, size, filename):

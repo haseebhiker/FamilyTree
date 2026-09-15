@@ -21,7 +21,7 @@ export default async function PrivacyDefaultsPage() {
           {PRIVACY_FIELDS.map((field) => (
             <Field key={field} label={field.replace(/_/g, " ")}>
               <Select name={field} defaultValue={byField.get(field) ?? "admins_only"}>
-                <option value="everyone">Everyone in the family app</option>
+                <option value="everyone">Everyone in Nams Family App</option>
                 <option value="admins_only">Admins only</option>
                 <option value="just_me">Just me</option>
               </Select>
