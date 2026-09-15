@@ -63,7 +63,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     { data: fieldPrivacyRows },
     { data: privacyDefaults },
     { data: allGroups },
-    { data: ownerMember },
   ] = await Promise.all([
     person.father_id
       ? supabase
@@ -91,7 +90,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     supabase.from("field_privacy").select("id, field_name, visibility").eq("person_id", person.id),
     supabase.from("privacy_defaults").select("field_name, visibility"),
     supabase.from("groups").select("id, name").order("name"),
-    supabase.from("members").select("id").eq("person_id", person.id).maybeSingle(),
   ]);
 
   const contactDetails = await filterAndDecryptContactDetails(
@@ -101,19 +99,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     member,
   );
 
-  // Which groups a viewer can pick from when sharing this profile's info —
-  // the owner's own approved groups if the profile is claimed, otherwise
-  // (an unclaimed profile an admin is managing) every group.
-  let selectableGroups = allGroups ?? [];
-  if (ownerMember) {
-    const { data: ownerMemberships } = await supabase
-      .from("group_memberships")
-      .select("group_id")
-      .eq("member_id", ownerMember.id)
-      .eq("status", "approved");
-    const ownerGroupIds = new Set((ownerMemberships ?? []).map((m) => m.group_id));
-    selectableGroups = (allGroups ?? []).filter((g) => ownerGroupIds.has(g.id));
-  }
+  // Which groups this profile can pick from when sharing its info — the
+  // branches this person is actually tagged into (sharing with a branch
+  // you're not part of wouldn't make sense).
+  const { data: personGroupRows } = await supabase.from("group_people").select("group_id").eq("person_id", person.id);
+  const personGroupIds = new Set((personGroupRows ?? []).map((g) => g.group_id));
+  const selectableGroups = (allGroups ?? []).filter((g) => personGroupIds.has(g.id));
 
   const defaultsMap = new Map((privacyDefaults ?? []).map((d) => [d.field_name, d.visibility as PrivacyVisibility]));
   const fieldPrivacyGroupIds = (fieldPrivacyRows ?? []).filter((r) => r.visibility === "groups").map((r) => r.id);

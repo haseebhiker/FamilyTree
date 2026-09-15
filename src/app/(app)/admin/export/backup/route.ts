@@ -6,7 +6,7 @@ const TABLES = [
   "people",
   "spouses",
   "groups",
-  "group_memberships",
+  "group_people",
   "contact_details",
   "contact_detail_groups",
   "field_privacy",

@@ -134,9 +134,11 @@ create index members_person_idx on members(person_id);
 -- Groups
 -- ---------------------------------------------------------------------------
 
--- Public groups can only be created by an app admin; private ones by any
--- member, who becomes that group's own admin (group_memberships.role).
--- Super admins can manage every group regardless of membership.
+-- A group represents a branch or subset of the family tree itself (e.g.
+-- "grandpa's tree"), not an access-control circle of app users — tagging
+-- who's "in" MSAK is a fact about the people in the tree, independent of
+-- who has ever signed in. Public groups can only be created by an app
+-- admin; private ones by any member. Super admins can manage every group.
 create table groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -146,26 +148,24 @@ create table groups (
   created_at timestamptz not null default now()
 );
 
--- One row per (group, member). The creator gets role='admin',
--- status='approved' immediately (see create_group() below). Anyone else
--- joining goes in as role='member', status='pending' until a group admin
--- (or app admin) approves them — except when a group admin adds someone
--- directly, which goes straight to 'approved' ("who creates the group...
--- can add anyone there").
-create table group_memberships (
+-- One row per (group, person) tag. Purely curatorial — added directly by
+-- the group's creator or an app admin, no self-service join/approval
+-- workflow, since being part of a family branch isn't something you
+-- request. person_id (not member_id) so anyone in the 1000+ person tree
+-- can be tagged whether or not they've ever signed in; the privacy-sharing
+-- feature (see src/lib/privacy.ts) resolves a *viewing* member back to
+-- their own person_id to check group membership.
+create table group_people (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references groups(id) on delete cascade,
-  member_id uuid not null references members(id) on delete cascade,
-  role text not null default 'member' check (role in ('admin', 'member')),
-  status text not null default 'pending' check (status in ('pending', 'approved')),
-  requested_at timestamptz not null default now(),
-  approved_by uuid references members(id),
-  approved_at timestamptz,
-  unique (group_id, member_id)
+  person_id uuid not null references people(id) on delete cascade,
+  added_by uuid not null references members(id),
+  added_at timestamptz not null default now(),
+  unique (group_id, person_id)
 );
 
-create index group_memberships_group_idx on group_memberships(group_id);
-create index group_memberships_member_idx on group_memberships(member_id);
+create index group_people_group_idx on group_people(group_id);
+create index group_people_person_idx on group_people(person_id);
 
 -- ---------------------------------------------------------------------------
 -- Privacy
@@ -317,22 +317,9 @@ as $$
   );
 $$;
 
-create or replace function is_group_admin(p_group_id uuid)
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from group_memberships
-    where group_id = p_group_id and member_id = auth.uid() and role = 'admin' and status = 'approved'
-  );
-$$;
-
--- Creates a group and its creator's admin membership in one step. Runs as
--- definer so the creator's own first group_memberships row doesn't hit the
--- chicken-and-egg problem of "you must already be a group admin to insert
--- an approved admin membership."
+-- Runs as definer purely so the "only an admin may create a public group"
+-- rule can be enforced server-side even though there's no insert policy on
+-- groups at all (every insert must go through here).
 create or replace function create_group(p_name text, p_description text, p_is_public boolean)
 returns groups
 language plpgsql
@@ -353,9 +340,6 @@ begin
     values (p_name, p_description, p_is_public, auth.uid())
     returning * into v_group;
 
-  insert into group_memberships (group_id, member_id, role, status, approved_by, approved_at)
-    values (v_group.id, auth.uid(), 'admin', 'approved', auth.uid(), now());
-
   return v_group;
 end;
 $$;
@@ -371,7 +355,7 @@ alter table invites enable row level security;
 alter table access_requests enable row level security;
 alter table members enable row level security;
 alter table groups enable row level security;
-alter table group_memberships enable row level security;
+alter table group_people enable row level security;
 alter table field_privacy enable row level security;
 alter table field_privacy_groups enable row level security;
 alter table contact_details enable row level security;
@@ -507,36 +491,31 @@ $$;
 
 grant execute on function accept_invite() to authenticated;
 
--- groups: any signed-in member can see the directory (needed so they can
--- find and request to join a group, private ones included — being listed
--- isn't the same as being a member). Any member can create a private
--- group (becoming its admin via create_group()); only an app admin can
--- create a public one. Only a group admin or app admin can update/delete.
+-- groups: any signed-in member can see the directory (a group's existence
+-- and description aren't sensitive). Any member can create a private
+-- group (becoming its creator via create_group()); only an app admin can
+-- create a public one. Only the creator or an app admin can update/delete.
 create policy "members can read groups" on groups
   for select using (auth.role() = 'authenticated');
-create policy "group admin or app admin can update groups" on groups
-  for update using (is_group_admin(id) or is_admin());
-create policy "group admin or app admin can delete groups" on groups
-  for delete using (is_group_admin(id) or is_admin());
+create policy "creator or app admin can update groups" on groups
+  for update using (created_by = auth.uid() or is_admin());
+create policy "creator or app admin can delete groups" on groups
+  for delete using (created_by = auth.uid() or is_admin());
 
--- group_memberships: any signed-in member can read (so a group's roster
--- and pending queue are visible to those who need them; nothing in this
--- row is sensitive by itself). A member can request to join (their own
--- row, landing as pending/member) or leave (delete their own row); a
--- group admin or app admin can add someone directly (pre-approved),
--- approve/reject/promote, or remove anyone.
-create policy "members can read group_memberships" on group_memberships
+-- group_people: any signed-in member can read (needed both to browse a
+-- branch's roster and to resolve "is this viewer in group X" for privacy
+-- sharing). Only the group's creator or an app admin may tag/untag people
+-- — this is curating a fact about the tree, not a self-service join.
+create policy "members can read group_people" on group_people
   for select using (auth.role() = 'authenticated');
-create policy "self-request or group/app admin can insert membership" on group_memberships
+create policy "creator or app admin can add group_people" on group_people
   for insert with check (
-    (member_id = auth.uid() and status = 'pending' and role = 'member')
-    or is_group_admin(group_id)
-    or is_admin()
+    is_admin() or group_id in (select id from groups where created_by = auth.uid())
   );
-create policy "group or app admin can update membership" on group_memberships
-  for update using (is_group_admin(group_id) or is_admin());
-create policy "self or group/app admin can delete membership" on group_memberships
-  for delete using (member_id = auth.uid() or is_group_admin(group_id) or is_admin());
+create policy "creator or app admin can delete group_people" on group_people
+  for delete using (
+    is_admin() or group_id in (select id from groups where created_by = auth.uid())
+  );
 
 -- field_privacy: any signed-in member can read (needed to know what to
 -- hide); a member can set their own linked profile's rows, admins can set

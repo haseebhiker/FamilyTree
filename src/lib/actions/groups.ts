@@ -32,141 +32,51 @@ export async function createGroup(formData: FormData) {
   revalidatePath("/groups");
 }
 
-export async function requestToJoinGroup(formData: FormData) {
+// A group's creator or an app admin curates who's tagged into it — this is
+// recording a fact about the family tree (who's part of this branch), not
+// a self-service membership, so there's no join/approve workflow.
+async function requireGroupCurator(groupId: string) {
   const { supabase, member } = await requireMember();
-  const groupId = String(formData.get("group_id") ?? "");
-  if (!groupId) throw new Error("Missing group id");
-
-  const { error } = await supabase.from("group_memberships").insert({
-    group_id: groupId,
-    member_id: member.id,
-    role: "member",
-    status: "pending",
-  });
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/groups");
-  revalidatePath(`/groups/${groupId}`);
-}
-
-export async function leaveGroup(formData: FormData) {
-  const { supabase, member } = await requireMember();
-  const groupId = String(formData.get("group_id") ?? "");
-  if (!groupId) throw new Error("Missing group id");
-
-  const { error } = await supabase
-    .from("group_memberships")
-    .delete()
-    .eq("group_id", groupId)
-    .eq("member_id", member.id);
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/groups");
-  revalidatePath(`/groups/${groupId}`);
-}
-
-async function requireGroupAdmin(groupId: string) {
-  const { supabase, member } = await requireMember();
-  const { data: membership } = await supabase
-    .from("group_memberships")
-    .select("role, status")
-    .eq("group_id", groupId)
-    .eq("member_id", member.id)
-    .maybeSingle();
-  const isGroupAdmin = membership?.role === "admin" && membership.status === "approved";
-  if (!isGroupAdmin && !isAdmin(member)) throw new Error("Group admins only");
+  if (isAdmin(member)) return { supabase, member };
+  const { data: group } = await supabase.from("groups").select("created_by").eq("id", groupId).maybeSingle();
+  if (group?.created_by !== member.id) throw new Error("Only this group's creator or an app admin can do that");
   return { supabase, member };
 }
 
-export async function approveGroupMembership(formData: FormData) {
-  const groupId = String(formData.get("group_id") ?? "");
-  const membershipId = String(formData.get("membership_id") ?? "");
-  if (!groupId || !membershipId) throw new Error("Missing id");
-  const { supabase, member } = await requireGroupAdmin(groupId);
-
-  const { error } = await supabase
-    .from("group_memberships")
-    .update({ status: "approved", approved_by: member.id, approved_at: new Date().toISOString() })
-    .eq("id", membershipId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/groups/${groupId}`);
-}
-
-export async function rejectGroupMembership(formData: FormData) {
-  const groupId = String(formData.get("group_id") ?? "");
-  const membershipId = String(formData.get("membership_id") ?? "");
-  if (!groupId || !membershipId) throw new Error("Missing id");
-  const { supabase } = await requireGroupAdmin(groupId);
-
-  const { error } = await supabase.from("group_memberships").delete().eq("id", membershipId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/groups/${groupId}`);
-}
-
-export async function addMemberToGroup(formData: FormData) {
+export async function addPersonToGroup(formData: FormData) {
   const groupId = String(formData.get("group_id") ?? "");
   const personId = String(formData.get("person_id") ?? "");
   if (!groupId || !personId) throw new Error("Choose a person to add");
-  const { supabase, member: actor } = await requireGroupAdmin(groupId);
+  const { supabase, member } = await requireGroupCurator(groupId);
 
-  // Groups control who can see shared contact info, which only makes sense
-  // for someone with an actual account — so the picker searches the full
-  // 1000+ person tree, but this resolves back to that person's members
-  // row (if any) rather than taking a member id directly.
-  const { data: personMember } = await supabase
-    .from("members")
-    .select("id, name")
-    .eq("person_id", personId)
-    .eq("status", "active")
-    .maybeSingle();
-  if (!personMember) {
-    throw new Error(
-      "That person hasn't signed in to the app yet, so there's no account to add to this group. Invite them from Admin > Invite Management first — once they sign in, you'll be able to add them here.",
-    );
-  }
+  const { data: person } = await supabase.from("people").select("full_name").eq("id", personId).maybeSingle();
+  if (!person) throw new Error("Person not found");
 
   const { data: existing } = await supabase
-    .from("group_memberships")
+    .from("group_people")
     .select("id")
     .eq("group_id", groupId)
-    .eq("member_id", personMember.id)
+    .eq("person_id", personId)
     .maybeSingle();
-  if (existing) throw new Error(`${personMember.name} is already in this group`);
+  if (existing) throw new Error(`${person.full_name} is already tagged in this group`);
 
-  const { error } = await supabase.from("group_memberships").insert({
+  const { error } = await supabase.from("group_people").insert({
     group_id: groupId,
-    member_id: personMember.id,
-    role: "member",
-    status: "approved",
-    approved_by: actor.id,
-    approved_at: new Date().toISOString(),
+    person_id: personId,
+    added_by: member.id,
   });
   if (error) throw new Error(error.message);
 
   revalidatePath(`/groups/${groupId}`);
 }
 
-export async function removeMemberFromGroup(formData: FormData) {
+export async function removePersonFromGroup(formData: FormData) {
   const groupId = String(formData.get("group_id") ?? "");
-  const membershipId = String(formData.get("membership_id") ?? "");
-  if (!groupId || !membershipId) throw new Error("Missing id");
-  const { supabase } = await requireGroupAdmin(groupId);
+  const groupPersonId = String(formData.get("group_person_id") ?? "");
+  if (!groupId || !groupPersonId) throw new Error("Missing id");
+  const { supabase } = await requireGroupCurator(groupId);
 
-  const { error } = await supabase.from("group_memberships").delete().eq("id", membershipId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/groups/${groupId}`);
-}
-
-export async function promoteToGroupAdmin(formData: FormData) {
-  const groupId = String(formData.get("group_id") ?? "");
-  const membershipId = String(formData.get("membership_id") ?? "");
-  if (!groupId || !membershipId) throw new Error("Missing id");
-  const { supabase } = await requireGroupAdmin(groupId);
-
-  const { error } = await supabase.from("group_memberships").update({ role: "admin" }).eq("id", membershipId);
+  const { error } = await supabase.from("group_people").delete().eq("id", groupPersonId);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/groups/${groupId}`);

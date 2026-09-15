@@ -17,13 +17,14 @@ const PRIVACY_FIELD_TO_PERSON_KEYS: Record<PrivacyField, (keyof Person)[]> = {
   place_of_death: ["place_of_death"],
 };
 
-async function getViewerApprovedGroupIds(supabase: SupabaseClient, viewerId: string): Promise<Set<string>> {
-  const { data } = await supabase
-    .from("group_memberships")
-    .select("group_id")
-    .eq("member_id", viewerId)
-    .eq("status", "approved");
-  return new Set((data ?? []).map((m) => m.group_id as string));
+// Groups now tag people in the tree, not app accounts (see schema.sql) —
+// so "is this viewer in group X" means "is the person the viewer is
+// signed in as tagged in group X," which only resolves at all if their
+// account is linked to a person profile.
+async function getViewerGroupIds(supabase: SupabaseClient, viewerPersonId: string | null): Promise<Set<string>> {
+  if (!viewerPersonId) return new Set();
+  const { data } = await supabase.from("group_people").select("group_id").eq("person_id", viewerPersonId);
+  return new Set((data ?? []).map((g) => g.group_id as string));
 }
 
 function isVisibleToViewer(
@@ -66,7 +67,7 @@ export async function applyPrivacy(
     groupVisibleIds.length > 0
       ? supabase.from("field_privacy_groups").select("field_privacy_id, group_id").in("field_privacy_id", groupVisibleIds)
       : Promise.resolve({ data: [] as { field_privacy_id: string; group_id: string }[] }),
-    viewer ? getViewerApprovedGroupIds(supabase, viewer.id) : Promise.resolve(new Set<string>()),
+    getViewerGroupIds(supabase, viewer?.person_id ?? null),
   ]);
 
   const overrideMap = new Map(overrideRows.map((o) => [o.field_name, o as { id: string; visibility: PrivacyVisibility }]));
@@ -148,7 +149,7 @@ export async function filterAndDecryptContactDetails(
             .select("contact_detail_id, group_id")
             .in("contact_detail_id", groupVisible.map((d) => d.id))
         : Promise.resolve({ data: [] as { contact_detail_id: string; group_id: string }[] }),
-      viewer ? getViewerApprovedGroupIds(supabase, viewer.id) : Promise.resolve(new Set<string>()),
+      getViewerGroupIds(supabase, viewer?.person_id ?? null),
     ]);
 
     const groupsByContactId = new Map<string, string[]>();

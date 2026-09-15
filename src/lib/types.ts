@@ -110,16 +110,10 @@ export interface Group {
   created_at: string;
 }
 
-export type GroupMembershipRole = "admin" | "member";
-export type GroupMembershipStatus = "pending" | "approved";
-
-export interface GroupMembership {
+export interface GroupPerson {
   id: string;
   group_id: string;
-  member_id: string;
-  role: GroupMembershipRole;
-  status: GroupMembershipStatus;
-  requested_at: string;
-  approved_by: string | null;
-  approved_at: string | null;
+  person_id: string;
+  added_by: string;
+  added_at: string;
 }
