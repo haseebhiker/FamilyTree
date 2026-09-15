@@ -68,10 +68,15 @@ export default async function NotAuthorizedPage() {
         </p>
 
         {existingRequest?.status === "pending" && (
-          <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Your request is submitted and waiting on an admin. Check back later, or reload this page after they&apos;ve
-            reviewed it.
-          </p>
+          <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="mb-2">Your request is submitted and waiting on an admin.</p>
+            <a
+              href="/not-authorized"
+              className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Check status
+            </a>
+          </div>
         )}
 
         {existingRequest?.status === "rejected" && (

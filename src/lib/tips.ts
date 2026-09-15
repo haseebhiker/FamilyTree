@@ -2,7 +2,6 @@ export const TIPS: string[] = [
   "Enter your preferred name under “Edit profile” — it's what shows first, in bold, everywhere your name appears (including the tree).",
   "Use the 🔍 search icon in the top nav to jump straight to anyone by name, from any page.",
   "Know someone's mother or father is already in the tree? Open their profile, go to “Add a family member,” pick Parent, and search for the existing person instead of creating a duplicate.",
-  "Control who sees your details: open “My Privacy Settings” (in the ☰ menu) to choose Everyone, a specific group, or just you — for each field.",
   "Everyone can suggest an edit to any profile. Admins review and approve it, or apply it instantly if they're the one submitting.",
   "Check “My Submissions” (in the ☰ menu) to see the status of edits you've suggested.",
   "Add this app to your phone's home screen for one-tap access — see “Install App” in the ☰ menu.",
@@ -14,6 +13,9 @@ export const TIPS: string[] = [
   "Open any profile and click “How you're related” to see every way you're connected to that person.",
   "Setting someone's gender on their profile helps the app say “son” or “aunt” correctly instead of a generic term.",
   "Have a question about how the app works? Check the FAQ in the ☰ menu.",
+  "Use the “Compare” tool to see how any two family members — not just you — are related to each other.",
+  "Keep the family connected — add your mobile phone number to your profile so relatives can reach out.",
+  "Notice a missing date or name on someone's profile? Click “Suggest an edit” to help fill it in.",
 ];
 
 function hashString(s: string): number {
