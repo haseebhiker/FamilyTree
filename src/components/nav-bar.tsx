@@ -62,6 +62,9 @@ export function NavBar({
           <Link href="/tree" className="hover:text-slate-900">
             Tree
           </Link>
+          <Link href="/compare" className="hover:text-slate-900">
+            Compare
+          </Link>
           <Link href="/tree" aria-label="Search for a person" className="hover:text-slate-900">
             <SearchIcon />
           </Link>
@@ -90,9 +93,6 @@ export function NavBar({
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
               </Link>
-              <Link href="/compare" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                Compare Two People
-              </Link>
               <Link href="/install" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Install App
               </Link>
@@ -103,6 +103,9 @@ export function NavBar({
               )}
               <Link href="/faq" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 FAQ
+              </Link>
+              <Link href="/about" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                About This Family Tree
               </Link>
 
               {isAdmin && (
