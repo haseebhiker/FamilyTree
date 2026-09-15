@@ -12,9 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITLE = "Nambadavangal Family Tree";
+const DESCRIPTION = "Private family tree for the Nambadavangal family.";
+
 export const metadata: Metadata = {
-  title: "Nambadavangal Family Tree",
-  description: "Private family tree for the Nambadavangal family.",
+  title: TITLE,
+  description: DESCRIPTION,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     title: "Family Tree",
@@ -27,6 +30,24 @@ export const metadata: Metadata = {
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: "/apple-touch-icon.png",
+  },
+  // Explicit og:image, not just relying on a crawler's own fallback to
+  // apple-touch-icon or a favicon — that's what produced the working
+  // preview in the first place, and it's exactly the kind of unofficial
+  // behavior that can silently stop working (as it just did) without any
+  // change on this end at all.
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://familytree.haseeb.in",
+    siteName: TITLE,
+    images: [{ url: "/icon-512.png", width: 512, height: 512 }],
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/icon-512.png"],
   },
 };
 
