@@ -2,6 +2,7 @@ export interface PersonNode {
   id: string;
   father_id: string | null;
   mother_id: string | null;
+  gender?: "M" | "F" | null;
 }
 
 export interface SpouseEdge {
@@ -19,16 +20,20 @@ export interface PathStep {
 }
 
 /**
- * A person's sex is never stored directly, but is implied wherever they
- * show up as someone's father_id (male) or mother_id (female) — which
- * covers anyone with a child in the tree. Leaves (no children on record)
- * stay unknown and fall back to gender-neutral wording.
+ * Prefers each person's own recorded gender; for anyone without one
+ * (common — it's a newer, optional field), falls back to inferring it
+ * from showing up as someone's father_id (male) or mother_id (female).
+ * Leaves with neither stay unknown and fall back to gender-neutral
+ * wording.
  */
 function inferGenders(people: PersonNode[]): Map<string, Gender> {
   const genders = new Map<string, Gender>();
   for (const p of people) {
     if (p.father_id) genders.set(p.father_id, "M");
     if (p.mother_id) genders.set(p.mother_id, "F");
+  }
+  for (const p of people) {
+    if (p.gender) genders.set(p.id, p.gender);
   }
   return genders;
 }
@@ -56,34 +61,60 @@ function findAncestorsWithPaths(people: PersonNode[], startId: string): Map<stri
 }
 
 /**
+ * A common ancestor is redundant — just a vaguer restatement of a closer
+ * tie already found — if some node strictly between source (or target)
+ * and it is *also* a common ancestor: that closer node is the real point
+ * of convergence for that particular line. Kept otherwise, even when a
+ * *different*, unrelated common ancestor exists at a shorter distance —
+ * e.g. someone can be both "your mom's sister" (via a close common
+ * ancestor) and, independently, "your dad's cousin" (via a completely
+ * different, more distant shared grandparent) at the same time. Only the
+ * first of those is the single closest relationship; both are real.
+ */
+function isLowestCommonAncestor(
+  ancestorId: string,
+  sourceAncestors: Map<string, PathStep[]>,
+  targetAncestors: Map<string, PathStep[]>,
+): boolean {
+  const srcPath = sourceAncestors.get(ancestorId)!;
+  const tgtPath = targetAncestors.get(ancestorId)!;
+  for (const step of srcPath.slice(0, -1)) {
+    if (targetAncestors.has(step.id)) return false;
+  }
+  for (const step of tgtPath.slice(0, -1)) {
+    if (sourceAncestors.has(step.id)) return false;
+  }
+  return true;
+}
+
+/**
  * True consanguinity (blood relation) means sharing a common ancestor —
  * NOT merely "reachable without crossing a spouse edge." Excluding spouse
  * edges alone isn't enough: descending to your own child and back up
  * through that child's *other* parent never touches a spouse edge either,
  * but it's exactly as much an in-law relationship as if it had. So this
- * finds every common ancestor of source and target, keeps only the one(s)
- * minimizing total up+down distance, and reconstructs the up-then-down
- * path through each — the textbook definition, and immune to that
- * loophole since it never considers descending before the shared ancestor.
+ * finds *every* non-redundant common ancestor of source and target (not
+ * just the closest), sorts by total up+down distance so the closest
+ * relationship leads, and reconstructs the up-then-down path through
+ * each — the textbook definition, and immune to the spouse-detour
+ * loophole since it never considers descending before a shared ancestor.
  */
 function findBloodPaths(people: PersonNode[], sourceId: string, targetId: string, maxPaths: number): PathStep[][] {
   if (sourceId === targetId) return [];
   const sourceAncestors = findAncestorsWithPaths(people, sourceId);
   const targetAncestors = findAncestorsWithPaths(people, targetId);
 
-  let bestTotal = Infinity;
-  let commonAncestorIds: string[] = [];
-  for (const [ancestorId, srcPath] of sourceAncestors) {
-    const tgtPath = targetAncestors.get(ancestorId);
-    if (!tgtPath) continue;
-    const total = srcPath.length + tgtPath.length;
-    if (total < bestTotal) {
-      bestTotal = total;
-      commonAncestorIds = [ancestorId];
-    } else if (total === bestTotal) {
-      commonAncestorIds.push(ancestorId);
-    }
+  const commonAncestorIds: string[] = [];
+  for (const ancestorId of sourceAncestors.keys()) {
+    if (!targetAncestors.has(ancestorId)) continue;
+    if (!isLowestCommonAncestor(ancestorId, sourceAncestors, targetAncestors)) continue;
+    commonAncestorIds.push(ancestorId);
   }
+  commonAncestorIds.sort((a, b) => {
+    const totalA = sourceAncestors.get(a)!.length + targetAncestors.get(a)!.length;
+    const totalB = sourceAncestors.get(b)!.length + targetAncestors.get(b)!.length;
+    return totalA - totalB;
+  });
 
   return commonAncestorIds.slice(0, maxPaths).map((ancestorId) => {
     const srcPath = sourceAncestors.get(ancestorId)!;
