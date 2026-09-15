@@ -66,7 +66,28 @@ export function EditPersonForm({ personId, personRaw }: { personId: string; pers
           </button>
         </div>
       )}
-      <FormFields key={generation} personId={personId} personRaw={personRaw} onSubmit={handleSubmit} isPending={isPending} />
+      {/*
+        Keying on generation ALONE would remount immediately when it bumps,
+        using whatever personRaw this closure still has at that instant —
+        which is the PRE-edit value, since router.refresh() hasn't resolved
+        yet. An uncontrolled input's defaultValue is only read at mount, so
+        that remount would permanently lock the form onto stale data; once
+        personRaw updates a moment later, nothing prompts another remount to
+        pick it up. Folding personRaw.updated_at into the key fixes it: for
+        an admin's auto-applied edit, the key changes AGAIN the instant the
+        refreshed (updated_at-bumped) personRaw actually lands, forcing a
+        second remount with genuinely fresh values. For a non-admin's edit
+        (queued as pending, nothing on the person row changes yet) only the
+        generation half of the key moves, which is exactly right — the
+        still-accurate current values are what should show anyway.
+      */}
+      <FormFields
+        key={`${generation}:${personRaw.updated_at}`}
+        personId={personId}
+        personRaw={personRaw}
+        onSubmit={handleSubmit}
+        isPending={isPending}
+      />
     </div>
   );
 }
