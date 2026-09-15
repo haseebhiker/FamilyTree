@@ -6,6 +6,7 @@ import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import { submitAccessRequest } from "@/lib/actions/access-requests";
 import { ApprovedReloadGuard } from "@/components/approved-reload-guard";
+import { provisionMemberFromInvite } from "@/lib/members";
 
 export default async function NotAuthorizedPage() {
   const supabase = await createClient();
@@ -17,8 +18,16 @@ export default async function NotAuthorizedPage() {
 
   // Retry provisioning — an admin may have approved a request (or added an
   // invite) since this session started, so this session's own sign-in
-  // doesn't need to happen again for it to take effect.
-  const { data: member } = await supabase.rpc("accept_invite");
+  // doesn't need to happen again for it to take effect. Goes through the
+  // shared helper rather than calling the accept_invite() RPC directly:
+  // that RPC is declared to return a `members` ROW, and PL/pgSQL's
+  // `return null;` from a row-typed function comes back over PostgREST as
+  // an object with every column null, not a bare JSON null — a raw
+  // `const { data: member } = await supabase.rpc("accept_invite")` followed
+  // by `if (member)` was therefore true for EVERY signed-in Google account,
+  // invited or not. Confirmed live via a disposable test account with zero
+  // invite record, which this exact code path told "You're approved!".
+  const member = await provisionMemberFromInvite(supabase, user);
 
   // Deliberately not an automatic redirect("/") here: if the plain
   // members-table read that the app layout relies on ever disagrees with
