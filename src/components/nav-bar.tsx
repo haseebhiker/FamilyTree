@@ -53,7 +53,7 @@ export function NavBar({
         <Link href="/" className="text-lg font-semibold text-slate-900">
           Nams Family Tree
         </Link>
-        <nav className="flex items-center gap-4 text-sm font-medium text-slate-600">
+        <nav className="ml-auto flex items-center gap-4 text-sm font-medium text-slate-600">
           {personId && (
             <Link href={`/people/${personId}`} className="hover:text-slate-900">
               Me
