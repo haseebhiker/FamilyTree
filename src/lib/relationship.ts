@@ -56,8 +56,79 @@ function buildAdjacency(people: PersonNode[], spouses: SpouseEdge[]): Map<string
   return adjacency;
 }
 
-/** BFS shortest distance from sourceId, then reconstructs every path tied for shortest (capped at maxPaths) via recorded predecessors. */
-function findShortestPaths(
+/** Every ancestor of `startId` (not including itself... except itself, at distance 0 — see below), each mapped to the up-only (father/mother) path reaching it. One path per ancestor (first found by BFS), which can miss an alternate equally-short route to the same ancestor under pedigree collapse — an accepted simplification. */
+function findAncestorsWithPaths(people: PersonNode[], startId: string): Map<string, PathStep[]> {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const pathById = new Map<string, PathStep[]>([[startId, []]]);
+  const queue = [startId];
+  for (let qi = 0; qi < queue.length; qi++) {
+    const id = queue[qi];
+    const path = pathById.get(id)!;
+    const p = byId.get(id);
+    if (!p) continue;
+    if (p.father_id && !pathById.has(p.father_id)) {
+      pathById.set(p.father_id, [...path, { id: p.father_id, kind: "father" }]);
+      queue.push(p.father_id);
+    }
+    if (p.mother_id && !pathById.has(p.mother_id)) {
+      pathById.set(p.mother_id, [...path, { id: p.mother_id, kind: "mother" }]);
+      queue.push(p.mother_id);
+    }
+  }
+  return pathById;
+}
+
+/**
+ * True consanguinity (blood relation) means sharing a common ancestor —
+ * NOT merely "reachable without crossing a spouse edge." Excluding spouse
+ * edges alone isn't enough: descending to your own child and back up
+ * through that child's *other* parent never touches a spouse edge either,
+ * but it's exactly as much an in-law relationship as if it had. So this
+ * finds every common ancestor of source and target, keeps only the one(s)
+ * minimizing total up+down distance, and reconstructs the up-then-down
+ * path through each — the textbook definition, and immune to that
+ * loophole since it never considers descending before the shared ancestor.
+ */
+function findBloodPaths(people: PersonNode[], sourceId: string, targetId: string, maxPaths: number): PathStep[][] {
+  if (sourceId === targetId) return [];
+  const sourceAncestors = findAncestorsWithPaths(people, sourceId);
+  const targetAncestors = findAncestorsWithPaths(people, targetId);
+
+  let bestTotal = Infinity;
+  let commonAncestorIds: string[] = [];
+  for (const [ancestorId, srcPath] of sourceAncestors) {
+    const tgtPath = targetAncestors.get(ancestorId);
+    if (!tgtPath) continue;
+    const total = srcPath.length + tgtPath.length;
+    if (total < bestTotal) {
+      bestTotal = total;
+      commonAncestorIds = [ancestorId];
+    } else if (total === bestTotal) {
+      commonAncestorIds.push(ancestorId);
+    }
+  }
+
+  return commonAncestorIds.slice(0, maxPaths).map((ancestorId) => {
+    const srcPath = sourceAncestors.get(ancestorId)!;
+    const tgtPath = targetAncestors.get(ancestorId)!;
+    const downSteps: PathStep[] =
+      tgtPath.length === 0
+        ? []
+        : [...tgtPath.slice(0, -1).map((s) => s.id).reverse(), targetId].map((id) => ({ id, kind: "child" as const }));
+    return [...srcPath, ...downSteps];
+  });
+}
+
+/**
+ * Shortest path(s) that use at least one spouse edge — Geni's "shortest
+ * in-law relationship." A plain BFS can't answer this: the globally
+ * shortest path might happen to be pure blood, which would hide a real
+ * in-law relationship rather than reporting "none." Instead this walks a
+ * doubled state space, (node, hasUsedSpouseEdge), so "shortest path that
+ * has used a spouse edge by the time it reaches the target" is just an
+ * ordinary shortest-path search over that bigger graph.
+ */
+function findShortestPathsViaSpouse(
   adjacency: Map<string, Edge[]>,
   sourceId: string,
   targetId: string,
@@ -65,41 +136,92 @@ function findShortestPaths(
 ): PathStep[][] {
   if (sourceId === targetId) return [];
 
-  const dist = new Map<string, number>([[sourceId, 0]]);
+  const startState = `${sourceId}|0`;
+  const dist = new Map<string, number>([[startState, 0]]);
   const predecessors = new Map<string, { from: string; kind: EdgeKind }[]>();
-  const queue = [sourceId];
+  const queue = [startState];
   for (let qi = 0; qi < queue.length; qi++) {
-    const cur = queue[qi];
-    const curDist = dist.get(cur)!;
-    for (const e of adjacency.get(cur) ?? []) {
-      const existing = dist.get(e.to);
+    const curState = queue[qi];
+    const sep = curState.lastIndexOf("|");
+    const curId = curState.slice(0, sep);
+    const curUsed = curState.slice(sep + 1) === "1";
+    const curDist = dist.get(curState)!;
+    for (const e of adjacency.get(curId) ?? []) {
+      const nextUsed = curUsed || e.kind === "spouse";
+      const nextState = `${e.to}|${nextUsed ? 1 : 0}`;
+      const existing = dist.get(nextState);
       if (existing === undefined) {
-        dist.set(e.to, curDist + 1);
-        predecessors.set(e.to, [{ from: cur, kind: e.kind }]);
-        queue.push(e.to);
+        dist.set(nextState, curDist + 1);
+        predecessors.set(nextState, [{ from: curState, kind: e.kind }]);
+        queue.push(nextState);
       } else if (existing === curDist + 1) {
-        predecessors.get(e.to)!.push({ from: cur, kind: e.kind });
+        predecessors.get(nextState)!.push({ from: curState, kind: e.kind });
       }
     }
   }
-  if (!dist.has(targetId)) return [];
+
+  const targetState = `${targetId}|1`;
+  if (!dist.has(targetState)) return [];
 
   const results: PathStep[][] = [];
-  function backtrack(node: string, suffix: PathStep[]) {
+  function backtrack(state: string, suffix: PathStep[]) {
     if (results.length >= maxPaths) return;
-    if (node === sourceId) {
+    if (state === startState) {
       results.push(suffix);
       return;
     }
-    for (const pred of predecessors.get(node) ?? []) {
+    const sep = state.lastIndexOf("|");
+    const nodeId = state.slice(0, sep);
+    for (const pred of predecessors.get(state) ?? []) {
       if (results.length >= maxPaths) return;
-      backtrack(pred.from, [{ id: node, kind: pred.kind }, ...suffix]);
+      backtrack(pred.from, [{ id: nodeId, kind: pred.kind }, ...suffix]);
     }
   }
-  backtrack(targetId, []);
+  backtrack(targetState, []);
   return results;
 }
 
+/**
+ * Two paths that agree everywhere except one father-vs-mother hop describe
+ * the exact same relationship, not two — e.g. reaching a shared child of a
+ * married couple via "his father" on one path and "her mother" on the
+ * other is just "sibling," found twice because BFS treats father_id and
+ * mother_id as separate edges. Collapses that specific case; genuinely
+ * different lines (e.g. double cousins, which diverge at more than one
+ * step) are left alone.
+ */
+function dedupeCoupleEquivalentPaths(paths: PathStep[][], spousePairs: Set<string>): PathStep[][] {
+  const kept: PathStep[][] = [];
+  for (const path of paths) {
+    const isDuplicate = kept.some((existing) => {
+      if (existing.length !== path.length) return false;
+      let diffIdx = -1;
+      for (let i = 0; i < path.length; i++) {
+        if (existing[i].id !== path[i].id || existing[i].kind !== path[i].kind) {
+          if (diffIdx !== -1) return false; // more than one difference
+          diffIdx = i;
+        }
+      }
+      if (diffIdx === -1) return true; // identical, shouldn't happen but is a duplicate either way
+      const a = existing[diffIdx];
+      const b = path[diffIdx];
+      const bothParentHops = (a.kind === "father" || a.kind === "mother") && (b.kind === "father" || b.kind === "mother");
+      return bothParentHops && spousePairs.has([a.id, b.id].sort().join("|"));
+    });
+    if (!isDuplicate) kept.push(path);
+  }
+  return kept;
+}
+
+/**
+ * Blood and in-law relationships are searched independently, then merged
+ * — matching Geni's "shortest blood relationship" / "shortest in-law
+ * relationship", each minimized on its own. A single combined search
+ * would silently drop a real but longer blood relationship (e.g. "also
+ * your mom's sister") whenever a shorter in-law path exists (e.g. "your
+ * wife's mother") to the very same person, since only the shorter one
+ * would ever be tied for globally shortest.
+ */
 export function findRelationshipPaths(
   people: PersonNode[],
   spouses: SpouseEdge[],
@@ -107,9 +229,27 @@ export function findRelationshipPaths(
   targetId: string,
   maxPaths = 5,
 ): { paths: PathStep[][]; genders: Map<string, Gender> } {
-  const adjacency = buildAdjacency(people, spouses);
+  const fullAdjacency = buildAdjacency(people, spouses);
   const genders = inferGenders(people);
-  const paths = findShortestPaths(adjacency, sourceId, targetId, maxPaths);
+  const spousePairs = new Set(spouses.map((s) => [s.person_a_id, s.person_b_id].sort().join("|")));
+
+  const bloodPaths = dedupeCoupleEquivalentPaths(findBloodPaths(people, sourceId, targetId, maxPaths), spousePairs);
+  let inLawPaths = dedupeCoupleEquivalentPaths(
+    findShortestPathsViaSpouse(fullAdjacency, sourceId, targetId, maxPaths),
+    spousePairs,
+  );
+  // Only worth surfacing when it's not just a longer, redundant detour
+  // through a blood relative's spouse to a target blood already reaches
+  // more directly (e.g. "grandfather's wife's child" for someone who's
+  // already your uncle via grandfather directly) — genuinely distinct
+  // in-law relationships (like "wife's mother") are at least as short.
+  if (bloodPaths.length > 0 && inLawPaths.length > 0 && inLawPaths[0].length >= bloodPaths[0].length) {
+    inLawPaths = [];
+  }
+
+  const paths = [...bloodPaths, ...inLawPaths]
+    .sort((a, b) => a.length - b.length)
+    .slice(0, maxPaths);
   return { paths, genders };
 }
 
