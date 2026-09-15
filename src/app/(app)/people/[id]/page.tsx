@@ -351,7 +351,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     <form action={removeSpouseLink} className="inline">
                       <input type="hidden" name="person_id" value={person.id} />
                       <input type="hidden" name="spouse_row_id" value={m.spouseRowId} />
-                      <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                      <PendingButton
+                        className="ml-2 text-xs text-red-600 hover:underline"
+                        pendingChildren="…"
+                        confirmMessage={`Remove ${m.spouse ? m.spouse.full_name : "this spouse"} as a spouse of ${person.full_name}?`}
+                      >
                         remove
                       </PendingButton>
                     </form>
@@ -374,7 +378,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   <form action={removeParentLink} className="inline">
                     <input type="hidden" name="person_id" value={person.id} />
                     <input type="hidden" name="which" value="father" />
-                    <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                    <PendingButton
+                      className="ml-2 text-xs text-red-600 hover:underline"
+                      pendingChildren="…"
+                      confirmMessage={`Remove ${father.full_name} as ${person.full_name}'s father?`}
+                    >
                       remove
                     </PendingButton>
                   </form>
@@ -395,7 +403,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   <form action={removeParentLink} className="inline">
                     <input type="hidden" name="person_id" value={person.id} />
                     <input type="hidden" name="which" value="mother" />
-                    <PendingButton className="ml-2 text-xs text-red-600 hover:underline" pendingChildren="…">
+                    <PendingButton
+                      className="ml-2 text-xs text-red-600 hover:underline"
+                      pendingChildren="…"
+                      confirmMessage={`Remove ${mother.full_name} as ${person.full_name}'s mother?`}
+                    >
                       remove
                     </PendingButton>
                   </form>

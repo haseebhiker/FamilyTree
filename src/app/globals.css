@@ -16,18 +16,20 @@
   /* text-xs/text-sm are the most-used sizes for badges, timestamps, and
      helper text throughout the app — bumped independently of the root
      size below so those stay readable instead of just scaling by the
-     same ratio as everything else and still ending up cramped. */
-  --text-xs: 0.8125rem;
-  --text-xs--line-height: calc(1.25 / 0.8125);
-  --text-sm: 0.9375rem;
-  --text-sm--line-height: calc(1.5 / 0.9375);
+     same ratio as everything else and still ending up cramped. Bumped a
+     second time (2026-09-15) after "still too small on phone" feedback
+     on top of the first round below. */
+  --text-xs: 0.9rem;
+  --text-xs--line-height: calc(1.3 / 0.9);
+  --text-sm: 1.0625rem;
+  --text-sm--line-height: calc(1.55 / 1.0625);
 }
 
 html {
   /* Scales every Tailwind text-* utility proportionally (they're all
      rem-based) instead of hand-editing font sizes across every page —
      up from the 16px browser default for easier reading throughout. */
-  font-size: 19px;
+  font-size: 22px;
 }
 
 body {
