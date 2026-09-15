@@ -12,6 +12,7 @@ import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
+import { PersonAvatar } from "@/components/person-avatar";
 import { ContactIcons } from "@/components/contact-icons";
 import { PersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
@@ -101,7 +102,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     { data: spousesAsB },
     { data: auditEntries },
     { data: contactDetailsRaw },
-    { data: allGroups },
   ] = await Promise.all([
     person.father_id
       ? supabase
@@ -126,7 +126,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       .order("created_at", { ascending: false })
       .limit(20),
     supabase.from("contact_details").select("*").eq("person_id", person.id).order("created_at"),
-    supabase.from("groups").select("id, name").order("name"),
   ]);
 
   const contactDetails = await filterAndDecryptContactDetails(
@@ -135,13 +134,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     person,
     member,
   );
-
-  // Which groups this profile can pick from when sharing its info — the
-  // branches this person is actually tagged into (sharing with a branch
-  // you're not part of wouldn't make sense).
-  const { data: personGroupRows } = await supabase.from("group_people").select("group_id").eq("person_id", person.id);
-  const personGroupIds = new Set((personGroupRows ?? []).map((g) => g.group_id));
-  const selectableGroups = (allGroups ?? []).filter((g) => personGroupIds.has(g.id));
 
   const marriages = [
     ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id })),
@@ -242,14 +234,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       )}
 
       <div className="flex items-start gap-4">
-        {person.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={person.photo_url} alt={person.full_name} className="h-24 w-24 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-200 text-2xl font-semibold text-slate-500">
-            {person.full_name.charAt(0)}
-          </div>
-        )}
+        <PersonAvatar photoUrl={person.photo_url} fullName={person.full_name} />
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
             <PersonName person={person} />
@@ -434,7 +419,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         })}
 
         {(isOwner || isAdmin(member)) && (
-          <ContactDetailForm personId={person.id} groups={selectableGroups} />
+          <ContactDetailForm personId={person.id} />
         )}
       </Card>
 
