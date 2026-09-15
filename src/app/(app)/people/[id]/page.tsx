@@ -371,7 +371,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
         {(children ?? []).length > 0 && (
           <div className="mt-5">
-            <div className="font-medium text-slate-500">Children</div>
+            <div className="font-medium text-slate-500">Children ({(children ?? []).length})</div>
             <ul className="ml-4 list-disc text-sm text-slate-700">
               {(children ?? []).map((c) => (
                 <li key={c.id}>
@@ -386,7 +386,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
         {siblings.length > 0 && (
           <div className="mt-5">
-            <div className="font-medium text-slate-500">Siblings</div>
+            <div className="font-medium text-slate-500">Siblings ({siblings.length})</div>
             <ul className="ml-4 list-disc text-sm text-slate-700">
               {siblings.map((s) => (
                 <li key={s.id}>
