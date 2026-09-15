@@ -17,32 +17,34 @@ export function ContactDetailForm({
   const [visibility, setVisibility] = useState<PrivacyVisibility>("just_me");
 
   return (
-    <form action={addContactDetail} className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
+    <form action={addContactDetail} className="mt-3 space-y-2 border-t border-slate-100 pt-3">
       <input type="hidden" name="person_id" value={personId} />
 
-      <Select
-        name="contact_type"
-        value={contactType}
-        onChange={(e) => setContactType(e.target.value as ContactType)}
-      >
-        <option value="phone">Phone</option>
-        <option value="email">Email</option>
-        <option value="address">Address</option>
-      </Select>
-
-      <Input name="label" placeholder="Label (e.g. Mobile, Home)" />
-
-      {contactType === "phone" ? (
-        <div className="flex gap-1 sm:col-span-1">
-          <Select name="country_iso2" required defaultValue={DEFAULT_COUNTRY_ISO2} className="w-28 shrink-0">
+      <div className="flex flex-wrap gap-2">
+        <Select
+          name="contact_type"
+          value={contactType}
+          onChange={(e) => setContactType(e.target.value as ContactType)}
+          className="w-28 shrink-0"
+        >
+          <option value="phone">Phone</option>
+          <option value="email">Email</option>
+          <option value="address">Address</option>
+        </Select>
+        <Input name="label" placeholder="Label (e.g. Mobile)" className="w-36 shrink-0" />
+        {contactType === "phone" && (
+          <Select name="country_iso2" required defaultValue={DEFAULT_COUNTRY_ISO2} className="w-20 shrink-0">
             {COUNTRIES.map((c) => (
               <option key={c.iso2} value={c.iso2}>
-                +{c.dialCode} {c.iso2}
+                +{c.dialCode}
               </option>
             ))}
           </Select>
-          <Input name="local_number" placeholder="Phone number" required />
-        </div>
+        )}
+      </div>
+
+      {contactType === "phone" ? (
+        <Input name="local_number" placeholder="Phone number" required />
       ) : (
         <Input name="value" placeholder={contactType === "email" ? "Email address" : "Address"} required />
       )}
@@ -51,6 +53,7 @@ export function ContactDetailForm({
         name="visibility"
         value={visibility}
         onChange={(e) => setVisibility(e.target.value as PrivacyVisibility)}
+        className="w-56"
       >
         <option value="just_me">Just me</option>
         <option value="everyone">Everyone in the family app</option>
@@ -58,7 +61,7 @@ export function ContactDetailForm({
       </Select>
 
       {visibility === "groups" && (
-        <div className="sm:col-span-4">
+        <div>
           <Field label="Which group(s) can see this?">
             <Select name="group_ids" multiple required className="h-24">
               {groups.map((g) => (
@@ -76,9 +79,7 @@ export function ContactDetailForm({
         </div>
       )}
 
-      <div className="sm:col-span-4">
-        <Button type="submit">Add</Button>
-      </div>
+      <Button type="submit">Add</Button>
     </form>
   );
 }
