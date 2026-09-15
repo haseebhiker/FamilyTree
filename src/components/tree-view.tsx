@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { PersonName, displayNameText } from "@/components/person-name";
+import { sortByAge } from "@/lib/sort-by-age";
 
 export interface TreeNodeData {
   id: string;
@@ -12,6 +13,9 @@ export interface TreeNodeData {
   living_status: string;
   father_id: string | null;
   mother_id: string | null;
+  birth_year?: number | null;
+  birth_month?: number | null;
+  birth_day?: number | null;
 }
 
 /**
@@ -123,7 +127,7 @@ export function TreeView({
         map.set(parentId, list);
       }
     }
-    for (const list of map.values()) list.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    for (const [parentId, list] of map) map.set(parentId, sortByAge(list));
     return map;
   }, [allPeople]);
 
