@@ -153,6 +153,7 @@ export function TreeView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search for a person by name…"
+          autoFocus
           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
         />
         {searchResults.length > 0 && (
