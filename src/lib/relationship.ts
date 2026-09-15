@@ -184,6 +184,29 @@ function hasRedundantParentSpouseDetour(path: PathStep[], sourceId: string, peop
   return false;
 }
 
+/**
+ * The mirror image of `hasRedundantParentSpouseDetour`: a path is reducible
+ * if it crosses to a spouse and then immediately descends to a child, where
+ * that child is *also* the previous person's own recorded child (with that
+ * spouse) — e.g. "wife's son" is just "son" reached the long way, when the
+ * son is a joint biological child rather than a stepchild from elsewhere.
+ * A genuine stepchild (whose other recorded parent isn't the previous
+ * person) isn't touched — that's a real, distinct in-law relationship.
+ */
+function hasRedundantSpouseChildDetour(path: PathStep[], sourceId: string, peopleById: Map<string, PersonNode>): boolean {
+  let prevId = sourceId;
+  for (let i = 0; i < path.length - 1; i++) {
+    const step = path[i];
+    const next = path[i + 1];
+    if (step.kind === "spouse" && next.kind === "child") {
+      const childPerson = peopleById.get(next.id);
+      if (childPerson && (childPerson.father_id === prevId || childPerson.mother_id === prevId)) return true;
+    }
+    prevId = step.id;
+  }
+  return false;
+}
+
 function buildSpousesOf(spouses: SpouseEdge[]): Map<string, string[]> {
   const spousesOf = new Map<string, string[]>();
   for (const s of spouses) {
@@ -260,7 +283,11 @@ export function findRelationshipPaths(
   }
 
   const peopleById = new Map(people.map((p) => [p.id, p]));
-  const paths = dedupe(candidates.filter((p) => !hasRedundantParentSpouseDetour(p, sourceId, peopleById)))
+  const paths = dedupe(
+    candidates.filter(
+      (p) => !hasRedundantParentSpouseDetour(p, sourceId, peopleById) && !hasRedundantSpouseChildDetour(p, sourceId, peopleById),
+    ),
+  )
     .sort((a, b) => a.length - b.length)
     .slice(0, maxPaths);
   return { paths, genders };
