@@ -54,6 +54,9 @@ export function NavBar({
           <Link href="/groups" className="hover:text-slate-900">
             Groups
           </Link>
+          <Link href="/install" className="hover:text-slate-900">
+            Install App
+          </Link>
           {isAdmin && (
             <details ref={detailsRef} className="relative">
               <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
