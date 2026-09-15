@@ -13,12 +13,17 @@ export function displayNameText(p: NameFields) {
   return p.preferred_name ? `${p.preferred_name} ${formalName(p)}` : formalName(p);
 }
 
-/** Visual label used everywhere a person's name is shown: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree. */
+/** Visual label used everywhere a person's name is shown: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree — each part its own color so the three are easy to tell apart at a glance. */
 export function PersonName({ person }: { person: NameFields }) {
-  if (!person.preferred_name) return <>{formalName(person)}</>;
   return (
     <>
-      <span className="font-semibold">{person.preferred_name}</span> {formalName(person)}
+      {person.preferred_name && (
+        <>
+          <span className="font-semibold text-blue-700">{person.preferred_name}</span>{" "}
+        </>
+      )}
+      <span className="text-slate-700">{person.full_name}</span>
+      {person.surname_tag && <span className="text-amber-700"> /{person.surname_tag}/</span>}
     </>
   );
 }
