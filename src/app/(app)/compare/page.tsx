@@ -30,11 +30,11 @@ export default async function ComparePage({
     personB = (people ?? []).find((p) => p.id === b);
 
     if (personA && personB) {
-      const graphPeople: { id: string; father_id: string | null; mother_id: string | null }[] = [];
+      const graphPeople: { id: string; father_id: string | null; mother_id: string | null; gender: "M" | "F" | null }[] = [];
       for (let from = 0; ; from += 1000) {
         const { data: page } = await supabase
           .from("people")
-          .select("id, father_id, mother_id")
+          .select("id, father_id, mother_id, gender")
           .is("deleted_at", null)
           .range(from, from + 999);
         if (!page || page.length === 0) break;

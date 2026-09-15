@@ -10,6 +10,11 @@ create table people (
   preferred_name text,
   other_names text,
   surname_tag text,
+  -- Explicit, not inferred here — this is what lets the relationship
+  -- finder say "son"/"daughter" or "brother"/"sister" instead of a
+  -- generic term for anyone who doesn't already appear as somebody's
+  -- father_id/mother_id.
+  gender text check (gender in ('M', 'F')),
   father_id uuid references people(id) on delete set null,
   mother_id uuid references people(id) on delete set null,
   living_status text not null default 'unknown' check (living_status in ('living', 'deceased', 'unknown')),

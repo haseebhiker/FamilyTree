@@ -46,6 +46,7 @@ export interface Person {
   preferred_name: string | null;
   other_names: string | null;
   surname_tag: string | null;
+  gender: "M" | "F" | null;
   father_id: string | null;
   mother_id: string | null;
   living_status: LivingStatus;

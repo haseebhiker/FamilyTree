@@ -3,8 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
-import { submitPersonEdit, submitAddPerson, submitLinkExistingParent } from "@/lib/actions/pending-changes";
-import { PersonPicker } from "@/components/person-picker";
+import { submitPersonEdit } from "@/lib/actions/pending-changes";
+import { AddFamilyMemberForm } from "@/components/add-family-member-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson } from "@/lib/actions/people-admin";
 import { formatPartialDate } from "@/lib/partial-date";
@@ -12,14 +12,12 @@ import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Field, Input, Select, Textarea, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
-import { PrivacySettingsForm } from "@/components/privacy-settings-form";
 import { ContactIcons } from "@/components/contact-icons";
-import { PersonName, displayNameText } from "@/components/person-name";
+import { PersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
-import type { ContactDetail, Person, PrivacyVisibility } from "@/lib/types";
-import { PRIVACY_FIELDS } from "@/lib/types";
+import type { ContactDetail, Person } from "@/lib/types";
 
 const CONTACT_TYPE_LABELS: Record<string, string> = {
   phone: "Phone",
@@ -53,7 +51,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const person = await applyPrivacy(supabase, personRaw as Person, member);
   const isOwner = member?.person_id === person.id;
-  const canManagePrivacy = isOwner || isAdmin(member);
 
   // "How you're related" — only meaningful once the viewer's own account is
   // linked to a person, and not on your own page. Loads the full tree as a
@@ -66,11 +63,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     peopleById: Map<string, { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }>;
   } | null = null;
   if (member?.person_id && member.person_id !== person.id) {
-    const graphPeople: { id: string; father_id: string | null; mother_id: string | null }[] = [];
+    const graphPeople: { id: string; father_id: string | null; mother_id: string | null; gender: "M" | "F" | null }[] = [];
     for (let from = 0; ; from += 1000) {
       const { data: page } = await supabase
         .from("people")
-        .select("id, father_id, mother_id")
+        .select("id, father_id, mother_id, gender")
         .is("deleted_at", null)
         .range(from, from + 999);
       if (!page || page.length === 0) break;
@@ -104,8 +101,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     { data: spousesAsB },
     { data: auditEntries },
     { data: contactDetailsRaw },
-    { data: fieldPrivacyRows },
-    { data: privacyDefaults },
     { data: allGroups },
   ] = await Promise.all([
     person.father_id
@@ -131,8 +126,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       .order("created_at", { ascending: false })
       .limit(20),
     supabase.from("contact_details").select("*").eq("person_id", person.id).order("created_at"),
-    supabase.from("field_privacy").select("id, field_name, visibility").eq("person_id", person.id),
-    supabase.from("privacy_defaults").select("field_name, visibility"),
     supabase.from("groups").select("id, name").order("name"),
   ]);
 
@@ -149,25 +142,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const { data: personGroupRows } = await supabase.from("group_people").select("group_id").eq("person_id", person.id);
   const personGroupIds = new Set((personGroupRows ?? []).map((g) => g.group_id));
   const selectableGroups = (allGroups ?? []).filter((g) => personGroupIds.has(g.id));
-
-  const defaultsMap = new Map((privacyDefaults ?? []).map((d) => [d.field_name, d.visibility as PrivacyVisibility]));
-  const fieldPrivacyGroupIds = (fieldPrivacyRows ?? []).filter((r) => r.visibility === "groups").map((r) => r.id);
-  const { data: fieldPrivacyGroupLinks } =
-    fieldPrivacyGroupIds.length > 0
-      ? await supabase.from("field_privacy_groups").select("field_privacy_id, group_id").in("field_privacy_id", fieldPrivacyGroupIds)
-      : { data: [] as { field_privacy_id: string; group_id: string }[] };
-
-  const currentVisibility: Record<string, PrivacyVisibility> = {};
-  const currentGroupIds: Record<string, string[]> = {};
-  for (const field of PRIVACY_FIELDS) {
-    const row = (fieldPrivacyRows ?? []).find((r) => r.field_name === field);
-    currentVisibility[field] = row?.visibility ?? defaultsMap.get(field) ?? "admins_only";
-    if (row) {
-      currentGroupIds[field] = (fieldPrivacyGroupLinks ?? [])
-        .filter((l) => l.field_privacy_id === row.id)
-        .map((l) => l.group_id);
-    }
-  }
 
   const marriages = [
     ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id })),
@@ -229,16 +203,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       isHalf: !(person.father_id && person.mother_id && s.father_id === person.father_id && s.mother_id === person.mother_id),
     }));
 
-  const { data: allPeopleForPicker } =
-    !person.father_id || !person.mother_id
-      ? await supabase
-          .from("people")
-          .select("id, full_name, preferred_name, surname_tag")
-          .is("deleted_at", null)
-          .neq("id", person.id)
-          .order("full_name")
-          .limit(2000)
-      : { data: [] };
+  const { data: allPeopleForPicker } = await supabase
+    .from("people")
+    .select("id, full_name, preferred_name, surname_tag")
+    .is("deleted_at", null)
+    .neq("id", person.id)
+    .order("full_name")
+    .limit(2000);
 
   const birthDisplay = formatPartialDate({ year: person.birth_year, month: person.birth_month, day: person.birth_day });
   const deathDisplay = formatPartialDate({ year: person.death_year, month: person.death_month, day: person.death_day });
@@ -417,16 +388,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </dl>
         )}
         {person.bio && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{person.bio}</p>}
-
-        <div className="mt-4 flex gap-2 rounded-md bg-blue-50 px-3 py-2.5 text-xs text-blue-900">
-          <span>🔒</span>
-          <p>
-            <span className="font-medium">Privacy &amp; security:</span> everyone here only sees this person&apos;s
-            name and current location by default. Everything else — birthday, contact info, social links — is
-            encrypted and stays private until they choose to share it, either with everyone in Nams Family App or
-            with specific groups they&apos;re in.
-          </p>
-        </div>
       </Card>
 
       <Card>
@@ -485,6 +446,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <Field label="Preferred name"><Input name="preferred_name" defaultValue={personRaw.preferred_name ?? ""} /></Field>
           <Field label="Surname tag"><Input name="surname_tag" defaultValue={personRaw.surname_tag ?? ""} /></Field>
           <Field label="Other names"><Input name="other_names" defaultValue={personRaw.other_names ?? ""} /></Field>
+          <Field label="Gender">
+            <Select name="gender" defaultValue={personRaw.gender ?? ""}>
+              <option value="">Unknown</option>
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </Select>
+          </Field>
           <Field label="Living status">
             <Select name="living_status" defaultValue={personRaw.living_status}>
               <option value="unknown">Unknown</option>
@@ -538,94 +506,30 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
           Add a family member
         </summary>
-        <div className="space-y-4 border-t border-slate-100 p-4">
-          <form action={submitAddPerson} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="relation_to_person_id" value={person.id} />
-            <input type="hidden" name="relation_type" value="child" />
-            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a child of <PersonName person={person} /></p>
-            <Field label="Child's full name"><Input name="full_name" required /></Field>
-            <Field label="Surname tag"><Input name="surname_tag" /></Field>
-            <Field label={`Is ${person.full_name} the father or mother?`}>
-              <Select name="parent_gender" defaultValue="father">
-                <option value="father">Father</option>
-                <option value="mother">Mother</option>
-              </Select>
-            </Field>
-            <Field label="Other parent (optional)">
-              <Select name="other_parent_id" defaultValue="">
-                <option value="">— Unknown —</option>
-                {marriages.map((m) => m.spouse && (
-                  <option key={m.spouse.id} value={m.spouse.id}>{displayNameText(m.spouse)}</option>
-                ))}
-              </Select>
-            </Field>
-            <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" /></Field></div>
-            <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
-          </form>
-
-          <form action={submitAddPerson} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
-            <input type="hidden" name="relation_to_person_id" value={person.id} />
-            <input type="hidden" name="relation_type" value="spouse" />
-            <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a spouse of <PersonName person={person} /></p>
-            <Field label="Spouse's full name"><Input name="full_name" required /></Field>
-            <Field label="Surname tag"><Input name="surname_tag" /></Field>
-            <div className="sm:col-span-2"><Field label="Marriage notes (optional)"><Input name="marriage_notes" /></Field></div>
-            <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" /></Field></div>
-            <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
-          </form>
-
-          {(!person.father_id || !person.mother_id) && (
-            <form action={submitAddPerson} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
-              <input type="hidden" name="relation_to_person_id" value={person.id} />
-              <input type="hidden" name="relation_type" value="parent" />
-              <p className="text-sm font-medium text-slate-700 sm:col-span-2">Add a parent of <PersonName person={person} /></p>
-              <Field label="Parent's full name"><Input name="full_name" required /></Field>
-              <Field label="Surname tag"><Input name="surname_tag" /></Field>
-              <Field label="This person is the">
-                <Select name="parent_gender" defaultValue="father">
-                  {!person.father_id && <option value="father">Father</option>}
-                  {!person.mother_id && <option value="mother">Mother</option>}
-                </Select>
-              </Field>
-              <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" /></Field></div>
-              <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
-            </form>
-          )}
-
-          {(!person.father_id || !person.mother_id) && (
-            <form action={submitLinkExistingParent} className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
-              <input type="hidden" name="person_id" value={person.id} />
-              <p className="text-sm font-medium text-slate-700 sm:col-span-2">
-                Or link someone already in the tree as a parent of <PersonName person={person} />
-              </p>
-              <Field label="Search for the person">
-                <PersonPicker name="parent_person_id" people={allPeopleForPicker ?? []} />
-              </Field>
-              <Field label="This person is the">
-                <Select name="parent_gender" defaultValue="father">
-                  {!person.father_id && <option value="father">Father</option>}
-                  {!person.mother_id && <option value="mother">Mother</option>}
-                </Select>
-              </Field>
-              <div className="sm:col-span-2"><Field label="Note to admin (optional)"><Input name="note" /></Field></div>
-              <div className="sm:col-span-2"><Button type="submit">Submit for review</Button></div>
-            </form>
-          )}
+        <div className="border-t border-slate-100 p-4">
+          <AddFamilyMemberForm
+            personId={person.id}
+            hasFather={!!person.father_id}
+            hasMother={!!person.mother_id}
+            people={allPeopleForPicker ?? []}
+          />
         </div>
       </details>
 
-      {canManagePrivacy && (
-        <details className="group rounded-lg border border-slate-200 bg-white">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
-            Privacy settings
-          </summary>
-          <PrivacySettingsForm
-            personId={person.id}
-            currentVisibility={currentVisibility}
-            currentGroupIds={currentGroupIds}
-            groups={selectableGroups}
-          />
-        </details>
+      {isOwner ? (
+        <p className="text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-slate-600 hover:underline">
+            Manage your privacy settings →
+          </Link>
+        </p>
+      ) : (
+        isAdmin(member) && (
+          <p className="text-xs text-slate-400">
+            <Link href={`/privacy?person=${person.id}`} className="hover:text-slate-600 hover:underline">
+              Manage privacy for this person →
+            </Link>
+          </p>
+        )
       )}
 
       <details className="group rounded-lg border border-slate-200 bg-white">

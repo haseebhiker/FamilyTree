@@ -6,12 +6,26 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import type { Member, Person, PendingChangeType } from "@/lib/types";
 import { parsePartialDateFields } from "@/lib/partial-date";
+import { encryptValue } from "@/lib/vault-crypto";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+
+const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spouse"; gender: "M" | "F" }> = {
+  father: { type: "parent", gender: "M" },
+  mother: { type: "parent", gender: "F" },
+  son: { type: "child", gender: "M" },
+  daughter: { type: "child", gender: "F" },
+  brother: { type: "sibling", gender: "M" },
+  sister: { type: "sibling", gender: "F" },
+  husband: { type: "spouse", gender: "M" },
+  wife: { type: "spouse", gender: "F" },
+};
 
 const EDITABLE_PERSON_TEXT_FIELDS = [
   "full_name",
   "preferred_name",
   "other_names",
   "surname_tag",
+  "gender",
   "living_status",
   "place_of_birth",
   "place_of_death",
@@ -75,14 +89,35 @@ async function applyChange(
   }
 
   if (change.change_type === "add_person") {
-    const { relation_to_person_id, relation_type, marriage_notes, other_parent_id, parent_gender, ...personFields } =
-      proposedData;
+    const {
+      relation_to_person_id,
+      relation_type,
+      marriage_notes,
+      other_parent_id,
+      parent_gender,
+      pending_phone_country,
+      pending_phone_number,
+      pending_email,
+      ...personFields
+    } = proposedData;
 
     const insertPayload: Record<string, unknown> = { ...personFields };
 
     if (relation_type === "child" && relation_to_person_id) {
       insertPayload.father_id = parent_gender === "mother" ? other_parent_id ?? null : relation_to_person_id;
       insertPayload.mother_id = parent_gender === "mother" ? relation_to_person_id : other_parent_id ?? null;
+    }
+
+    if (relation_type === "sibling" && relation_to_person_id) {
+      // A new sibling shares whatever parents are already on record for
+      // the person they're being added relative to.
+      const { data: sourcePerson } = await supabase
+        .from("people")
+        .select("father_id, mother_id")
+        .eq("id", relation_to_person_id as string)
+        .single();
+      if (sourcePerson?.father_id) insertPayload.father_id = sourcePerson.father_id;
+      if (sourcePerson?.mother_id) insertPayload.mother_id = sourcePerson.mother_id;
     }
 
     const { data: newPerson, error } = await supabase.from("people").insert(insertPayload).select("id").single();
@@ -106,11 +141,68 @@ async function applyChange(
       if (spouseError) throw new Error(spouseError.message);
     }
 
+    // Optional contact details captured inline while adding the person —
+    // silently skipped rather than blocking the whole submission if the
+    // phone number doesn't validate; they can always add/fix it later
+    // from the new profile itself.
+    if (pending_phone_number) {
+      const parsedPhone = parsePhoneNumberFromString(
+        pending_phone_number as string,
+        (pending_phone_country as string | undefined) as CountryCode | undefined,
+      );
+      if (parsedPhone?.isValid()) {
+        await supabase.from("contact_details").insert({
+          person_id: newPerson.id,
+          contact_type: "phone",
+          label: "Mobile",
+          value: encryptValue(parsedPhone.number),
+          visibility: "everyone",
+        });
+      }
+    }
+    if (pending_email) {
+      await supabase.from("contact_details").insert({
+        person_id: newPerson.id,
+        contact_type: "email",
+        label: "Personal",
+        value: encryptValue(pending_email as string),
+        visibility: "everyone",
+      });
+    }
+
     return newPerson.id;
   }
 
   if (change.change_type === "add_relationship") {
-    const { existing_person_id, parent_gender } = proposedData;
+    const { existing_person_id, parent_gender, mode, relation_to_person_id, marriage_notes } = proposedData;
+
+    if (mode === "sibling") {
+      // target_person_id is the (existing) person being made a sibling —
+      // give them the same parents already on record for relation_to_person_id.
+      const { data: sourcePerson } = await supabase
+        .from("people")
+        .select("father_id, mother_id")
+        .eq("id", relation_to_person_id as string)
+        .single();
+      const updatePayload: Record<string, unknown> = {};
+      if (sourcePerson?.father_id) updatePayload.father_id = sourcePerson.father_id;
+      if (sourcePerson?.mother_id) updatePayload.mother_id = sourcePerson.mother_id;
+      if (Object.keys(updatePayload).length === 0) throw new Error("That person has no recorded parents to share");
+      const { error } = await supabase.from("people").update(updatePayload).eq("id", change.target_person_id);
+      if (error) throw new Error(error.message);
+      return change.target_person_id;
+    }
+
+    if (mode === "spouse") {
+      const { error } = await supabase.from("spouses").insert({
+        person_a_id: relation_to_person_id,
+        person_b_id: existing_person_id,
+        marriage_notes: marriage_notes ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return change.target_person_id;
+    }
+
     const parentField = parent_gender === "mother" ? "mother_id" : "father_id";
     const { error } = await supabase
       .from("people")
@@ -246,65 +338,118 @@ export async function submitPersonEdit(formData: FormData) {
   revalidatePath("/admin/pending");
 }
 
-export async function submitAddPerson(formData: FormData) {
+/**
+ * Single entry point for "Add a family member" — one relation dropdown
+ * (Father/Mother/Son/Daughter/Brother/Sister/Husband/Wife, so gender is
+ * implied by the choice instead of asked separately) followed by either
+ * picking an existing person or filling in a new one, replacing what used
+ * to be four separate always-visible forms. Direction of the underlying
+ * add_relationship update flips depending on the relation's type: adding
+ * an existing "parent" sets *this* person's parent field, while adding an
+ * existing "child" sets the *other* person's parent field to point back
+ * at this one — same primitive, just aimed at whichever side needs it.
+ */
+export async function submitFamilyRelation(formData: FormData) {
   const { supabase, member } = await requireMember();
 
-  const fullName = String(formData.get("full_name") ?? "").trim();
-  if (!fullName) throw new Error("Full name is required");
+  const personId = String(formData.get("person_id") ?? "").trim();
+  const relation = String(formData.get("relation") ?? "").trim();
+  const mode = String(formData.get("mode") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim() || null;
 
-  const relationTo = String(formData.get("relation_to_person_id") ?? "").trim() || null;
-  const relationType = String(formData.get("relation_type") ?? "").trim();
+  const mapped = RELATION_MAP[relation];
+  if (!personId) throw new Error("Missing person id");
+  if (!mapped) throw new Error("Invalid relation");
+  if (!["new", "existing"].includes(mode)) throw new Error("Invalid mode");
 
-  const proposed: Record<string, unknown> = {
-    full_name: fullName,
-    surname_tag: String(formData.get("surname_tag") ?? "").trim() || null,
-    living_status: String(formData.get("living_status") ?? "unknown"),
-    relation_to_person_id: relationTo,
-    relation_type: relationType || null,
-    marriage_notes: String(formData.get("marriage_notes") ?? "").trim() || null,
-  };
+  const relationType = mapped.type;
+  const parentGender = mapped.gender === "M" ? "father" : "mother";
 
-  await applyOrQueue(supabase, member, {
-    change_type: "add_person",
-    target_person_id: relationTo,
-    proposed_data: proposed,
-    previous_data: {},
-    note: String(formData.get("note") ?? "").trim() || null,
-  });
+  const revalidateIds = new Set<string>([personId]);
 
-  revalidatePath("/my-submissions");
-  revalidatePath("/admin/pending");
-  if (relationTo) revalidatePath(`/people/${relationTo}`);
-}
+  if (mode === "existing") {
+    const existingPersonId = String(formData.get("existing_person_id") ?? "").trim();
+    if (!existingPersonId) throw new Error("Choose a person");
+    if (existingPersonId === personId) throw new Error("A person can't be related to themselves");
+    revalidateIds.add(existingPersonId);
 
-export async function submitLinkExistingParent(formData: FormData) {
-  const { supabase, member } = await requireMember();
+    if (relationType === "parent") {
+      await applyOrQueue(supabase, member, {
+        change_type: "add_relationship",
+        target_person_id: personId,
+        proposed_data: { relation_to_person_id: personId, existing_person_id: existingPersonId, parent_gender: parentGender },
+        previous_data: {},
+        note,
+      });
+    } else if (relationType === "child") {
+      await applyOrQueue(supabase, member, {
+        change_type: "add_relationship",
+        target_person_id: existingPersonId,
+        proposed_data: { relation_to_person_id: existingPersonId, existing_person_id: personId, parent_gender: parentGender },
+        previous_data: {},
+        note,
+      });
+    } else if (relationType === "sibling") {
+      await applyOrQueue(supabase, member, {
+        change_type: "add_relationship",
+        target_person_id: existingPersonId,
+        proposed_data: { relation_to_person_id: personId, mode: "sibling" },
+        previous_data: {},
+        note,
+      });
+    } else {
+      await applyOrQueue(supabase, member, {
+        change_type: "add_relationship",
+        target_person_id: personId,
+        proposed_data: {
+          relation_to_person_id: personId,
+          existing_person_id: existingPersonId,
+          mode: "spouse",
+          marriage_notes: String(formData.get("marriage_notes") ?? "").trim() || null,
+        },
+        previous_data: {},
+        note,
+      });
+    }
+  } else {
+    const fullName = String(formData.get("full_name") ?? "").trim();
+    if (!fullName) throw new Error("Full name is required");
 
-  const targetPersonId = String(formData.get("person_id") ?? "").trim();
-  const parentPersonId = String(formData.get("parent_person_id") ?? "").trim();
-  const parentGender = String(formData.get("parent_gender") ?? "").trim();
+    const birthDate = parsePartialDateFields(
+      formData.get("birth_year"),
+      formData.get("birth_month"),
+      formData.get("birth_day"),
+    );
 
-  if (!targetPersonId) throw new Error("Missing person id");
-  if (!parentPersonId) throw new Error("Choose a person to link");
-  if (parentPersonId === targetPersonId) throw new Error("A person can't be their own parent");
-  if (parentGender !== "father" && parentGender !== "mother") throw new Error("Invalid parent type");
-
-  await applyOrQueue(supabase, member, {
-    change_type: "add_relationship",
-    target_person_id: targetPersonId,
-    proposed_data: {
-      relation_to_person_id: targetPersonId,
-      existing_person_id: parentPersonId,
+    const proposed: Record<string, unknown> = {
+      full_name: fullName,
+      surname_tag: String(formData.get("surname_tag") ?? "").trim() || null,
+      gender: mapped.gender,
+      living_status: String(formData.get("living_status") ?? "unknown"),
+      birth_year: birthDate.year,
+      birth_month: birthDate.month,
+      birth_day: birthDate.day,
+      relation_to_person_id: personId,
+      relation_type: relationType,
       parent_gender: parentGender,
-    },
-    previous_data: {},
-    note: String(formData.get("note") ?? "").trim() || null,
-  });
+      marriage_notes: relationType === "spouse" ? String(formData.get("marriage_notes") ?? "").trim() || null : null,
+      pending_phone_country: String(formData.get("phone_country") ?? "").trim() || null,
+      pending_phone_number: String(formData.get("phone_number") ?? "").trim() || null,
+      pending_email: String(formData.get("email") ?? "").trim() || null,
+    };
+
+    await applyOrQueue(supabase, member, {
+      change_type: "add_person",
+      target_person_id: personId,
+      proposed_data: proposed,
+      previous_data: {},
+      note,
+    });
+  }
 
   revalidatePath("/my-submissions");
   revalidatePath("/admin/pending");
-  revalidatePath(`/people/${targetPersonId}`);
-  revalidatePath(`/people/${parentPersonId}`);
+  for (const id of revalidateIds) revalidatePath(`/people/${id}`);
 }
 
 export async function approvePendingChange(formData: FormData) {
