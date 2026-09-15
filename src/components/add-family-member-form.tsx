@@ -70,7 +70,18 @@ export function AddFamilyMemberForm(props: FormProps) {
           submit it again.
         </p>
       )}
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && (
+        <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-1 text-xs font-medium text-red-800 underline hover:text-red-900"
+          >
+            If that looks wrong, reload the page and try again
+          </button>
+        </div>
+      )}
       <FormFields key={generation} {...props} onSubmit={handleSubmit} isPending={isPending} />
     </div>
   );
