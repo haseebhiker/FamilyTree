@@ -66,7 +66,13 @@ export function NavBar({
             Groups
           </Link>
 
-          <details ref={moreRef} className="relative">
+          <details
+            ref={moreRef}
+            className="relative"
+            onToggle={() => {
+              if (moreRef.current?.open && adminRef.current) adminRef.current.open = false;
+            }}
+          >
             <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
               More
               <ChevronIcon />
@@ -82,7 +88,13 @@ export function NavBar({
           </details>
 
           {isAdmin && (
-            <details ref={adminRef} className="relative">
+            <details
+              ref={adminRef}
+              className="relative"
+              onToggle={() => {
+                if (adminRef.current?.open && moreRef.current) moreRef.current.open = false;
+              }}
+            >
               <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
                 <GearIcon />
                 Admin
