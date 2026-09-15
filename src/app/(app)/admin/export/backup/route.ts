@@ -16,6 +16,7 @@ const TABLES = [
   "members",
   "pending_changes",
   "audit_log",
+  "login_log",
   "privacy_defaults",
 ] as const;
 

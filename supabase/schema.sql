@@ -266,6 +266,21 @@ create table audit_log (
 
 create index audit_log_person_idx on audit_log(person_id);
 
+-- One row per successful sign-in (not just first-ever — every time
+-- someone completes the Google OAuth flow). Rolling 30-day retention:
+-- rather than a cron job, every insert opportunistically deletes its own
+-- rows older than 30 days (see src/app/auth/callback/route.ts), which is
+-- enough for an app that gets signed into regularly. Admins can also wipe
+-- it entirely on demand.
+create table login_log (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid references members(id) on delete cascade,
+  email text not null,
+  logged_in_at timestamptz not null default now()
+);
+
+create index login_log_logged_in_at_idx on login_log(logged_in_at);
+
 -- Admin-configurable fallback visibility for unclaimed profiles' fields
 -- (§5 of the design doc). One row per field; seeded with the doc's
 -- defaults below. No 'groups' option here — a default with no owner to
@@ -363,6 +378,7 @@ alter table contact_details enable row level security;
 alter table contact_detail_groups enable row level security;
 alter table pending_changes enable row level security;
 alter table audit_log enable row level security;
+alter table login_log enable row level security;
 alter table privacy_defaults enable row level security;
 
 -- people / spouses: any signed-in member can read (field-level privacy is
@@ -622,6 +638,23 @@ create policy "members can read audit_log" on audit_log
   for select using (auth.role() = 'authenticated');
 create policy "admins write audit_log" on audit_log
   for insert with check (is_admin());
+
+-- login_log: admin-only read (who signed in, and when, is sensitive —
+-- unlike audit_log's data-change history, this isn't shown to members).
+-- Any authenticated session may insert its own row (recorded on every
+-- sign-in, see src/app/auth/callback/route.ts) and delete rows older than
+-- 30 days as a side effect of that same insert — the age condition in the
+-- policy itself is what enforces the rolling retention, not application
+-- code, so it holds regardless of who happens to trigger the cleanup. A
+-- full manual wipe (any row, not just expired ones) stays admin-only.
+create policy "admins read login_log" on login_log
+  for select using (is_admin());
+create policy "self can insert own login_log row" on login_log
+  for insert with check (auth.uid() = member_id);
+create policy "anyone authenticated can delete expired login_log rows" on login_log
+  for delete using (auth.role() = 'authenticated' and logged_in_at < now() - interval '30 days');
+create policy "admin can delete any login_log row" on login_log
+  for delete using (is_admin());
 
 -- privacy_defaults: readable by all signed-in members, writable by admins.
 create policy "members can read privacy_defaults" on privacy_defaults

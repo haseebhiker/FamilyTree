@@ -15,6 +15,10 @@ export async function GET(request: Request) {
       const member = await provisionMemberFromInvite(supabase, data.user);
 
       if (member) {
+        // Recorded on every sign-in, not just the first — see
+        // supabase/schema.sql for how the 30-day retention is enforced.
+        await supabase.from("login_log").insert({ member_id: member.id, email: member.email });
+        await supabase.from("login_log").delete().lt("logged_in_at", new Date(Date.now() - 30 * 86400000).toISOString());
         return NextResponse.redirect(`${origin}/`);
       }
 
