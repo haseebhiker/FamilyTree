@@ -381,7 +381,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       {ancestorChart.father || ancestorChart.mother ? (
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Ancestors</h2>
-          <AncestorChart root={ancestorChart} />
+          <AncestorChart root={ancestorChart} siblings={siblings} />
         </Card>
       ) : null}
 
