@@ -97,6 +97,44 @@ export async function linkInviteToPerson(formData: FormData) {
   revalidatePath("/admin/invites");
 }
 
+/**
+ * Edits the linked member/invite record itself (name, email, role) from
+ * the profile page's "Linked account" section — plus, when the account
+ * came through the self-service Request Access flow, the reason text
+ * they gave for how they're related, which otherwise lives only on the
+ * now-decided access_requests row with no edit path of its own.
+ */
+export async function updateLinkedAccount(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  if (!isSuperAdmin(member)) throw new Error("Only a super admin can edit a linked account");
+
+  const source = String(formData.get("source") ?? "");
+  const recordId = String(formData.get("record_id") ?? "");
+  const personId = String(formData.get("person_id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const role = String(formData.get("role") ?? "member") as Role;
+  if (!recordId || !personId || !name || !email) throw new Error("Name and email are required");
+  if (source !== "member" && source !== "invite") throw new Error("Invalid account type");
+
+  const { error } = await supabase.from(source === "member" ? "members" : "invites").update({ name, email, role }).eq("id", recordId);
+  if (error) throw new Error(error.message);
+
+  const accessRequestId = String(formData.get("access_request_id") ?? "");
+  if (accessRequestId) {
+    const relationDescription = String(formData.get("relation_description") ?? "").trim();
+    if (!relationDescription) throw new Error("Relation description can't be empty");
+    const { error: reqError } = await supabase
+      .from("access_requests")
+      .update({ relation_description: relationDescription, notes: String(formData.get("notes") ?? "").trim() || null })
+      .eq("id", accessRequestId);
+    if (reqError) throw new Error(reqError.message);
+  }
+
+  revalidatePath(`/people/${personId}`);
+  revalidatePath("/admin/invites");
+}
+
 /** Clears whatever link (member and/or invite) points at this profile — the undo for linkMemberToPerson/linkInviteToPerson. */
 export async function unlinkPersonAccount(formData: FormData) {
   const { supabase, member } = await requireAdmin();
