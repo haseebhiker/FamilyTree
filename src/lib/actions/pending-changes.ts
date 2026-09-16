@@ -420,6 +420,19 @@ export async function submitPersonEdit(formData: FormData) {
     }
   }
 
+  // Not a date field — a plain fallback rank ("2nd child") consulted only
+  // when birth_year is missing entirely, see src/lib/sort-by-age.ts.
+  if (formData.has("birth_order")) {
+    const raw = String(formData.get("birth_order") ?? "").trim();
+    const parsedOrder = raw ? Number.parseInt(raw, 10) : NaN;
+    const value = Number.isInteger(parsedOrder) && parsedOrder > 0 ? parsedOrder : null;
+    const currentValue = (current as Person).birth_order ?? null;
+    if (value !== currentValue) {
+      proposed.birth_order = value;
+      previous.birth_order = currentValue;
+    }
+  }
+
   if (Object.keys(proposed).length === 0) {
     throw new Error("No changes to submit");
   }

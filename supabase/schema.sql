@@ -26,6 +26,11 @@ create table people (
   birth_year int,
   birth_month int check (birth_month between 1 and 12),
   birth_day int check (birth_day between 1 and 31),
+  -- Fallback for sorting eldest-first when birth_year isn't known at all:
+  -- "which child they are" among their siblings (1 = firstborn, ...). See
+  -- src/lib/sort-by-age.ts — only consulted as a tiebreaker among people
+  -- who share the same missing-year status.
+  birth_order int,
   death_year int,
   death_month int check (death_month between 1 and 12),
   death_day int check (death_day between 1 and 31),

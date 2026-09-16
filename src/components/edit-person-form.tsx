@@ -143,6 +143,18 @@ function FormFields({
         </Field>
       </div>
 
+      <div className="sm:col-span-2">
+        <Field label="Birth order among siblings (only used when the exact year above is unknown)">
+          <Input
+            name="birth_order"
+            type="number"
+            min={1}
+            placeholder="e.g. 2 for second child"
+            defaultValue={personRaw.birth_order ?? ""}
+          />
+        </Field>
+      </div>
+
       <Field label="Place of birth"><Input name="place_of_birth" defaultValue={personRaw.place_of_birth ?? ""} /></Field>
       <Field label="Place of death"><Input name="place_of_death" defaultValue={personRaw.place_of_death ?? ""} /></Field>
       <Field label="Photo URL"><Input name="photo_url" defaultValue={personRaw.photo_url ?? ""} /></Field>

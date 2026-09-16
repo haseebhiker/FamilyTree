@@ -17,26 +17,31 @@ export interface QuickEditPerson {
   birth_year: number | null;
   birth_month: number | null;
   birth_day: number | null;
+  birth_order: number | null;
   father_id: string | null;
   mother_id: string | null;
 }
 
-type ColumnKey = "preferred_name" | "gender" | "living_status" | "birth_date";
+type ColumnKey = "preferred_name" | "gender" | "living_status" | "birth_date" | "birth_order";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
   preferred_name: "Preferred name",
   gender: "Gender",
   living_status: "Living status",
   birth_date: "Date of birth",
+  birth_order: "Birth order",
 };
 
-const DEFAULT_ORDER: ColumnKey[] = ["preferred_name", "gender", "living_status", "birth_date"];
+const DEFAULT_ORDER: ColumnKey[] = ["preferred_name", "gender", "living_status", "birth_date", "birth_order"];
 
 const isMissing: Record<ColumnKey, (p: QuickEditPerson) => boolean> = {
   preferred_name: (p) => !p.preferred_name,
   gender: (p) => !p.gender,
   living_status: (p) => !p.living_status || p.living_status === "unknown",
   birth_date: (p) => !p.birth_year,
+  // Only worth flagging as "missing" when the year is missing too — if the
+  // exact year is already known, birth_order isn't needed for sorting.
+  birth_order: (p) => !p.birth_year && !p.birth_order,
 };
 
 const cellInputClass = "px-2 py-1 text-xs";
@@ -49,6 +54,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     gender: true,
     living_status: true,
     birth_date: true,
+    birth_order: true,
   });
   const [missingFilter, setMissingFilter] = useState<ColumnKey | "none">("none");
   const [branchRoot, setBranchRoot] = useState<{ id: string; name: string } | null>(null);
@@ -230,6 +236,14 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
               {visibleColumns.map((key) => (
                 <th key={key} className="py-2 px-3 font-medium">
                   {COLUMN_LABELS[key]}
+                  {key === "birth_order" && (
+                    <span
+                      className="ml-1 cursor-help text-slate-400"
+                      title="Which child they are among their siblings (1 = firstborn) — only used to sort when the exact birth year above isn't known."
+                    >
+                      ⓘ
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -354,6 +368,21 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                           }}
                         />
                       </div>
+                    )}
+                    {key === "birth_order" && (
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 2"
+                        defaultValue={p.birth_order ?? ""}
+                        className={`${cellInputClass} w-16`}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim();
+                          const order = value ? Number(value) : null;
+                          if (order === p.birth_order) return;
+                          save(p.id, { birth_order: value }, { birth_order: order });
+                        }}
+                      />
                     )}
                   </td>
                 ))}

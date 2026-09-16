@@ -64,7 +64,7 @@ async function fetchCousins(
   const cousinConditions = auntUncleIds.flatMap((aid) => [`father_id.eq.${aid}`, `mother_id.eq.${aid}`]);
   const { data: cousinsRaw } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag, birth_year, birth_month, birth_day")
+    .select("id, full_name, preferred_name, surname_tag, birth_year, birth_month, birth_day, birth_order")
     .or(cousinConditions.join(","))
     .order("full_name");
   return cousinsRaw ?? [];
@@ -260,7 +260,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const { data: childrenRaw } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day")
+    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day, birth_order")
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
   const children = sortByAge(childrenRaw ?? []);
@@ -273,7 +273,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     siblingConditions.length > 0
       ? await supabase
           .from("people")
-          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day")
+          .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day, birth_order")
           .or(siblingConditions.join(","))
           .order("full_name")
       : { data: [] };

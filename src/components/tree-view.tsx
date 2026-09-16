@@ -17,6 +17,7 @@ export interface TreeNodeData {
   birth_year?: number | null;
   birth_month?: number | null;
   birth_day?: number | null;
+  birth_order?: number | null;
 }
 
 /**

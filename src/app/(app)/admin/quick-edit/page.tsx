@@ -6,7 +6,7 @@ export default async function QuickEditPage() {
   const { data: people } = await supabase
     .from("people")
     .select(
-      "id, full_name, preferred_name, surname_tag, gender, living_status, birth_year, birth_month, birth_day, father_id, mother_id",
+      "id, full_name, preferred_name, surname_tag, gender, living_status, birth_year, birth_month, birth_day, birth_order, father_id, mother_id",
     )
     .is("deleted_at", null)
     .order("full_name")

@@ -53,6 +53,7 @@ export interface Person {
   birth_year: number | null;
   birth_month: number | null;
   birth_day: number | null;
+  birth_order: number | null;
   death_year: number | null;
   death_month: number | null;
   death_day: number | null;
