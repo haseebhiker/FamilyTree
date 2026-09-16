@@ -97,6 +97,23 @@ export async function linkInviteToPerson(formData: FormData) {
   revalidatePath("/admin/invites");
 }
 
+/** Clears whatever link (member and/or invite) points at this profile — the undo for linkMemberToPerson/linkInviteToPerson. */
+export async function unlinkPersonAccount(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  if (!isSuperAdmin(member)) throw new Error("Only a super admin can unlink an account from a profile");
+
+  const personId = String(formData.get("person_id") ?? "");
+  if (!personId) throw new Error("Missing person id");
+
+  const { error: memberError } = await supabase.from("members").update({ person_id: null }).eq("person_id", personId);
+  if (memberError) throw new Error(memberError.message);
+  const { error: inviteError } = await supabase.from("invites").update({ person_id: null }).eq("person_id", personId);
+  if (inviteError) throw new Error(inviteError.message);
+
+  revalidatePath(`/people/${personId}`);
+  revalidatePath("/admin/invites");
+}
+
 export async function revokeInvite(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   const inviteId = String(formData.get("invite_id") ?? "");

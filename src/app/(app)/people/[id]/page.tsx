@@ -2,16 +2,17 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentMember, isAdmin } from "@/lib/members";
+import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
 import { applyPrivacy, filterAndDecryptContactDetails } from "@/lib/privacy";
 import { AddFamilyMemberForm } from "@/components/add-family-member-form";
 import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions/people-admin";
+import { linkInviteToPerson, unlinkPersonAccount } from "@/lib/actions/invites";
 import { formatPartialDate } from "@/lib/partial-date";
 import { sortByAge } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
-import { Card, Badge, ChevronIcon } from "@/components/ui";
+import { Card, Badge, ChevronIcon, Select } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -182,6 +183,50 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     ...(spousesAsA ?? []).map((s) => ({ spouse: s.person_b, marriage_notes: s.marriage_notes, spouseId: s.person_b_id, spouseRowId: s.id })),
     ...(spousesAsB ?? []).map((s) => ({ spouse: s.person_a, marriage_notes: s.marriage_notes, spouseId: s.person_a_id, spouseRowId: s.id })),
   ];
+
+  // Admin-only, and only queried at all for a super admin (the only role
+  // that can actually act on it) — everyone else viewing a profile
+  // shouldn't pay for these extra round-trips. Shows which invited
+  // account (if any) this profile is linked to, and — when that account
+  // came through the self-service "Request access" flow — what they said
+  // about how they're related, which otherwise lives only on the
+  // now-decided access_requests row and is easy to lose track of.
+  let linkedAccount: { source: "member" | "invite"; name: string; email: string; role: string; status: string } | null = null;
+  let linkedAccessRequest: { relation_description: string; notes: string | null } | null = null;
+  let unlinkedInvites: { id: string; name: string; email: string }[] = [];
+
+  if (isSuperAdmin(member)) {
+    const [{ data: memberMatch }, { data: inviteMatch }, { data: openInvites }] = await Promise.all([
+      supabase.from("members").select("name, email, role, status").eq("person_id", person.id).maybeSingle(),
+      supabase
+        .from("invites")
+        .select("name, email, role, status")
+        .eq("person_id", person.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("invites").select("id, name, email").is("person_id", null).neq("status", "revoked").order("name").limit(500),
+    ]);
+
+    if (memberMatch) {
+      linkedAccount = { source: "member", ...memberMatch };
+    } else if (inviteMatch) {
+      linkedAccount = { source: "invite", ...inviteMatch };
+    }
+
+    if (linkedAccount) {
+      const { data: reqMatch } = await supabase
+        .from("access_requests")
+        .select("relation_description, notes")
+        .ilike("email", linkedAccount.email)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      linkedAccessRequest = reqMatch ?? null;
+    }
+
+    unlinkedInvites = openInvites ?? [];
+  }
 
   const grandparentIds = [father?.father_id, father?.mother_id, mother?.father_id, mother?.mother_id].filter(
     (id): id is string => !!id,
@@ -557,6 +602,75 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <ContactDetailForm personId={person.id} />
         )}
       </Card>
+
+      {isSuperAdmin(member) && (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Linked account (admin only)</h2>
+          {linkedAccount ? (
+            <div className="space-y-1.5 text-sm">
+              <div><span className="font-medium text-slate-500">Name:</span> {linkedAccount.name}</div>
+              <div><span className="font-medium text-slate-500">Gmail:</span> {linkedAccount.email}</div>
+              <div>
+                <span className="font-medium text-slate-500">Role:</span> {linkedAccount.role.replace(/_/g, " ")}
+                {linkedAccount.source === "invite" && (
+                  <span className="text-slate-400"> — invited, hasn&apos;t signed in yet</span>
+                )}
+              </div>
+              <div><span className="font-medium text-slate-500">Status:</span> {linkedAccount.status}</div>
+              {linkedAccessRequest ? (
+                <>
+                  <div>
+                    <span className="font-medium text-slate-500">How they said they&apos;re related:</span>{" "}
+                    {linkedAccessRequest.relation_description}
+                  </div>
+                  {linkedAccessRequest.notes && (
+                    <div><span className="font-medium text-slate-500">Notes:</span> {linkedAccessRequest.notes}</div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Invited directly — no access request on file to show a stated reason for.
+                </p>
+              )}
+              <form action={unlinkPersonAccount} className="pt-1">
+                <input type="hidden" name="person_id" value={person.id} />
+                <PendingButton
+                  className="text-xs text-red-600 hover:underline"
+                  pendingChildren="…"
+                  confirmMessage={`Unlink ${person.full_name}'s profile from ${linkedAccount.email}?`}
+                >
+                  Unlink this account
+                </PendingButton>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-400">Not linked to any invited account.</p>
+              {unlinkedInvites.length > 0 && (
+                <form action={linkInviteToPerson} className="flex items-center gap-2">
+                  <input type="hidden" name="person_id" value={person.id} />
+                  <Select name="invite_id" className="w-auto text-xs" required defaultValue="">
+                    <option value="" disabled>
+                      Link to…
+                    </option>
+                    {unlinkedInvites.map((inv) => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.name} ({inv.email})
+                      </option>
+                    ))}
+                  </Select>
+                  <PendingButton
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    pendingChildren="…"
+                  >
+                    Link
+                  </PendingButton>
+                </form>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       <details className="group rounded-lg border border-slate-200 bg-white">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
