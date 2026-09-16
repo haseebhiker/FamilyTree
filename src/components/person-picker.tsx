@@ -17,12 +17,15 @@ export function PersonPicker({
   placeholder = "Search by name…",
   defaultPersonId,
   autoFocus,
+  onSelect,
 }: {
   name: string;
   people: PersonOption[];
   placeholder?: string;
   defaultPersonId?: string;
   autoFocus?: boolean;
+  /** For a picker driving client-side state directly rather than (or in addition to) form submission — e.g. a filter, not a field being saved. */
+  onSelect?: (personId: string, person: PersonOption | null) => void;
 }) {
   const defaultPerson = people.find((p) => p.id === defaultPersonId);
   const [query, setQuery] = useState(defaultPerson ? displayNameText(defaultPerson) : "");
@@ -45,6 +48,7 @@ export function PersonPicker({
           setQuery(e.target.value);
           setSelectedId("");
           setOpen(true);
+          onSelect?.("", null);
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -69,6 +73,7 @@ export function PersonPicker({
                   setSelectedId(p.id);
                   setQuery(displayNameText(p));
                   setOpen(false);
+                  onSelect?.(p.id, p);
                 }}
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
               >

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { Input, Select } from "@/components/ui";
-import { PersonName } from "@/components/person-name";
+import { PersonName, displayNameText } from "@/components/person-name";
+import { PersonPicker } from "@/components/person-picker";
 
 export interface QuickEditPerson {
   id: string;
@@ -16,6 +17,8 @@ export interface QuickEditPerson {
   birth_year: number | null;
   birth_month: number | null;
   birth_day: number | null;
+  father_id: string | null;
+  mother_id: string | null;
 }
 
 type ColumnKey = "preferred_name" | "gender" | "living_status" | "birth_date";
@@ -48,14 +51,50 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     birth_date: true,
   });
   const [missingFilter, setMissingFilter] = useState<ColumnKey | "none">("none");
+  const [branchRoot, setBranchRoot] = useState<{ id: string; name: string } | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
+  // Every child listed under BOTH parents that are in the data (a child
+  // with two parents recorded would otherwise only be reachable from
+  // whichever parent's id happens to be checked first) — descendants are
+  // collected into a Set, so being reachable from two directions just
+  // means it's visited once and skipped the second time, never a dupe.
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const p of people) {
+      for (const parentId of [p.father_id, p.mother_id]) {
+        if (!parentId) continue;
+        const list = map.get(parentId);
+        if (list) list.push(p.id);
+        else map.set(parentId, [p.id]);
+      }
+    }
+    return map;
+  }, [people]);
+
+  const branchIds = useMemo(() => {
+    if (!branchRoot) return null;
+    const ids = new Set<string>([branchRoot.id]);
+    const queue = [branchRoot.id];
+    while (queue.length > 0) {
+      const current = queue.pop()!;
+      for (const childId of childrenByParent.get(current) ?? []) {
+        if (ids.has(childId)) continue;
+        ids.add(childId);
+        queue.push(childId);
+      }
+    }
+    return ids;
+  }, [branchRoot, childrenByParent]);
+
   const filtered = useMemo(() => {
-    if (missingFilter === "none") return people;
-    return people.filter(isMissing[missingFilter]);
-  }, [people, missingFilter]);
+    let result = people;
+    if (branchIds) result = result.filter((p) => branchIds.has(p.id));
+    if (missingFilter !== "none") result = result.filter(isMissing[missingFilter]);
+    return result;
+  }, [people, missingFilter, branchIds]);
 
   function moveColumn(key: ColumnKey, dir: -1 | 1) {
     setColumnOrder((order) => {
@@ -108,6 +147,29 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="w-64">
+          <label className="mb-1 block text-xs font-medium text-slate-600">Family branch:</label>
+          <PersonPicker
+            name="branch_root"
+            people={people}
+            placeholder="Search for a person…"
+            onSelect={(id, person) => setBranchRoot(person ? { id, name: displayNameText(person) } : null)}
+          />
+        </div>
+        {branchRoot && (
+          <div className="flex items-center gap-2 pb-2 text-xs text-slate-600">
+            <span>
+              Showing <span className="font-medium">{branchRoot.name}</span> and everyone under them (
+              {branchIds?.size ?? 0} {branchIds?.size === 1 ? "person" : "people"})
+            </span>
+            <button type="button" onClick={() => setBranchRoot(null)} className="text-red-600 hover:underline">
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-4 rounded-md border border-slate-200 bg-slate-50 p-3">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-slate-600">Show only missing:</label>
@@ -116,10 +178,11 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
             onChange={(e) => setMissingFilter(e.target.value as ColumnKey | "none")}
             className="w-auto px-2 py-1 text-xs"
           >
-            <option value="none">Everyone ({people.length})</option>
+            <option value="none">Everyone ({(branchIds ? people.filter((p) => branchIds.has(p.id)) : people).length})</option>
             {DEFAULT_ORDER.map((key) => (
               <option key={key} value={key}>
-                {COLUMN_LABELS[key]} ({people.filter(isMissing[key]).length} missing)
+                {COLUMN_LABELS[key]} (
+                {(branchIds ? people.filter((p) => branchIds.has(p.id)) : people).filter(isMissing[key]).length} missing)
               </option>
             ))}
           </Select>
