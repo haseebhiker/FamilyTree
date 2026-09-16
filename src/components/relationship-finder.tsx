@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Card, ChevronIcon } from "@/components/ui";
 import { PersonName } from "@/components/person-name";
 import {
   stepLabel,
@@ -35,15 +35,18 @@ function RelationshipPath({
   const last = peopleById.get(steps[steps.length - 1].id);
 
   return (
-    <details className="rounded-md border border-slate-200 p-3">
-      <summary className="cursor-pointer list-none text-sm text-slate-800">
-        {summary ? (
-          <>
-            {last ? <PersonName person={last} /> : "They"} is {possessive} <span className="font-semibold">{summary}</span>
-          </>
-        ) : (
-          <>See the connection ({steps.length} steps)</>
-        )}
+    <details className="group rounded-md border border-slate-200 p-3">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-slate-800">
+        <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+        <span>
+          {summary ? (
+            <>
+              {last ? <PersonName person={last} /> : "They"} is {possessive} <span className="font-semibold">{summary}</span>
+            </>
+          ) : (
+            <>See the connection ({steps.length} steps)</>
+          )}
+        </span>
       </summary>
       <div className="mt-3 border-t border-slate-100 pt-3">
         {specific && (
@@ -119,8 +122,9 @@ export function RelationshipFinder({
         ))}
       </div>
       {rest.length > 0 && (
-        <details className="mt-2 rounded-md border border-slate-200">
-          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-slate-500">
+        <details className="group mt-2 rounded-md border border-slate-200">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-slate-500">
+            <ChevronIcon className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-90" />
             Show {rest.length} more {rest.length === 1 ? "relationship" : "relationships"}
           </summary>
           <div className="space-y-2 border-t border-slate-100 p-2">

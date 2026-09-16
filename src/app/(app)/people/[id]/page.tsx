@@ -11,7 +11,7 @@ import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions
 import { formatPartialDate } from "@/lib/partial-date";
 import { sortByAge } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
-import { Card, Badge } from "@/components/ui";
+import { Card, Badge, ChevronIcon } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -559,7 +559,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       </Card>
 
       <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
           Suggest an edit
         </summary>
         <div className="border-t border-slate-100">
@@ -568,7 +569,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       </details>
 
       <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
           Add a family member
         </summary>
         <div className="border-t border-slate-100 p-4">
@@ -598,7 +600,10 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       )}
 
       <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">History</summary>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+          History
+        </summary>
         <div className="border-t border-slate-100 p-4 text-sm text-slate-600">
           {!auditEntries?.length && <p className="text-slate-400">No recorded changes yet.</p>}
           <ul className="space-y-1">

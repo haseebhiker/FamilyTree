@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { PersonName, displayNameText } from "@/components/person-name";
 import { sortByAge } from "@/lib/sort-by-age";
+import { ChevronIcon } from "@/components/ui";
 
 export interface TreeNodeData {
   id: string;
@@ -186,8 +187,9 @@ export function TreeView({
       )}
 
       {otherRoots.length > 0 && (
-        <details className="rounded-lg border border-slate-200 bg-white" open={otherRoots.some((r) => pathToMeIds.has(r.id))}>
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-600">
+        <details className="group rounded-lg border border-slate-200 bg-white" open={otherRoots.some((r) => pathToMeIds.has(r.id))}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-slate-600">
+            <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
             Other family lines not yet connected to the main tree ({otherRoots.length})
           </summary>
           <ul className="border-t border-slate-100 p-4 pt-2">

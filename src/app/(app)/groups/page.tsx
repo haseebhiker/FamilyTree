@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { createGroup } from "@/lib/actions/groups";
-import { Card, Field, Input, Textarea, Button, Badge } from "@/components/ui";
+import { Card, Field, Input, Textarea, Button, Badge, ChevronIcon } from "@/components/ui";
 
 export default async function GroupsPage() {
   const supabase = await createClient();
@@ -30,8 +30,9 @@ export default async function GroupsPage() {
         profile&apos;s Privacy settings) is separate from just being tagged in it.
       </p>
 
-      <details className="rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900">
+      <details className="group rounded-lg border border-slate-200 bg-white">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
           Create a group
         </summary>
         <form action={createGroup} className="space-y-3 border-t border-slate-100 p-4">

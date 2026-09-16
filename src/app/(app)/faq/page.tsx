@@ -1,3 +1,5 @@
+import { ChevronIcon } from "@/components/ui";
+
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Why does my edit need approval before it shows up?",
@@ -31,8 +33,9 @@ export default function FaqPage() {
       <h1 className="text-xl font-semibold text-slate-900">Frequently Asked Questions</h1>
       <div className="space-y-2">
         {FAQS.map((item) => (
-          <details key={item.q} className="rounded-lg border border-slate-200 bg-white">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-900">
+          <details key={item.q} className="group rounded-lg border border-slate-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-slate-900">
+              <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
               {item.q}
             </summary>
             <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-600">{item.a}</p>
