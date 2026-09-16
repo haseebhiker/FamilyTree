@@ -92,6 +92,9 @@ export function NavBar({
               <Link href="/groups" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Groups
               </Link>
+              <Link href="/add-family-member" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Add a Family Member
+              </Link>
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
               </Link>
