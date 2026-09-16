@@ -89,11 +89,11 @@ export function NavBar({
               }}
               className="absolute right-0 z-10 mt-2 w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
             >
-              <Link href="/groups" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                Groups
-              </Link>
               <Link href="/add-family-member" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Add a Family Member
+              </Link>
+              <Link href="/groups" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Groups
               </Link>
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions

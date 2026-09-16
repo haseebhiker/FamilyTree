@@ -370,19 +370,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a family member</h2>
-        <AddFamilyMemberForm
-          personId={person.id}
-          hasFather={!!person.father_id}
-          hasMother={!!person.mother_id}
-          people={allPeopleForPicker ?? []}
-          existingChildren={children}
-          existingSiblings={siblings}
-          existingSpouses={marriages.map((m) => m.spouse).filter((s): s is NonNullable<typeof s> => !!s)}
-        />
-      </Card>
-
       {relationshipFinder && (
         <RelationshipFinder
           paths={relationshipFinder.paths}
@@ -745,6 +732,24 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </summary>
         <div className="border-t border-slate-100">
           <EditPersonForm personId={person.id} personRaw={personRaw as Person} />
+        </div>
+      </details>
+
+      <details className="group rounded-lg border border-slate-200 bg-white">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+          Add a family member
+        </summary>
+        <div className="border-t border-slate-100 p-4">
+          <AddFamilyMemberForm
+            personId={person.id}
+            hasFather={!!person.father_id}
+            hasMother={!!person.mother_id}
+            people={allPeopleForPicker ?? []}
+            existingChildren={children}
+            existingSiblings={siblings}
+            existingSpouses={marriages.map((m) => m.spouse).filter((s): s is NonNullable<typeof s> => !!s)}
+          />
         </div>
       </details>
 
