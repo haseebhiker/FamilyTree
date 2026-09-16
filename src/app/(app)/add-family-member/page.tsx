@@ -3,12 +3,15 @@ import { AddPersonScreen } from "@/components/add-person-screen";
 
 export default async function AddFamilyMemberPage() {
   const supabase = await createClient();
-  const { data: people } = await supabase
-    .from("people")
-    .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
-    .is("deleted_at", null)
-    .order("full_name")
-    .limit(2000);
+  const [{ data: people }, { data: spouses }] = await Promise.all([
+    supabase
+      .from("people")
+      .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+      .is("deleted_at", null)
+      .order("full_name")
+      .limit(2000),
+    supabase.from("spouses").select("person_a_id, person_b_id").limit(2000),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -19,7 +22,7 @@ export default async function AddFamilyMemberPage() {
           family member" section on their profile, just without needing to go there first.
         </p>
       </div>
-      <AddPersonScreen people={people ?? []} />
+      <AddPersonScreen people={people ?? []} spouses={spouses ?? []} />
     </div>
   );
 }

@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { submitFamilyRelation } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Button } from "@/components/ui";
 import { PersonPicker, type PersonOption } from "@/components/person-picker";
+import { displayNameText } from "@/components/person-name";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO2 } from "@/lib/countries";
 
 type Relation = "father" | "mother" | "son" | "daughter" | "brother" | "sister" | "husband" | "wife";
@@ -25,6 +27,10 @@ interface FormProps {
   hasFather: boolean;
   hasMother: boolean;
   people: PersonOption[];
+  /** Whoever's already recorded in each category — shown next to the Relation picker so a duplicate is obvious before submitting, not after. */
+  existingChildren?: PersonOption[];
+  existingSiblings?: PersonOption[];
+  existingSpouses?: PersonOption[];
 }
 
 /**
@@ -81,6 +87,9 @@ function FormFields({
   hasFather,
   hasMother,
   people,
+  existingChildren,
+  existingSiblings,
+  existingSpouses,
   onSubmit,
   isPending,
   submitted,
@@ -89,6 +98,18 @@ function FormFields({
   const [relation, setRelation] = useState<Relation>("son");
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const isSpouse = relation === "husband" || relation === "wife";
+
+  // Father/mother aren't included here — the dropdown above already
+  // disables those once hasFather/hasMother is true, which covers the
+  // same "don't re-add" concern for a slot only one person can ever fill.
+  const existingForRelation =
+    relation === "son" || relation === "daughter"
+      ? existingChildren
+      : relation === "brother" || relation === "sister"
+        ? existingSiblings
+        : isSpouse
+          ? existingSpouses
+          : undefined;
 
   return (
     <form action={onSubmit} className="grid gap-3 sm:grid-cols-2">
@@ -109,6 +130,20 @@ function FormFields({
           </Select>
         </Field>
       </div>
+
+      {existingForRelation && existingForRelation.length > 0 && (
+        <div className="sm:col-span-2 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          <span className="font-medium">Already recorded, so double-check before adding another:</span>{" "}
+          {existingForRelation.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && ", "}
+              <Link href={`/people/${p.id}`} target="_blank" className="underline hover:no-underline">
+                {displayNameText(p)}
+              </Link>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="sm:col-span-2 flex gap-4 text-sm text-slate-700">
         <label className="flex items-center gap-1.5">

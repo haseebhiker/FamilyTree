@@ -746,6 +746,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             hasFather={!!person.father_id}
             hasMother={!!person.mother_id}
             people={allPeopleForPicker ?? []}
+            existingChildren={children}
+            existingSiblings={siblings}
+            existingSpouses={marriages.map((m) => m.spouse).filter((s): s is NonNullable<typeof s> => !!s)}
           />
         </div>
       </details>

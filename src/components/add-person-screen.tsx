@@ -14,6 +14,11 @@ interface PersonWithParents {
   mother_id: string | null;
 }
 
+interface SpousePair {
+  person_a_id: string;
+  person_b_id: string;
+}
+
 /**
  * Standalone version of "Add a family member" — that form has always
  * needed an anchor person to add the new one relative to, which used to
@@ -25,10 +30,34 @@ interface PersonWithParents {
  * anchor picked — AddFamilyMemberForm's own router.refresh() after a
  * successful add re-fetches this whole list anyway, keeping it current.
  */
-export function AddPersonScreen({ people }: { people: PersonWithParents[] }) {
+export function AddPersonScreen({ people, spouses }: { people: PersonWithParents[]; spouses: SpousePair[] }) {
   const [anchor, setAnchor] = useState<{ id: string; name: string } | null>(null);
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const anchorPerson = anchor ? peopleById.get(anchor.id) : null;
+
+  const existingChildren = useMemo(
+    () => (anchorPerson ? people.filter((p) => p.father_id === anchorPerson.id || p.mother_id === anchorPerson.id) : []),
+    [people, anchorPerson],
+  );
+  const existingSiblings = useMemo(
+    () =>
+      anchorPerson
+        ? people.filter(
+            (p) =>
+              p.id !== anchorPerson.id &&
+              ((anchorPerson.father_id && p.father_id === anchorPerson.father_id) ||
+                (anchorPerson.mother_id && p.mother_id === anchorPerson.mother_id)),
+          )
+        : [],
+    [people, anchorPerson],
+  );
+  const existingSpouses = useMemo(() => {
+    if (!anchorPerson) return [];
+    const spouseIds = spouses
+      .filter((s) => s.person_a_id === anchorPerson.id || s.person_b_id === anchorPerson.id)
+      .map((s) => (s.person_a_id === anchorPerson.id ? s.person_b_id : s.person_a_id));
+    return spouseIds.map((id) => peopleById.get(id)).filter((p): p is PersonWithParents => !!p);
+  }, [spouses, anchorPerson, peopleById]);
 
   return (
     <div className="space-y-4">
@@ -54,6 +83,9 @@ export function AddPersonScreen({ people }: { people: PersonWithParents[] }) {
             hasFather={!!anchorPerson.father_id}
             hasMother={!!anchorPerson.mother_id}
             people={people}
+            existingChildren={existingChildren}
+            existingSiblings={existingSiblings}
+            existingSpouses={existingSpouses}
           />
         </div>
       )}
