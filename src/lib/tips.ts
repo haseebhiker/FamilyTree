@@ -19,6 +19,8 @@ const TIPS: string[] = [
   "Have a question about how the app works? Check the FAQ in the ☰ menu.",
   "Add your mobile number to your profile so relatives can reach you on WhatsApp or by text, right from your profile page.",
   "See a name, date, or detail that's wrong or missing on someone's profile? Click “Suggest an edit” — it only takes a moment.",
+  "Enter at least the year someone was born, even if you don't know the month or day — it's what lets Children, Siblings, and Cousins sort oldest to youngest instead of alphabetically.",
+  "On “How you're related,” click directly on a relationship line (like “your wife's 1st cousin”) to expand it and see the exact chain of people connecting you.",
 ];
 
 // Mixed in only for admins — irrelevant (and a bit confusing) to everyone else.
