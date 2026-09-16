@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
-import { revokeInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
+import { revokeInvite, deleteInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
 import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
@@ -188,19 +188,33 @@ export default async function InvitesPage() {
                   </td>
                   <td className="py-2 pr-4">{statusBadge(invite.status)}</td>
                   <td className="py-2 pr-4">
-                    {invite.status !== "revoked" &&
-                      (canAssignAdmin || invite.role === "member") && (
-                        <form action={revokeInvite}>
+                    <div className="flex items-center gap-3">
+                      {invite.status !== "revoked" &&
+                        (canAssignAdmin || invite.role === "member") && (
+                          <form action={revokeInvite}>
+                            <input type="hidden" name="invite_id" value={invite.id} />
+                            <PendingButton
+                              className="text-sm text-red-600 hover:underline"
+                              pendingChildren="Revoking…"
+                              confirmMessage={`Revoke ${invite.name}'s access?`}
+                            >
+                              Revoke
+                            </PendingButton>
+                          </form>
+                        )}
+                      {!linkedPerson && (canAssignAdmin || invite.role === "member") && (
+                        <form action={deleteInvite}>
                           <input type="hidden" name="invite_id" value={invite.id} />
                           <PendingButton
                             className="text-sm text-red-600 hover:underline"
-                            pendingChildren="Revoking…"
-                            confirmMessage={`Revoke ${invite.name}'s access?`}
+                            pendingChildren="Deleting…"
+                            confirmMessage={`Permanently delete ${invite.name}'s invite record? This can't be undone. (If they're already an active member, this will fail on purpose — nothing to clean up there.)`}
                           >
-                            Revoke
+                            Delete
                           </PendingButton>
                         </form>
                       )}
+                    </div>
                   </td>
                 </tr>
                 );

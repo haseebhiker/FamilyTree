@@ -200,3 +200,43 @@ export async function revokeInvite(formData: FormData) {
 
   revalidatePath("/admin/invites");
 }
+
+/**
+ * Actually removes an invite row — for the stale duplicate an accepted
+ * invite normally leaves behind (see unlinkPersonAccount above), once it's
+ * been unlinked and is just clutter in "All invites". Revoke (above) only
+ * ever changes status; this is a real delete, so it's blocked outright if
+ * a members row still points to it via invite_id (no ON DELETE clause on
+ * that foreign key — Postgres itself would refuse it, this just explains
+ * why up front instead of surfacing a raw constraint-violation message).
+ * That's the normal case for an invite that's already been accepted: the
+ * member's own invite_id still references their original invite row, so
+ * that one specifically can't be deleted this way — only actually-orphaned
+ * rows (nobody's invite_id points to them) can be.
+ */
+export async function deleteInvite(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  const inviteId = String(formData.get("invite_id") ?? "");
+  if (!inviteId) throw new Error("Missing invite id");
+
+  const { data: invite } = await supabase.from("invites").select("role").eq("id", inviteId).maybeSingle();
+  if (invite && invite.role !== "member" && !isSuperAdmin(member)) {
+    throw new Error("Only a super admin can delete an admin's invite");
+  }
+
+  const { data: referencingMember } = await supabase
+    .from("members")
+    .select("id, name")
+    .eq("invite_id", inviteId)
+    .maybeSingle();
+  if (referencingMember) {
+    throw new Error(
+      `Can't delete — ${referencingMember.name}'s member account still traces back to this invite. That's expected once an invite's been accepted; there's nothing to clean up here.`,
+    );
+  }
+
+  const { error } = await supabase.from("invites").delete().eq("id", inviteId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/invites");
+}
