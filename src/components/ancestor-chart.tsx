@@ -1,8 +1,22 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PersonName } from "@/components/person-name";
+
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.5;
+const ZOOM_STEP = 0.2;
+
+function clampZoom(z: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+}
+
+/** Distance between two touch points — pinch amount is just the ratio of this now vs. at gesture start. */
+function touchDistance(touches: React.TouchList) {
+  const [a, b] = [touches[0], touches[1]];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
 
 export interface AncestorNode {
   id: string;
@@ -59,13 +73,19 @@ function AncestorNodeItem({
 /**
  * A top-down ancestor pedigree chart (person, then parents, then
  * grandparents) with connector lines, in the classic "org chart" style.
- * Siblings render as a plain row above it, deliberately outside the <ul>
- * tree — they aren't descendants of anyone in this chart, so folding them
- * into the connector-line structure would misrepresent the relationship
- * it's drawing, not just complicate the CSS.
+ * Zoomable via the +/− buttons, two-finger pinch on touch, or ctrl/⌘+wheel
+ * on a trackpad or mouse (the same gesture browsers already use for page
+ * zoom, so it's the one people reach for without being told). Uses the
+ * `zoom` CSS property rather than `transform: scale` specifically because
+ * it reflows layout — the scroll container's scrollable area grows and
+ * shrinks with it automatically, where a transform's visual size and its
+ * layout box would otherwise disagree and need manual re-measuring to
+ * keep the scrollbars matching what's actually on screen.
  */
-export function AncestorChart({ root, siblings }: { root: AncestorNode; siblings?: AncestorNode[] }) {
+export function AncestorChart({ root }: { root: AncestorNode }) {
   const rootRef = useRef<HTMLAnchorElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   // On a wide chart (several generations of grandparents), the scroll
   // container opens at its natural left edge rather than centered on the
@@ -79,25 +99,62 @@ export function AncestorChart({ root, siblings }: { root: AncestorNode; siblings
   }, []);
 
   if (!root.father && !root.mother) return null;
+
   return (
-    <div className="ancestor-chart-wrap overflow-x-auto py-2">
-      {siblings && siblings.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="font-medium text-slate-400">Siblings:</span>
-          {siblings.map((s) => (
-            <Link
-              key={s.id}
-              href={`/people/${s.id}`}
-              className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-700 hover:bg-slate-50"
-            >
-              <PersonName person={s} />
-            </Link>
-          ))}
-        </div>
-      )}
-      <ul className="ancestor-chart">
-        <AncestorNodeItem node={root} isRoot rootRef={rootRef} />
-      </ul>
+    <div>
+      <div className="mb-2 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+          className="rounded-md border border-slate-300 px-2 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <span className="ml-1 text-xs text-slate-400">Pinch, or ctrl/⌘+scroll, to zoom</span>
+      </div>
+      <div
+        className="ancestor-chart-wrap overflow-auto py-2"
+        onWheel={(e) => {
+          if (!e.ctrlKey && !e.metaKey) return;
+          e.preventDefault();
+          setZoom((z) => clampZoom(z - e.deltaY * 0.01));
+        }}
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) {
+            pinchStartRef.current = { distance: touchDistance(e.touches), zoom };
+          }
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length === 2 && pinchStartRef.current) {
+            e.preventDefault();
+            const ratio = touchDistance(e.touches) / pinchStartRef.current.distance;
+            setZoom(clampZoom(pinchStartRef.current.zoom * ratio));
+          }
+        }}
+        onTouchEnd={() => {
+          pinchStartRef.current = null;
+        }}
+      >
+        <ul className="ancestor-chart" style={{ zoom }}>
+          <AncestorNodeItem node={root} isRoot rootRef={rootRef} />
+        </ul>
+      </div>
     </div>
   );
 }
