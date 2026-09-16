@@ -9,7 +9,6 @@ import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions/people-admin";
 import { linkInviteToPerson, unlinkPersonAccount, updateLinkedAccount } from "@/lib/actions/invites";
-import { formatPartialDate } from "@/lib/partial-date";
 import { sortByAge } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge, ChevronIcon, Select, Input, Field, Textarea } from "@/components/ui";
@@ -302,11 +301,15 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .order("full_name")
     .limit(2000);
 
-  const birthDisplay = formatPartialDate({ year: person.birth_year, month: person.birth_month, day: person.birth_day });
-  const deathDisplay = formatPartialDate({ year: person.death_year, month: person.death_month, day: person.death_day });
+  // Year-only by default at the top of the page — the full date (with
+  // month/day, when known) still shows in the "Suggest an edit" form and
+  // wherever else it's already displayed; this is just the at-a-glance
+  // header line, which reads better short.
+  const birthYearDisplay = person.birth_year ? String(person.birth_year) : null;
+  const deathYearDisplay = person.death_year ? String(person.death_year) : null;
   const lifespan =
-    birthDisplay || deathDisplay
-      ? `${birthDisplay ?? "?"} – ${person.living_status === "living" ? "present" : deathDisplay ?? "?"}`
+    birthYearDisplay || deathYearDisplay
+      ? `${birthYearDisplay ?? "?"} – ${person.living_status === "living" ? "present" : deathYearDisplay ?? "?"}`
       : null;
 
   return (
