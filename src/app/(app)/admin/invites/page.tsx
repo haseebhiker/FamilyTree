@@ -4,6 +4,7 @@ import { getCurrentMember, isSuperAdmin } from "@/lib/members";
 import { revokeInvite, deleteInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
 import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
+import { ActionButton } from "@/components/action-button";
 import { PersonPicker } from "@/components/person-picker";
 import { PersonName } from "@/components/person-name";
 import { LocalTime } from "@/components/local-time";
@@ -117,16 +118,15 @@ export default async function InvitesPage() {
                       m.invite_id &&
                       m.role !== "super_admin" &&
                       (canAssignAdmin || m.role === "member") && (
-                        <form action={revokeInvite}>
-                          <input type="hidden" name="invite_id" value={m.invite_id} />
-                          <PendingButton
-                            className="text-sm text-red-600 hover:underline"
-                            pendingChildren="Revoking…"
-                            confirmMessage={`Revoke ${m.name}'s access? They won't be able to sign in again.`}
-                          >
-                            Revoke access
-                          </PendingButton>
-                        </form>
+                        <ActionButton
+                          action={revokeInvite}
+                          fields={{ invite_id: m.invite_id }}
+                          className="text-sm text-red-600 hover:underline"
+                          pendingChildren="Revoking…"
+                          confirmMessage={`Revoke ${m.name}'s access? They won't be able to sign in again.`}
+                        >
+                          Revoke access
+                        </ActionButton>
                       )}
                   </td>
                 </tr>
@@ -191,28 +191,26 @@ export default async function InvitesPage() {
                     <div className="flex items-center gap-3">
                       {invite.status !== "revoked" &&
                         (canAssignAdmin || invite.role === "member") && (
-                          <form action={revokeInvite}>
-                            <input type="hidden" name="invite_id" value={invite.id} />
-                            <PendingButton
-                              className="text-sm text-red-600 hover:underline"
-                              pendingChildren="Revoking…"
-                              confirmMessage={`Revoke ${invite.name}'s access?`}
-                            >
-                              Revoke
-                            </PendingButton>
-                          </form>
+                          <ActionButton
+                            action={revokeInvite}
+                            fields={{ invite_id: invite.id }}
+                            className="text-sm text-red-600 hover:underline"
+                            pendingChildren="Revoking…"
+                            confirmMessage={`Revoke ${invite.name}'s access?`}
+                          >
+                            Revoke
+                          </ActionButton>
                         )}
                       {!linkedPerson && (canAssignAdmin || invite.role === "member") && (
-                        <form action={deleteInvite}>
-                          <input type="hidden" name="invite_id" value={invite.id} />
-                          <PendingButton
-                            className="text-sm text-red-600 hover:underline"
-                            pendingChildren="Deleting…"
-                            confirmMessage={`Permanently delete ${invite.name}'s invite record? This can't be undone. (If they're already an active member, this will fail on purpose — nothing to clean up there.)`}
-                          >
-                            Delete
-                          </PendingButton>
-                        </form>
+                        <ActionButton
+                          action={deleteInvite}
+                          fields={{ invite_id: invite.id }}
+                          className="text-sm text-red-600 hover:underline"
+                          pendingChildren="Deleting…"
+                          confirmMessage={`Permanently delete ${invite.name}'s invite record? This can't be undone. (If they're already an active member, this will fail on purpose — nothing to clean up there.)`}
+                        >
+                          Delete
+                        </ActionButton>
                       )}
                     </div>
                   </td>
