@@ -185,44 +185,51 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   // Admin-only, and only queried at all for a super admin (the only role
   // that can actually act on it) — everyone else viewing a profile
-  // shouldn't pay for these extra round-trips. Shows which invited
-  // account (if any) this profile is linked to, and — when that account
-  // came through the self-service "Request access" flow — what they said
-  // about how they're related, which otherwise lives only on the
-  // now-decided access_requests row and is easy to lose track of.
-  let linkedAccount: { source: "member" | "invite"; id: string; name: string; email: string; role: string; status: string } | null = null;
-  let linkedAccessRequest: { id: string; relation_description: string; notes: string | null } | null = null;
+  // shouldn't pay for these extra round-trips. Shows every invited
+  // account linked to this profile — normally exactly one, but an
+  // accepted invite legitimately leaves BOTH its own (now-historical)
+  // invites row and the resulting members row pointing here, so this has
+  // to be a list, not a single match, or one of the two silently goes
+  // unmanaged. For each, when it came through the self-service "Request
+  // access" flow, also shows what they said about how they're related,
+  // which otherwise lives only on the now-decided access_requests row and
+  // is easy to lose track of.
+  interface LinkedAccount {
+    source: "member" | "invite";
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+    accessRequest: { id: string; relation_description: string; notes: string | null } | null;
+  }
+  let linkedAccounts: LinkedAccount[] = [];
   let unlinkedInvites: { id: string; name: string; email: string }[] = [];
 
   if (isSuperAdmin(member)) {
-    const [{ data: memberMatch }, { data: inviteMatch }, { data: openInvites }] = await Promise.all([
-      supabase.from("members").select("id, name, email, role, status").eq("person_id", person.id).maybeSingle(),
-      supabase
-        .from("invites")
-        .select("id, name, email, role, status")
-        .eq("person_id", person.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+    const [{ data: memberMatches }, { data: inviteMatches }, { data: openInvites }] = await Promise.all([
+      supabase.from("members").select("id, name, email, role, status").eq("person_id", person.id),
+      supabase.from("invites").select("id, name, email, role, status").eq("person_id", person.id).order("created_at", { ascending: false }),
       supabase.from("invites").select("id, name, email").is("person_id", null).neq("status", "revoked").order("name").limit(500),
     ]);
 
-    if (memberMatch) {
-      linkedAccount = { source: "member", ...memberMatch };
-    } else if (inviteMatch) {
-      linkedAccount = { source: "invite", ...inviteMatch };
-    }
+    const combined = [
+      ...(memberMatches ?? []).map((m) => ({ source: "member" as const, ...m })),
+      ...(inviteMatches ?? []).map((i) => ({ source: "invite" as const, ...i })),
+    ];
 
-    if (linkedAccount) {
-      const { data: reqMatch } = await supabase
-        .from("access_requests")
-        .select("id, relation_description, notes")
-        .ilike("email", linkedAccount.email)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      linkedAccessRequest = reqMatch ?? null;
-    }
+    linkedAccounts = await Promise.all(
+      combined.map(async (acc) => {
+        const { data: reqMatch } = await supabase
+          .from("access_requests")
+          .select("id, relation_description, notes")
+          .ilike("email", acc.email)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return { ...acc, accessRequest: reqMatch ?? null };
+      }),
+    );
 
     unlinkedInvites = openInvites ?? [];
   }
@@ -608,72 +615,86 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
       {isSuperAdmin(member) && (
         <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-900">Linked account (admin only)</h2>
-          {linkedAccount ? (
-            <div className="space-y-3">
-              <form action={updateLinkedAccount} className="grid gap-2 sm:grid-cols-2">
-                <input type="hidden" name="source" value={linkedAccount.source} />
-                <input type="hidden" name="record_id" value={linkedAccount.id} />
-                <input type="hidden" name="person_id" value={person.id} />
-                {linkedAccessRequest && <input type="hidden" name="access_request_id" value={linkedAccessRequest.id} />}
-                <Field label="Name">
-                  <Input name="name" defaultValue={linkedAccount.name} />
-                </Field>
-                <Field label="Gmail">
-                  <Input name="email" type="email" defaultValue={linkedAccount.email} />
-                </Field>
-                <Field label="Role">
-                  <Select name="role" defaultValue={linkedAccount.role}>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                    <option value="super_admin">Super admin</option>
-                  </Select>
-                </Field>
-                <div className="flex items-end text-sm text-slate-500">
-                  <span>
-                    <span className="font-medium text-slate-500">Status:</span> {linkedAccount.status}
-                    {linkedAccount.source === "invite" && (
-                      <span className="text-slate-400"> — invited, hasn&apos;t signed in yet</span>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">
+            Linked account{linkedAccounts.length !== 1 ? "s" : ""} (admin only)
+          </h2>
+          {linkedAccounts.length > 1 && (
+            <p className="mb-3 text-xs text-amber-700">
+              {linkedAccounts.length} accounts point here — normal right after someone accepts an invite (their
+              invite row and their new member row both still link here), but worth tidying up if it&apos;s stale.
+            </p>
+          )}
+          {linkedAccounts.length > 0 ? (
+            <div className="space-y-4">
+              {linkedAccounts.map((acc) => (
+                <div key={`${acc.source}:${acc.id}`} className="space-y-3 rounded-md border border-slate-200 p-3">
+                  <form action={updateLinkedAccount} className="grid gap-2 sm:grid-cols-2">
+                    <input type="hidden" name="source" value={acc.source} />
+                    <input type="hidden" name="record_id" value={acc.id} />
+                    <input type="hidden" name="person_id" value={person.id} />
+                    {acc.accessRequest && <input type="hidden" name="access_request_id" value={acc.accessRequest.id} />}
+                    <Field label="Name">
+                      <Input name="name" defaultValue={acc.name} />
+                    </Field>
+                    <Field label="Gmail">
+                      <Input name="email" type="email" defaultValue={acc.email} />
+                    </Field>
+                    <Field label="Role">
+                      <Select name="role" defaultValue={acc.role}>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="super_admin">Super admin</option>
+                      </Select>
+                    </Field>
+                    <div className="flex items-end text-sm text-slate-500">
+                      <span>
+                        <span className="font-medium text-slate-500">Status:</span> {acc.status}
+                        {acc.source === "invite" && (
+                          <span className="text-slate-400"> — invite record{acc.status === "accepted" ? ", already accepted" : ", hasn't signed in yet"}</span>
+                        )}
+                      </span>
+                    </div>
+                    {acc.accessRequest ? (
+                      <>
+                        <div className="sm:col-span-2">
+                          <Field label="How they said they're related">
+                            <Textarea name="relation_description" rows={2} defaultValue={acc.accessRequest.relation_description} />
+                          </Field>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <Field label="Notes (optional)">
+                            <Textarea name="notes" rows={2} defaultValue={acc.accessRequest.notes ?? ""} />
+                          </Field>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-400 sm:col-span-2">
+                        Invited directly — no access request on file to show a stated reason for.
+                      </p>
                     )}
-                  </span>
-                </div>
-                {linkedAccessRequest ? (
-                  <>
                     <div className="sm:col-span-2">
-                      <Field label="How they said they're related">
-                        <Textarea name="relation_description" rows={2} defaultValue={linkedAccessRequest.relation_description} />
-                      </Field>
+                      <PendingButton
+                        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                        pendingChildren="Saving…"
+                      >
+                        Save
+                      </PendingButton>
                     </div>
-                    <div className="sm:col-span-2">
-                      <Field label="Notes (optional)">
-                        <Textarea name="notes" rows={2} defaultValue={linkedAccessRequest.notes ?? ""} />
-                      </Field>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-slate-400 sm:col-span-2">
-                    Invited directly — no access request on file to show a stated reason for.
-                  </p>
-                )}
-                <div className="sm:col-span-2">
-                  <PendingButton
-                    className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-                    pendingChildren="Saving…"
-                  >
-                    Save
-                  </PendingButton>
+                  </form>
+                  <form action={unlinkPersonAccount}>
+                    <input type="hidden" name="source" value={acc.source} />
+                    <input type="hidden" name="record_id" value={acc.id} />
+                    <input type="hidden" name="person_id" value={person.id} />
+                    <PendingButton
+                      className="text-xs text-red-600 hover:underline"
+                      pendingChildren="…"
+                      confirmMessage={`Unlink ${person.full_name}'s profile from this ${acc.source} record (${acc.email})?`}
+                    >
+                      Unlink this account
+                    </PendingButton>
+                  </form>
                 </div>
-              </form>
-              <form action={unlinkPersonAccount}>
-                <input type="hidden" name="person_id" value={person.id} />
-                <PendingButton
-                  className="text-xs text-red-600 hover:underline"
-                  pendingChildren="…"
-                  confirmMessage={`Unlink ${person.full_name}'s profile from ${linkedAccount.email}?`}
-                >
-                  Unlink this account
-                </PendingButton>
-              </form>
+              ))}
             </div>
           ) : (
             <div className="space-y-2">

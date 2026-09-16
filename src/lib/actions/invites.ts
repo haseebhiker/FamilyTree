@@ -135,18 +135,27 @@ export async function updateLinkedAccount(formData: FormData) {
   revalidatePath("/admin/invites");
 }
 
-/** Clears whatever link (member and/or invite) points at this profile — the undo for linkMemberToPerson/linkInviteToPerson. */
+/**
+ * Clears one specific link (a single member OR invite row) — the undo for
+ * linkMemberToPerson/linkInviteToPerson. Targets one record by id rather
+ * than every row that happens to point at this person_id: an accepted
+ * invite normally leaves BOTH its own (now-historical) invites row and the
+ * resulting members row pointing at the same profile — expected, not a
+ * bug — and clearing them independently is what lets an admin tidy up the
+ * stale invite row without touching the real, active member link.
+ */
 export async function unlinkPersonAccount(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   if (!isSuperAdmin(member)) throw new Error("Only a super admin can unlink an account from a profile");
 
+  const source = String(formData.get("source") ?? "");
+  const recordId = String(formData.get("record_id") ?? "");
   const personId = String(formData.get("person_id") ?? "");
-  if (!personId) throw new Error("Missing person id");
+  if (!recordId || !personId) throw new Error("Missing account to unlink");
+  if (source !== "member" && source !== "invite") throw new Error("Invalid account type");
 
-  const { error: memberError } = await supabase.from("members").update({ person_id: null }).eq("person_id", personId);
-  if (memberError) throw new Error(memberError.message);
-  const { error: inviteError } = await supabase.from("invites").update({ person_id: null }).eq("person_id", personId);
-  if (inviteError) throw new Error(inviteError.message);
+  const { error } = await supabase.from(source === "member" ? "members" : "invites").update({ person_id: null }).eq("id", recordId);
+  if (error) throw new Error(error.message);
 
   revalidatePath(`/people/${personId}`);
   revalidatePath("/admin/invites");
