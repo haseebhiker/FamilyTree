@@ -12,7 +12,7 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-sm text-center">
         <h1 className="mb-1 text-xl font-semibold text-slate-900">
-          Nambadavangal Family Tree
+          Nambavargal Family Tree
         </h1>
         <p className="mb-6 text-sm text-slate-500">
           Sign in with Google to browse the family tree.

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const TITLE = "Nambadavangal Family Tree";
-const DESCRIPTION = "Private family tree for the Nambadavangal family.";
+const TITLE = "Nambavargal Family Tree";
+const DESCRIPTION = "Private family tree for the Nambavargal family.";
 
 export const metadata: Metadata = {
   title: TITLE,

@@ -41,7 +41,7 @@ export function generateOfflineTreeHtml(people: OfflinePerson[], spouses: Offlin
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Nambadavangal Family Tree (Offline Snapshot)</title>
+<title>Nambavargal Family Tree (Offline Snapshot)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root { color-scheme: light; }
@@ -76,7 +76,7 @@ export function generateOfflineTreeHtml(people: OfflinePerson[], spouses: Offlin
 </head>
 <body>
 <header>
-  <h1>Nambadavangal Family Tree — Offline Snapshot</h1>
+  <h1>Nambavargal Family Tree — Offline Snapshot</h1>
   <p>Generated ${generatedAt}. Read-only. Contact details and admin-only fields are not included in this export.</p>
   <div id="search-wrap">
     <input id="search" type="text" placeholder="Search for a person by name…" autocomplete="off">

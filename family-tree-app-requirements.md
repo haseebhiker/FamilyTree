@@ -1,7 +1,7 @@
 # Family Tree Web App — Requirements Document
 
 ## 1. Project Summary
-A private, invite-only web application that replaces the old static "Nambadavangal" genealogy site with a modern, interactive family tree that family members can browse, and propose edits/additions to, subject to admin approval.
+A private, invite-only web application that replaces the old static "Nambavargal" genealogy site with a modern, interactive family tree that family members can browse, and propose edits/additions to, subject to admin approval.
 
 **Seed data:** The existing Legacy Family Tree export (1,048 individuals, ~1,595 parent-child links, 680 people with recorded spouses, rooted at Aidroos /MOHIDEEN/) will be migrated in as the starting dataset.
 

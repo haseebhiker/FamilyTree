@@ -1,6 +1,6 @@
 # Family Tree App
 
-A private, invite-only family tree for the Nambadavangal family — replaces the old static site with a browsable tree that members can view and propose edits to, subject to admin approval. See `family-tree-app-requirements.md` for the original spec (the app has since grown past it — groups, encryption, partial dates, and the self-service access-request flow below aren't in that doc).
+A private, invite-only family tree for the Nambavargal family — replaces the old static site with a browsable tree that members can view and propose edits to, subject to admin approval. See `family-tree-app-requirements.md` for the original spec (the app has since grown past it — groups, encryption, partial dates, and the self-service access-request flow below aren't in that doc).
 
 ## Stack
 - [Next.js](https://nextjs.org) 16 (App Router, TypeScript, Tailwind CSS)

@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Nambadavangal Family Tree",
+    name: "Nambavargal Family Tree",
     short_name: "Family Tree",
-    description: "Private family tree for the Nambadavangal family",
+    description: "Private family tree for the Nambavargal family",
     start_url: "/",
     display: "standalone",
     background_color: "#f8fafc",

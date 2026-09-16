@@ -1,5 +1,5 @@
 // Parses a "Legacy Family Tree 3.0" static HTML export (the old
-// Nambadavangal site) into clean JSON: people.json + spouses.json, plus a
+// Nambavargal site) into clean JSON: people.json + spouses.json, plus a
 // validation report (broken links, likely duplicates, inconsistent
 // parent/spouse data — design doc §9).
 //
