@@ -150,6 +150,9 @@ export function NavBar({
                       </span>
                     )}
                   </Link>
+                  <Link href="/admin/invites/new" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Invite Someone New
+                  </Link>
                   <Link href="/admin/invites" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Invite Management
                   </Link>

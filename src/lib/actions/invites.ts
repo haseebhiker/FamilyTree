@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
 import type { Role } from "@/lib/types";
@@ -38,10 +39,15 @@ export async function createInvite(formData: FormData) {
   });
 
   if (error) {
-    if (error.code === "23505") throw new Error(`${email} has already been invited — check the list below.`);
+    if (error.code === "23505") throw new Error(`${email} has already been invited — check Invite Management.`);
     throw new Error(error.message);
   }
   revalidatePath("/admin/invites");
+  // Sends the admin back to the list, where the new invite now shows up —
+  // this form used to live on that same page and reset itself once the
+  // list grew (a change-in-count trick); now that it's its own screen,
+  // the redirect is what confirms the invite actually went out.
+  redirect("/admin/invites");
 }
 
 /**

@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
-import { createInvite, revokeInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
-import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
+import { revokeInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
+import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
 import { PersonName } from "@/components/person-name";
@@ -45,42 +46,15 @@ export default async function InvitesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Invite Management</h1>
-
-      <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Invite someone new</h2>
-        {/* key forces a fresh form (clearing every field) once the invite list actually grows, since these are uncontrolled inputs that otherwise keep their typed values after the server action completes. */}
-        <form key={invites?.length ?? 0} action={createInvite} className="grid gap-3 sm:grid-cols-2">
-          <Field label="Name">
-            <Input name="name" required placeholder="Full name" />
-          </Field>
-          <Field label="Google account email">
-            <Input name="email" type="email" required placeholder="name@gmail.com" />
-          </Field>
-          <p className="text-xs text-slate-400 sm:col-span-2 sm:-mt-2">
-            Doesn&apos;t need to be @gmail.com — any email that has a Google account linked to it works (many people
-            already have one without realizing, e.g. from YouTube or Google Drive).
-          </p>
-          <p className="text-xs text-amber-700 sm:col-span-2 sm:-mt-1">
-            This gives them access right away — the moment they sign in with this email, they&apos;re in. There&apos;s
-            no separate approval step after this, so only send it to people you&apos;re ready to let in now. (If
-            someone should wait for review first, don&apos;t invite them here — let them sign in on their own and
-            request access instead, which you can approve from the Access Requests page.)
-          </p>
-          <Field label="Role">
-            <Select name="role" defaultValue="member" disabled={!canAssignAdmin}>
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </Select>
-          </Field>
-          <Field label="Link to existing tree profile (optional)">
-            <PersonPicker name="person_id" people={people ?? []} placeholder="Search 1,000+ people by name…" />
-          </Field>
-          <div className="sm:col-span-2">
-            <Button type="submit">Send invite</Button>
-          </div>
-        </form>
-      </Card>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Invite Management</h1>
+        <Link
+          href="/admin/invites/new"
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          + Invite someone new
+        </Link>
+      </div>
 
       <Card>
         <h2 className="mb-1 text-sm font-semibold text-slate-900">Current members ({members?.filter((m) => m.status === "active").length ?? 0})</h2>
