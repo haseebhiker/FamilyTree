@@ -49,6 +49,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
   });
   const [missingFilter, setMissingFilter] = useState<ColumnKey | "none">("none");
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
@@ -80,6 +81,18 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     try {
       await submitPersonEdit(formData);
       setPeople((ps) => ps.map((p) => (p.id === personId ? { ...p, ...patch } : p)));
+      // No save button anywhere on this screen — every field saves itself
+      // on blur/change — so without some confirmation it's genuinely
+      // unclear anything happened at all. Briefly shown, not persistent,
+      // so it doesn't clutter a row someone's still actively editing.
+      setSavedIds((s) => new Set(s).add(personId));
+      setTimeout(() => {
+        setSavedIds((s) => {
+          const copy = new Set(s);
+          copy.delete(personId);
+          return copy;
+        });
+      }, 2000);
     } catch (e) {
       setErrorIds((errs) => ({ ...errs, [personId]: e instanceof Error ? e.message : "Failed to save" }));
     } finally {
@@ -166,6 +179,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                     <PersonName person={p} />
                   </Link>
                   {savingIds.has(p.id) && <span className="ml-2 text-xs text-slate-400">saving…</span>}
+                  {savedIds.has(p.id) && <span className="ml-2 text-xs font-medium text-green-600">✓ saved</span>}
                   {errorIds[p.id] && <span className="ml-2 text-xs text-red-600">{errorIds[p.id]}</span>}
                 </td>
                 {visibleColumns.map((key) => (
