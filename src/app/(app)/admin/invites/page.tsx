@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
-import { createInvite, revokeInvite, linkMemberToPerson } from "@/lib/actions/invites";
+import { createInvite, revokeInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
@@ -179,16 +179,39 @@ export default async function InvitesPage() {
                 <th className="py-2 pr-4 font-medium">Name</th>
                 <th className="py-2 pr-4 font-medium">Email</th>
                 <th className="py-2 pr-4 font-medium">Role</th>
+                <th className="py-2 pr-4 font-medium">Linked profile</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 pr-4 font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {invites?.map((invite) => (
+              {invites?.map((invite) => {
+                const linkedPerson = invite.person_id ? peopleById.get(invite.person_id) : null;
+                return (
                 <tr key={invite.id} className="border-b border-slate-100">
                   <td className="py-2 pr-4">{invite.name}</td>
                   <td className="py-2 pr-4 text-slate-600">{invite.email}</td>
                   <td className="py-2 pr-4 text-slate-600">{invite.role}</td>
+                  <td className="py-2 pr-4 text-slate-600">
+                    {linkedPerson ? (
+                      <PersonName person={linkedPerson} />
+                    ) : canAssignAdmin ? (
+                      <form action={linkInviteToPerson} className="flex items-center gap-1">
+                        <input type="hidden" name="invite_id" value={invite.id} />
+                        <div className="w-40">
+                          <PersonPicker name="person_id" people={people ?? []} placeholder="Search…" />
+                        </div>
+                        <PendingButton
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          pendingChildren="…"
+                        >
+                          Link
+                        </PendingButton>
+                      </form>
+                    ) : (
+                      <span className="italic text-slate-400">Not linked</span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4">{statusBadge(invite.status)}</td>
                   <td className="py-2 pr-4">
                     {invite.status !== "revoked" &&
@@ -206,10 +229,11 @@ export default async function InvitesPage() {
                       )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {!invites?.length && (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-slate-500">
+                  <td colSpan={6} className="py-4 text-center text-slate-500">
                     No invites yet.
                   </td>
                 </tr>

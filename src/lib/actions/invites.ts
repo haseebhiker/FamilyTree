@@ -66,6 +66,37 @@ export async function linkMemberToPerson(formData: FormData) {
   revalidatePath("/admin/invites");
 }
 
+/**
+ * Same as linkMemberToPerson above, but usable from the "All invites" list
+ * — covers both an invite nobody's accepted yet (this alone is enough:
+ * accept_invite()'s insert reads person_id off the invite at that point)
+ * and one that's already been accepted (updating the invite alone wouldn't
+ * reach them — accept_invite() only reads the invite's person_id on the
+ * INSERT branch; a returning sign-in short-circuits on a plain read of
+ * their already-existing members row and never re-consults the invite —
+ * so the members row needs updating directly too in that case).
+ */
+export async function linkInviteToPerson(formData: FormData) {
+  const { supabase, member } = await requireAdmin();
+  if (!isSuperAdmin(member)) throw new Error("Only a super admin can link an invite to a profile");
+
+  const inviteId = String(formData.get("invite_id") ?? "");
+  const personId = String(formData.get("person_id") ?? "");
+  if (!inviteId || !personId) throw new Error("Choose a profile to link");
+
+  const { error } = await supabase.from("invites").update({ person_id: personId }).eq("id", inviteId);
+  if (error) throw new Error(error.message);
+
+  const { error: memberError } = await supabase
+    .from("members")
+    .update({ person_id: personId })
+    .eq("invite_id", inviteId)
+    .is("person_id", null);
+  if (memberError) throw new Error(memberError.message);
+
+  revalidatePath("/admin/invites");
+}
+
 export async function revokeInvite(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   const inviteId = String(formData.get("invite_id") ?? "");
