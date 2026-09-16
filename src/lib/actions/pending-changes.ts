@@ -374,7 +374,19 @@ async function applyOrQueue(
   return false;
 }
 
-export async function submitPersonEdit(formData: FormData) {
+/**
+ * `skipRevalidate` is for Quick Edit, which calls this repeatedly and
+ * rapidly (every field, on blur, across many people in one sitting) while
+ * managing its own state entirely client-side — it never needed the
+ * revalidated page data this function normally triggers. That revalidation
+ * is also the same class of thing already root-caused once this session as
+ * the source of a generic React render error surfacing from a Server
+ * Action's background re-render; skipping it here removes that surface
+ * entirely for the one caller hammering this function fast enough to make
+ * it likely, without changing behavior for the normal single-submit case
+ * (EditPersonForm), which still wants the revalidation.
+ */
+export async function submitPersonEdit(formData: FormData, options?: { skipRevalidate?: boolean }): Promise<boolean> {
   const { supabase, member } = await requireMember();
   const targetPersonId = String(formData.get("person_id") ?? "");
   if (!targetPersonId) throw new Error("Missing person id");
@@ -437,7 +449,7 @@ export async function submitPersonEdit(formData: FormData) {
     throw new Error("No changes to submit");
   }
 
-  await applyOrQueue(supabase, member, {
+  const applied = await applyOrQueue(supabase, member, {
     change_type: "edit_person",
     target_person_id: targetPersonId,
     proposed_data: proposed,
@@ -445,9 +457,13 @@ export async function submitPersonEdit(formData: FormData) {
     note: String(formData.get("note") ?? "").trim() || null,
   });
 
-  revalidatePath(`/people/${targetPersonId}`);
-  revalidatePath("/my-submissions");
-  revalidatePath("/admin/pending");
+  if (!options?.skipRevalidate) {
+    revalidatePath(`/people/${targetPersonId}`);
+    revalidatePath("/my-submissions");
+    revalidatePath("/admin/pending");
+  }
+
+  return applied;
 }
 
 /**

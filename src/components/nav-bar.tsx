@@ -95,6 +95,9 @@ export function NavBar({
               <Link href="/my-submissions" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 My Submissions
               </Link>
+              <Link href="/quick-edit" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Quick Edit
+              </Link>
               <Link
                 href="/suggestions"
                 className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
@@ -152,9 +155,6 @@ export function NavBar({
                   </Link>
                   <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     People Management
-                  </Link>
-                  <Link href="/admin/quick-edit" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                    Quick Edit
                   </Link>
                   <Link href="/admin/audit-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Audit Log

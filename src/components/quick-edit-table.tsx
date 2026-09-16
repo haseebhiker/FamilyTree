@@ -60,6 +60,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
   const [branchRoot, setBranchRoot] = useState<{ id: string; name: string } | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
 
   // Every child listed under BOTH parents that are in the data (a child
@@ -124,20 +125,26 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     formData.set("person_id", personId);
     for (const [k, v] of Object.entries(fields)) formData.set(k, v);
     try {
-      await submitPersonEdit(formData);
-      setPeople((ps) => ps.map((p) => (p.id === personId ? { ...p, ...patch } : p)));
-      // No save button anywhere on this screen — every field saves itself
-      // on blur/change — so without some confirmation it's genuinely
-      // unclear anything happened at all. Briefly shown, not persistent,
-      // so it doesn't clutter a row someone's still actively editing.
-      setSavedIds((s) => new Set(s).add(personId));
-      setTimeout(() => {
-        setSavedIds((s) => {
-          const copy = new Set(s);
-          copy.delete(personId);
-          return copy;
-        });
-      }, 2000);
+      const applied = await submitPersonEdit(formData, { skipRevalidate: true });
+      if (applied) {
+        // Admin: this IS now the real value — reflect it, and the "missing"
+        // filter above correctly drops the row.
+        setPeople((ps) => ps.map((p) => (p.id === personId ? { ...p, ...patch } : p)));
+        setSavedIds((s) => new Set(s).add(personId));
+        setTimeout(() => {
+          setSavedIds((s) => {
+            const copy = new Set(s);
+            copy.delete(personId);
+            return copy;
+          });
+        }, 2000);
+      } else {
+        // Non-admin: queued for review, not actually changed yet — leaving
+        // `people` untouched keeps the "missing" filter honest (the field
+        // really is still missing until an admin approves it) instead of
+        // the row quietly vanishing as if it were already done.
+        setPendingIds((s) => new Set(s).add(personId));
+      }
     } catch (e) {
       setErrorIds((errs) => ({ ...errs, [personId]: e instanceof Error ? e.message : "Failed to save" }));
     } finally {
@@ -257,6 +264,9 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                   </Link>
                   {savingIds.has(p.id) && <span className="ml-2 text-xs text-slate-400">saving…</span>}
                   {savedIds.has(p.id) && <span className="ml-2 text-xs font-medium text-green-600">✓ saved</span>}
+                  {pendingIds.has(p.id) && (
+                    <span className="ml-2 text-xs font-medium text-amber-600">⏳ submitted for review</span>
+                  )}
                   {errorIds[p.id] && <span className="ml-2 text-xs text-red-600">{errorIds[p.id]}</span>}
                 </td>
                 {visibleColumns.map((key) => (
