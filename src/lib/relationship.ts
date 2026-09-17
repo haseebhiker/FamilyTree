@@ -457,9 +457,10 @@ const SIDE_TAMIL: Record<"father" | "mother", TamilTerm> = {
  * sibling) — this says which one is older, purely from birth_year, so
  * callers can pick between an "older"/"younger" pair of Tamil terms (Periya
  * Anna vs. Thambi, Periyappa vs. Chithappa, etc.). Returns null whenever
- * either birth_year is missing, which is common in this tree — there's no
- * neutral fallback term for these in the vocabulary given, so the caller
- * just shows no Tamil term at all rather than guessing.
+ * either birth_year is missing, which is common in this tree; callers show
+ * BOTH terms joined by "/" in that case (e.g. "Periyappa/Chithappa") rather
+ * than guessing which one or showing nothing — birth_year being missing
+ * shouldn't be the reason a relationship gets no Tamil term at all.
  */
 function olderOf(a: string, b: string, birthYears: Map<string, number | null | undefined>): "a" | "b" | null {
   const yearA = birthYears.get(a);
@@ -491,14 +492,16 @@ function tamilAuntUncleTerm(
   if (side === "father") {
     if (gender === "F") return { tamil: "மாமி", translit: "Mami" };
     // olderOf(parentId, auntUncleId): "a" means the PARENT is older, i.e.
-    // auntUncleId is the YOUNGER sibling — Chithappa, not Periyappa.
+    // auntUncleId is the YOUNGER sibling — Chithappa, not Periyappa. When
+    // birth_year is missing for either (common in this tree), show both
+    // rather than nothing — see the fallback note on describeRelationshipTamil.
     const order = olderOf(parentId, auntUncleId, birthYears);
-    if (!order) return null;
+    if (!order) return { tamil: "பெரியப்பா/சித்தப்பா", translit: "Periyappa/Chithappa" };
     return order === "b" ? { tamil: "பெரியப்பா", translit: "Periyappa" } : { tamil: "சித்தப்பா", translit: "Chithappa" };
   }
   if (gender === "M") return { tamil: "மாமா", translit: "Mama" };
   const order = olderOf(parentId, auntUncleId, birthYears);
-  if (!order) return null;
+  if (!order) return { tamil: "பெரியம்மா/சின்னம்மா", translit: "Periyamma/Chinnamma" };
   return order === "b" ? { tamil: "பெரியம்மா", translit: "Periyamma" } : { tamil: "சின்னம்மா", translit: "Chinnamma" };
 }
 
@@ -611,8 +614,11 @@ export function describeRelationshipTamil(
   if (up === 1 && down === 1) {
     if (targetGender !== "M" && targetGender !== "F") return null;
     const order = olderOf(sourceId, targetId, birthYears);
-    if (!order) return null;
-    if (targetGender === "M") return order === "b" ? { tamil: "பெரிய அண்ணா", translit: "Periya Anna" } : { tamil: "தம்பி", translit: "Thambi" };
+    if (targetGender === "M") {
+      if (!order) return { tamil: "பெரிய அண்ணா/தம்பி", translit: "Periya Anna/Thambi" };
+      return order === "b" ? { tamil: "பெரிய அண்ணா", translit: "Periya Anna" } : { tamil: "தம்பி", translit: "Thambi" };
+    }
+    if (!order) return { tamil: "பெரியக்கா/தங்கச்சி", translit: "Periyakka/Thangachi" };
     return order === "b" ? { tamil: "பெரியக்கா", translit: "Periyakka" } : { tamil: "தங்கச்சி", translit: "Thangachi" };
   }
   if (up === 2 && down === 0) {
@@ -629,9 +635,11 @@ export function describeRelationshipTamil(
     const siblingGender = genders.get(siblingId) ?? null;
     if (siblingGender !== "M" && siblingGender !== "F") return null;
     const order = olderOf(sourceId, siblingId, birthYears);
-    if (!order) return null;
-    const siblingTerm =
-      siblingGender === "M"
+    const siblingTerm = !order
+      ? siblingGender === "M"
+        ? { tamil: "அண்ணன்/தம்பி", translit: "Anna/Thambi" }
+        : { tamil: "அக்கா/தங்கச்சி", translit: "Akka/Thangachi" }
+      : siblingGender === "M"
         ? order === "b"
           ? { tamil: "அண்ணன்", translit: "Anna" }
           : { tamil: "தம்பி", translit: "Thambi" }
