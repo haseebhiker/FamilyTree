@@ -6,6 +6,7 @@ import {
   stepLabel,
   describeRelationship,
   describeSpecificBlood,
+  describeRelationshipTamil,
   type PathStep,
   type Gender,
 } from "@/lib/relationship";
@@ -20,18 +21,23 @@ interface PersonLite {
 function RelationshipPath({
   steps,
   genders,
+  birthYears,
+  sourceId,
   peopleById,
   sourceLabel,
   possessive,
 }: {
   steps: PathStep[];
   genders: Map<string, Gender>;
+  birthYears: Map<string, number | null | undefined>;
+  sourceId: string;
   peopleById: Map<string, PersonLite>;
   sourceLabel: ReactNode;
   possessive: string;
 }) {
   const summary = describeRelationship(steps, genders);
   const specific = describeSpecificBlood(steps, genders);
+  const tamil = describeRelationshipTamil(steps, genders, birthYears, sourceId);
   const last = peopleById.get(steps[steps.length - 1].id);
 
   return (
@@ -42,6 +48,12 @@ function RelationshipPath({
           {summary ? (
             <>
               {last ? <PersonName person={last} /> : "They"} is {possessive} <span className="font-semibold">{summary}</span>
+              {tamil && (
+                <span className="text-slate-500">
+                  {" "}
+                  ({tamil.translit} · <span lang="ta">{tamil.tamil}</span>)
+                </span>
+              )}
             </>
           ) : (
             <>See the connection ({steps.length} steps)</>
@@ -89,6 +101,8 @@ function RelationshipPath({
 export function RelationshipFinder({
   paths,
   genders,
+  birthYears,
+  sourceId,
   peopleById,
   title = "How you're related",
   sourceLabel = "You",
@@ -96,6 +110,8 @@ export function RelationshipFinder({
 }: {
   paths: PathStep[][];
   genders: Map<string, Gender>;
+  birthYears: Map<string, number | null | undefined>;
+  sourceId: string;
   peopleById: Map<string, PersonLite>;
   title?: string;
   sourceLabel?: ReactNode;
@@ -125,6 +141,8 @@ export function RelationshipFinder({
             key={i}
             steps={steps}
             genders={genders}
+            birthYears={birthYears}
+            sourceId={sourceId}
             peopleById={peopleById}
             sourceLabel={sourceLabel}
             possessive={possessive}
@@ -143,6 +161,8 @@ export function RelationshipFinder({
                 key={i}
                 steps={steps}
                 genders={genders}
+                birthYears={birthYears}
+                sourceId={sourceId}
                 peopleById={peopleById}
                 sourceLabel={sourceLabel}
                 possessive={possessive}

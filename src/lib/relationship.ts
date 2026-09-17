@@ -431,3 +431,161 @@ export function describeRelationship(steps: PathStep[], genders: Map<string, Gen
   }
   return null;
 }
+
+export interface TamilTerm {
+  tamil: string;
+  translit: string;
+}
+
+/**
+ * Which of source's two parents (or grandparents) a blood path's first hop
+ * runs through — "father" or "mother" become the "Appa vazhi" / "Umma
+ * vazhi" side qualifier on grandparent and distant-cousin terms below.
+ */
+function firstHopSide(steps: PathStep[]): "father" | "mother" | null {
+  return steps[0]?.kind === "father" ? "father" : steps[0]?.kind === "mother" ? "mother" : null;
+}
+
+const SIDE_TAMIL: Record<"father" | "mother", TamilTerm> = {
+  father: { tamil: "அப்பா வழி", translit: "Appa vazhi" },
+  mother: { tamil: "உம்மா வழி", translit: "Umma vazhi" },
+};
+
+/**
+ * `a` and `b` are two people one generation apart in a known family
+ * relationship (a person and their sibling, or a parent and that parent's
+ * sibling) — this says which one is older, purely from birth_year, so
+ * callers can pick between an "older"/"younger" pair of Tamil terms (Periya
+ * Anna vs. Thambi, Periyappa vs. Chithappa, etc.). Returns null whenever
+ * either birth_year is missing, which is common in this tree — there's no
+ * neutral fallback term for these in the vocabulary given, so the caller
+ * just shows no Tamil term at all rather than guessing.
+ */
+function olderOf(a: string, b: string, birthYears: Map<string, number | null | undefined>): "a" | "b" | null {
+  const yearA = birthYears.get(a);
+  const yearB = birthYears.get(b);
+  if (!yearA || !yearB || yearA === yearB) return null;
+  return yearA < yearB ? "a" : "b";
+}
+
+/**
+ * The Tamil term for `auntUncleId`, a sibling of `parentId` (source's
+ * father or mother, `side` says which) — shared by the aunt/uncle case
+ * itself (up=2, down=1) and the first-cousin case (up=2, down=2), where the
+ * exact same aunt/uncle sits partway down the path (see
+ * describeRelationshipTamil) and the cousin's term is just this plus
+ * "Pillai" (child), per the Chennai Tamil Muslim usage Haseeb described:
+ * Mama Pillai, Periyappa Pillai, etc. rather than a single generic
+ * "cousin" word.
+ */
+function tamilAuntUncleTerm(
+  parentId: string,
+  side: "father" | "mother",
+  auntUncleId: string,
+  genders: Map<string, Gender>,
+  birthYears: Map<string, number | null | undefined>,
+): TamilTerm | null {
+  const gender = genders.get(auntUncleId) ?? null;
+  if (gender !== "M" && gender !== "F") return null;
+
+  if (side === "father") {
+    if (gender === "F") return { tamil: "மாமி", translit: "Mami" };
+    // olderOf(parentId, auntUncleId): "a" means the PARENT is older, i.e.
+    // auntUncleId is the YOUNGER sibling — Chithappa, not Periyappa.
+    const order = olderOf(parentId, auntUncleId, birthYears);
+    if (!order) return null;
+    return order === "b" ? { tamil: "பெரியப்பா", translit: "Periyappa" } : { tamil: "சித்தப்பா", translit: "Chithappa" };
+  }
+  if (gender === "M") return { tamil: "மாமா", translit: "Mama" };
+  const order = olderOf(parentId, auntUncleId, birthYears);
+  if (!order) return null;
+  return order === "b" ? { tamil: "பெரியம்மா", translit: "Periyamma" } : { tamil: "சின்னம்மா", translit: "Chinnamma" };
+}
+
+/**
+ * The Chennai Tamil Muslim term for the relationship a shortest blood path
+ * represents, per the vocabulary Haseeb gave — parent, child, sibling,
+ * grandparent, aunt/uncle, and first cousin, each split by side (Appa
+ * vazhi / Umma vazhi) and, where the vocabulary distinguishes it, by
+ * relative age. Anything deeper (great-grandparents, cousins beyond the
+ * first, cousins "once removed", etc.) falls back to a general "distant
+ * relative on X's side" phrase rather than inventing a specific term.
+ * Any relationship that crosses a marriage (in-laws) returns null — that
+ * vocabulary hasn't been given yet, so those keep showing English only.
+ */
+export function describeRelationshipTamil(
+  steps: PathStep[],
+  genders: Map<string, Gender>,
+  birthYears: Map<string, number | null | undefined>,
+  sourceId: string,
+): TamilTerm | null {
+  if (steps.length === 0) return null;
+
+  if (steps.length === 1 && steps[0].kind === "spouse") {
+    const gender = genders.get(steps[0].id) ?? null;
+    if (gender === "M") return { tamil: "புருஷன்", translit: "Purushan" };
+    if (gender === "F") return { tamil: "பொண்டாட்டி", translit: "Pondatti" };
+    return null;
+  }
+  if (steps.some((s) => s.kind === "spouse")) return null; // in-law chain — vocabulary not given yet
+
+  const up = steps.filter((s) => s.kind === "father" || s.kind === "mother").length;
+  const down = steps.filter((s) => s.kind === "child").length;
+  if (up + down !== steps.length) return null;
+
+  const targetId = steps[steps.length - 1].id;
+  const targetGender = genders.get(targetId) ?? null;
+  const side = firstHopSide(steps);
+
+  if (up === 1 && down === 0) {
+    if (targetGender === "M") return { tamil: "வாப்பா", translit: "Vappa" };
+    if (targetGender === "F") return { tamil: "உம்மா", translit: "Umma" };
+    return null;
+  }
+  if (up === 0 && down === 1) {
+    if (targetGender === "M") return { tamil: "மகன்", translit: "Magan" };
+    if (targetGender === "F") return { tamil: "மகள்", translit: "Magal" };
+    return null;
+  }
+  if (up === 1 && down === 1) {
+    if (targetGender !== "M" && targetGender !== "F") return null;
+    const order = olderOf(sourceId, targetId, birthYears);
+    if (!order) return null;
+    if (targetGender === "M") return order === "b" ? { tamil: "பெரிய அண்ணா", translit: "Periya Anna" } : { tamil: "தம்பி", translit: "Thambi" };
+    return order === "b" ? { tamil: "பெரியக்கா", translit: "Periyakka" } : { tamil: "தங்கச்சி", translit: "Thangachi" };
+  }
+  if (up === 2 && down === 0) {
+    if (!side || (targetGender !== "M" && targetGender !== "F")) return null;
+    const base = targetGender === "M" ? { tamil: "பெத்தப்பா", translit: "Pethappa" } : { tamil: "பெத்தம்மா", translit: "Pethamma" };
+    return { tamil: `${SIDE_TAMIL[side].tamil} ${base.tamil}`, translit: `${SIDE_TAMIL[side].translit} ${base.translit}` };
+  }
+  if (up === 2 && down === 1) {
+    if (!side) return null;
+    return tamilAuntUncleTerm(steps[0].id, side, targetId, genders, birthYears);
+  }
+  if (up === 1 && down === 2) {
+    const siblingId = steps[1].id;
+    const siblingGender = genders.get(siblingId) ?? null;
+    if (siblingGender !== "M" && siblingGender !== "F") return null;
+    const order = olderOf(sourceId, siblingId, birthYears);
+    if (!order) return null;
+    const siblingTerm =
+      siblingGender === "M"
+        ? order === "b"
+          ? { tamil: "அண்ணன்", translit: "Anna" }
+          : { tamil: "தம்பி", translit: "Thambi" }
+        : order === "b"
+          ? { tamil: "அக்கா", translit: "Akka" }
+          : { tamil: "தங்கச்சி", translit: "Thangachi" };
+    return { tamil: `${siblingTerm.tamil} பிள்ளை`, translit: `${siblingTerm.translit} Pillai` };
+  }
+  if (up === 2 && down === 2) {
+    if (!side) return null;
+    const auntUncle = tamilAuntUncleTerm(steps[0].id, side, steps[2].id, genders, birthYears);
+    if (!auntUncle) return null;
+    return { tamil: `${auntUncle.tamil} பிள்ளை`, translit: `${auntUncle.translit} Pillai` };
+  }
+
+  if (!side) return null;
+  return { tamil: `${SIDE_TAMIL[side].tamil} தூரத்து சொந்தம்`, translit: `${SIDE_TAMIL[side].translit} doorathu sontham` };
+}

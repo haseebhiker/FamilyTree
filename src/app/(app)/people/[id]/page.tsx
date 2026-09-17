@@ -129,6 +129,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   let relationshipFinder: {
     paths: ReturnType<typeof findRelationshipPaths>["paths"];
     genders: ReturnType<typeof findRelationshipPaths>["genders"];
+    birthYears: Map<string, number | null>;
     peopleById: Map<string, { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }>;
   } | null = null;
   if (member?.person_id && member.person_id !== person.id) {
@@ -153,13 +154,17 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
     const { paths, genders } = findRelationshipPaths(graphPeople, graphSpouses, member.person_id, person.id, 5);
     if (paths.length > 0) {
-      const involvedIds = [...new Set(paths.flat().map((s) => s.id))];
+      // member.person_id (the viewer) is included too — Tamil sibling/aunt/
+      // uncle terms need the viewer's own birth_year to compare ages, and
+      // the viewer isn't otherwise a step in their own relationship path.
+      const involvedIds = [...new Set([...paths.flat().map((s) => s.id), member.person_id])];
       const { data: involvedPeople } = await supabase
         .from("people")
-        .select("id, full_name, preferred_name, surname_tag")
+        .select("id, full_name, preferred_name, surname_tag, birth_year")
         .in("id", involvedIds);
       const peopleById = new Map((involvedPeople ?? []).map((p) => [p.id, p]));
-      relationshipFinder = { paths, genders, peopleById };
+      const birthYears = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_year]));
+      relationshipFinder = { paths, genders, birthYears, peopleById };
     }
   }
 
@@ -444,6 +449,8 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <RelationshipFinder
           paths={relationshipFinder.paths}
           genders={relationshipFinder.genders}
+          birthYears={relationshipFinder.birthYears}
+          sourceId={member!.person_id!}
           peopleById={relationshipFinder.peopleById}
         />
       )}

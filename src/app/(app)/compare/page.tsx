@@ -24,6 +24,7 @@ export default async function ComparePage({
   let personA: { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null } | undefined;
   let personB: typeof personA;
   let peopleById = new Map<string, NonNullable<typeof personA>>();
+  let birthYears = new Map<string, number | null>();
 
   if (a && b && a !== b) {
     personA = (people ?? []).find((p) => p.id === a);
@@ -52,12 +53,17 @@ export default async function ComparePage({
       const { paths, genders } = findRelationshipPaths(graphPeople, graphSpouses, a, b, 20);
       result = { paths, genders };
 
-      const involvedIds = [...new Set(paths.flat().map((s) => s.id))];
+      // personA (the source, per findRelationshipPaths's a/b args above) is
+      // included too — Tamil sibling/aunt/uncle terms need personA's own
+      // birth_year to compare ages, and personA isn't otherwise a step in
+      // their own relationship path.
+      const involvedIds = [...new Set([...paths.flat().map((s) => s.id), a])];
       const { data: involvedPeople } = await supabase
         .from("people")
-        .select("id, full_name, preferred_name, surname_tag")
+        .select("id, full_name, preferred_name, surname_tag, birth_year")
         .in("id", involvedIds.length ? involvedIds : ["-"]);
       peopleById = new Map((involvedPeople ?? []).map((p) => [p.id, p]));
+      birthYears = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_year]));
     }
   }
 
@@ -100,6 +106,8 @@ export default async function ComparePage({
             title="How they're related"
             paths={result.paths}
             genders={result.genders}
+            birthYears={birthYears}
+            sourceId={personA.id}
             peopleById={peopleById}
             sourceLabel={<PersonName person={personA} />}
             possessive={`${personA.preferred_name ?? personA.full_name}'s`}
