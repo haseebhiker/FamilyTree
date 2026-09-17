@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
 import { updatePersonPhoto } from "@/lib/actions/person-photo";
+import { PhotoLightbox } from "@/components/photo-lightbox";
 
 const BUCKET = "person-photos";
 const THUMBNAIL_SIZE = 200;
@@ -163,38 +164,42 @@ export function PersonAvatarUpload({
 }) {
   const { isPending, error, handleChange } = usePersonPhotoUpload({ personId, previousPhotoUrl, previousThumbnailUrl });
   const [failed, setFailed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const src = thumbnailUrl || photoUrl;
+  const hasPhoto = !!src && !failed;
 
   return (
     <div>
-      <label
-        className="group relative block h-24 w-24 cursor-pointer rounded-full"
-        title={src ? "Change photo" : "Add a photo"}
-      >
-        {src && !failed ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external URL, not a static asset
-          <img
-            src={src}
-            alt={fullName}
-            className="h-24 w-24 rounded-full object-cover"
-            onError={() => setFailed(true)}
-          />
+      <div className="relative h-24 w-24">
+        {hasPhoto ? (
+          <button type="button" onClick={() => setLightboxOpen(true)} className="block h-24 w-24 rounded-full" title="View photo">
+            {/* eslint-disable-next-line @next/next/no-img-element -- external URL, not a static asset */}
+            <img
+              src={src}
+              alt={fullName}
+              className="h-24 w-24 rounded-full object-cover"
+              onError={() => setFailed(true)}
+            />
+          </button>
         ) : (
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-200 text-2xl font-semibold text-slate-500">
             {fullName.charAt(0)}
           </div>
         )}
-        <span className="absolute inset-0 rounded-full bg-black/0 transition-colors group-hover:bg-black/20" />
-        <span className="absolute right-0 bottom-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow">
+        <label
+          className="absolute right-0 bottom-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow hover:bg-slate-700"
+          title={hasPhoto ? "Change photo" : "Add a photo"}
+        >
           {isPending ? (
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
             <CameraIcon />
           )}
-        </span>
-        <input type="file" accept="image/*" onChange={handleChange} disabled={isPending} className="hidden" />
-      </label>
+          <input type="file" accept="image/*" onChange={handleChange} disabled={isPending} className="hidden" />
+        </label>
+      </div>
       {error && <p className="mt-1 max-w-24 text-[10px] text-red-600">{error}</p>}
+      {lightboxOpen && photoUrl && <PhotoLightbox url={photoUrl} alt={fullName} onClose={() => setLightboxOpen(false)} />}
     </div>
   );
 }
