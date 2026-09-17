@@ -24,6 +24,7 @@ import { ProfileHeaderName, ResponsivePersonName } from "@/components/person-nam
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
+import { describeChange } from "@/lib/describe-change";
 import type { ContactDetail, Person } from "@/lib/types";
 
 const CONTACT_TYPE_LABELS: Record<string, string> = {
@@ -120,6 +121,10 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const person = await applyPrivacy(supabase, personRaw as Person, member);
   const isOwner = member?.person_id === person.id;
+  // Just this person — enough for describeChange's nameOf() to resolve the
+  // usual case (an edit_person or propose_deletion entry about them), not a
+  // full lookup of every person any History entry might reference.
+  const historyPeopleById = new Map([[person.id, person]]);
 
   // "How you're related" — only meaningful once the viewer's own account is
   // linked to a person, and not on your own page. Loads the full tree as a
@@ -196,7 +201,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     supabase.from("spouses").select("*, person_a:people!spouses_person_a_id_fkey(id, full_name, preferred_name, surname_tag)").eq("person_b_id", person.id),
     supabase
       .from("audit_log")
-      .select("*, members!audit_log_performed_by_fkey(name)")
+      .select("*, submitter:members!audit_log_submitted_by_fkey(name)")
       .eq("person_id", person.id)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -743,11 +748,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </summary>
         <div className="border-t border-slate-100 p-4 text-sm text-slate-600">
           {!auditEntries?.length && <p className="text-slate-400">No recorded changes yet.</p>}
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {auditEntries?.map((e) => (
               <li key={e.id}>
-                {e.change_type.replace(/_/g, " ")} by {e.members?.name ?? "unknown"} on{" "}
-                {new Date(e.created_at).toLocaleDateString()}
+                <div>
+                  {e.change_type.replace(/_/g, " ")} — requested by {e.submitter?.name ?? "unknown"} on{" "}
+                  {new Date(e.created_at).toLocaleDateString()}
+                </div>
+                <div className="text-xs text-slate-400">
+                  {describeChange(e.change_type, e.new_value, e.person_id, e.old_value, historyPeopleById)}
+                </div>
               </li>
             ))}
           </ul>

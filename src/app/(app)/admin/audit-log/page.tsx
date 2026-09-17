@@ -6,6 +6,7 @@ import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
 import { DisambiguatedName } from "@/components/person-name";
 import { PersonPicker } from "@/components/person-picker";
+import { describeChange, referencedPersonIds } from "@/lib/describe-change";
 
 export default async function AuditLogPage({
   searchParams,
@@ -25,10 +26,14 @@ export default async function AuditLogPage({
   if (performedByFilter) query = query.eq("performed_by", performedByFilter);
   const { data: entries } = await query;
 
-  const personIds = [...new Set((entries ?? []).map((e) => e.person_id).filter(Boolean))];
+  const personIds = new Set<string>();
+  for (const e of entries ?? []) {
+    if (e.person_id) personIds.add(e.person_id);
+    for (const id of referencedPersonIds(e.new_value)) personIds.add(id);
+  }
   const { data: people } =
-    personIds.length > 0
-      ? await supabase.from("people").select("id, full_name, preferred_name, surname_tag").in("id", personIds)
+    personIds.size > 0
+      ? await supabase.from("people").select("id, full_name, preferred_name, surname_tag").in("id", Array.from(personIds))
       : { data: [] };
   const peopleById = new Map((people ?? []).map((p) => [p.id, p]));
 
@@ -122,6 +127,7 @@ export default async function AuditLogPage({
                 <th className="py-2 pr-4 font-medium">When (your local time)</th>
                 <th className="py-2 pr-4 font-medium">Person</th>
                 <th className="py-2 pr-4 font-medium">Change</th>
+                <th className="py-2 pr-4 font-medium">What changed</th>
                 <th className="py-2 pr-4 font-medium">Submitted by</th>
                 <th className="py-2 pr-4 font-medium">Applied by</th>
               </tr>
@@ -129,6 +135,7 @@ export default async function AuditLogPage({
             <tbody>
               {entries?.map((e) => {
                 const person = e.person_id ? peopleById.get(e.person_id) : null;
+                const details = describeChange(e.change_type, e.new_value, e.person_id, e.old_value, peopleById);
                 return (
                   <tr key={e.id} className="border-b border-slate-100">
                     <td className="py-2 pr-4 whitespace-nowrap text-slate-500">
@@ -144,13 +151,14 @@ export default async function AuditLogPage({
                       )}
                     </td>
                     <td className="py-2 pr-4">{e.change_type.replace(/_/g, " ")}</td>
+                    <td className="py-2 pr-4 max-w-xs text-slate-600">{details}</td>
                     <td className="py-2 pr-4">{e.submitter?.name ?? "—"}</td>
                     <td className="py-2 pr-4">{e.members?.name ?? "—"}</td>
                   </tr>
                 );
               })}
               {!entries?.length && (
-                <tr><td colSpan={5} className="py-4 text-center text-slate-500">No changes recorded yet.</td></tr>
+                <tr><td colSpan={6} className="py-4 text-center text-slate-500">No changes recorded yet.</td></tr>
               )}
             </tbody>
           </table>
