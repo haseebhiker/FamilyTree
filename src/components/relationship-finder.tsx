@@ -43,9 +43,16 @@ function RelationshipPath({
   const last = peopleById.get(steps[steps.length - 1].id);
 
   return (
-    <details className="group rounded-md border border-slate-200 p-3">
+    // Named group ("group/path") — this can end up nested inside the
+    // "Show N more relationships" <details> below, which also uses a
+    // group/chevron pattern. An unnamed "group" doesn't scope to the
+    // nearest ancestor; opening the OUTER one would leak its open state
+    // into every "group-open:" class in here too, rotating these chevrons
+    // and hiding the "Expand map" pill even while each card is still
+    // individually closed.
+    <details className="group/path rounded-md border border-slate-200 p-3">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-slate-800">
-        <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+        <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open/path:rotate-90" />
         <span className="flex-1">
           {summary ? (
             <>
@@ -61,7 +68,7 @@ function RelationshipPath({
             <>See the connection ({steps.length} steps)</>
           )}
         </span>
-        <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 group-open:hidden">
+        <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 group-open/path:hidden">
           Expand map →
         </span>
       </summary>
@@ -155,9 +162,9 @@ export function RelationshipFinder({
         ))}
       </div>
       {rest.length > 0 && (
-        <details className="group mt-2 rounded-md border border-slate-200">
+        <details className="group/more mt-2 rounded-md border border-slate-200">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-slate-500">
-            <ChevronIcon className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-90" />
+            <ChevronIcon className="h-3.5 w-3.5 shrink-0 transition-transform group-open/more:rotate-90" />
             Show {rest.length} more {rest.length === 1 ? "relationship" : "relationships"}
           </summary>
           <div className="space-y-2 border-t border-slate-100 p-2">
