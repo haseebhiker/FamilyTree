@@ -72,6 +72,12 @@ export function generateOfflineTreeHtml(people: OfflinePerson[], spouses: Offlin
   .dialog-body dl { font-size: 13px; margin: 10px 0; }
   .dialog-body dt { font-weight: 600; color: #475569; margin-top: 6px; }
   .dialog-close { position: absolute; top: 10px; right: 12px; border: none; background: none; font-size: 18px; cursor: pointer; color: #94a3b8; }
+  /* Name stacked over its clan name, mirroring <PersonName> in the live app.
+     0.6em rather than a fixed size so it stays in proportion wherever it's
+     used — a dialog heading and a dense tree row both scale from their own
+     context. */
+  .pname { display: inline-flex; flex-direction: column; vertical-align: top; line-height: 1.2; }
+  .pname .clan { font-size: 0.6em; font-weight: 500; letter-spacing: 0.02em; color: #b45309; }
 </style>
 </head>
 <body>
@@ -108,25 +114,33 @@ for (const list of childrenByParent.values()) {
   list.sort((a, b) => byId.get(a).full_name.localeCompare(byId.get(b).full_name));
 }
 
+// Mirrors <PersonName> in the live app: name on one line, clan name smaller
+// underneath, no GEDCOM slashes. Kept as its own copy because this file is a
+// self-contained offline export with no React and no Tailwind.
 function formalName(p) {
-  return p.surname_tag ? p.full_name + " /" + p.surname_tag + "/" : p.full_name;
+  return p.surname_tag ? p.full_name + " " + p.surname_tag : p.full_name;
 }
+// Preferred name REPLACES the formal one, matching displayName() in the app.
 function displayName(p) {
-  return p.preferred_name ? p.preferred_name + " " + formalName(p) : formalName(p);
+  return (p.preferred_name && p.preferred_name.trim()) || p.full_name;
+}
+// Search still matches the formal name even when it is not what is shown,
+// so someone who set a preferred name stays findable by their tree name.
+function searchText(p) {
+  return [p.preferred_name, p.full_name, p.surname_tag].filter(Boolean).join(" ");
+}
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function tagHtml(p) {
+  return p.surname_tag ? '<span class="clan">' + esc(p.surname_tag) + "</span>" : "";
 }
 function nameHtml(p) {
-  return p.preferred_name ? "<b>" + p.preferred_name + "</b> " + formalName(p) : formalName(p);
+  return '<span class="pname">' + esc(displayName(p)) + tagHtml(p) + "</span>";
 }
 function renderNameInto(el, p) {
   el.textContent = "";
-  if (p.preferred_name) {
-    const b = document.createElement("b");
-    b.textContent = p.preferred_name;
-    el.appendChild(b);
-    el.appendChild(document.createTextNode(" " + formalName(p)));
-  } else {
-    el.appendChild(document.createTextNode(formalName(p)));
-  }
+  el.innerHTML = nameHtml(p);
 }
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -231,7 +245,7 @@ const resultsEl = document.getElementById('search-results');
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
   if (q.length < 2) { resultsEl.hidden = true; return; }
-  const matches = PEOPLE.filter(p => displayName(p).toLowerCase().includes(q)).slice(0, 15);
+  const matches = PEOPLE.filter(p => searchText(p).toLowerCase().includes(q)).slice(0, 15);
   resultsEl.innerHTML = '';
   matches.forEach(p => {
     const div = document.createElement('div');

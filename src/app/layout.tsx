@@ -54,6 +54,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0f172a",
+  // Draw into the notch/Dynamic Island and home-indicator areas instead of
+  // letterboxing the page between them — installed to the Home Screen this is
+  // the difference between edge-to-edge and grey bars top and bottom. The
+  // areas it exposes are paid back with env(safe-area-inset-*) padding on the
+  // nav bar and main content, so nothing actually lands under the hardware.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

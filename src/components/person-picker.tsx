@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PersonName, displayNameText } from "@/components/person-name";
+import { PersonName, displayNameText, searchText } from "@/components/person-name";
 
 export interface PersonOption {
   id: string;
@@ -35,7 +35,7 @@ export function PersonPicker({
   const results = useMemo(() => {
     if (query.trim().length < 1) return [];
     const q = query.trim().toLowerCase();
-    return people.filter((p) => displayNameText(p).toLowerCase().includes(q)).slice(0, 20);
+    return people.filter((p) => searchText(p).toLowerCase().includes(q)).slice(0, 20);
   }, [query, people]);
 
   return (

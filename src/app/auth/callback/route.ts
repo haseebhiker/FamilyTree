@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveOrigin } from "@/lib/request-origin";
 import { provisionMemberFromInvite } from "@/lib/members";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = await resolveOrigin(request);
   const code = searchParams.get("code");
 
   if (code) {

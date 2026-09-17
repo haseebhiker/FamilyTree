@@ -51,7 +51,13 @@ export function NavBar({
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      {/* px-4 is the real padding and always applies; the max(...) rules only
+          ever ADD to it so the title and nav clear the notch in landscape,
+          while the header's own background still spans edge to edge behind
+          it. Keeping px-4 as the floor matters: env() inside max() is dropped
+          wholesale by browsers that can't parse it, which would otherwise put
+          the title flush against the edge of the screen. */}
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
         <Link href="/" className="text-lg font-semibold text-slate-900">
           Nams Family Tree
         </Link>
@@ -131,6 +137,15 @@ export function NavBar({
                 <>
                   <div className="my-1 border-t border-slate-100" />
                   <div className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">Admin</div>
+                  {/* Debug aid: re-render the app with admin controls hidden,
+                      to check what an ordinary member actually sees. Leaves
+                      every real role untouched; a banner offers the way out. */}
+                  <a
+                    href={`/preview?as=member&next=${encodeURIComponent(pathname)}`}
+                    className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    View as member
+                  </a>
                   <Link
                     href="/admin/pending"
                     className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"

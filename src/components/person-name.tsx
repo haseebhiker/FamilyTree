@@ -5,58 +5,78 @@ interface NameFields {
 }
 
 export function formalName(p: Pick<NameFields, "full_name" | "surname_tag">) {
-  return p.surname_tag ? `${p.full_name} /${p.surname_tag}/` : p.full_name;
-}
-
-/** Plain-text version, for search matching, aria-labels, etc. */
-export function displayNameText(p: NameFields) {
-  return p.preferred_name ? `${p.preferred_name} ${formalName(p)}` : formalName(p);
+  // No slashes: "Given /CLAN/" was Legacy Family Tree's GEDCOM encoding, where
+  // the delimiters existed only because the surname had no field of its own.
+  // It does here (surname_tag), so the slashes carry no information and
+  // nobody writes their name that way.
+  return p.surname_tag ? `${p.full_name} ${p.surname_tag}` : p.full_name;
 }
 
 /**
- * Preferred name ONLY when set, falling back to the full formal name
- * otherwise — unlike PersonName, which always shows both. Scoped to the
- * tree/chart view and the relationship lists (Children/Siblings/Cousins)
- * that explicitly asked for the same rule; profile headers, search, and
- * everywhere else keep showing both via PersonName.
+ * What to call someone: their preferred name if they've set one, otherwise
+ * the name from the original tree. The preferred name REPLACES the formal
+ * one rather than preceding it — someone who goes by "Chote" is shown as
+ * Chote, not "Chote MohamedYoonus".
  */
-export function TreeName({ person }: { person: NameFields }) {
-  return <>{person.preferred_name || formalName(person)}</>;
+export function displayName(p: NameFields) {
+  return p.preferred_name?.trim() || p.full_name;
 }
 
-/** Visual label used everywhere a person's name is shown: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree — each part its own color so the three are easy to tell apart at a glance. */
+/** Plain-text label — the visible name plus the family name, for aria-labels and one-line summaries. */
+export function displayNameText(p: NameFields) {
+  return p.surname_tag ? `${displayName(p)} ${p.surname_tag}` : displayName(p);
+}
+
+/**
+ * Everything a person could reasonably be searched by, including the formal
+ * name even when a preferred name has replaced it on screen. Without this,
+ * setting a preferred name would make someone unfindable by the name they
+ * appear under in the original tree — which is exactly the name a relative
+ * looking for them is most likely to type.
+ */
+export function searchText(p: NameFields) {
+  return [p.preferred_name, p.full_name, p.surname_tag].filter(Boolean).join(" ");
+}
+
+/**
+ * Visual label used everywhere a person's name is shown, stacked on two lines:
+ *
+ *     Preferred-or-formal name
+ *     FAMILY NAME
+ *
+ * Sized in `em`, not a fixed `text-*` step, so one component works everywhere
+ * it's used — 0.6em of a 2xl page heading and 0.6em of a dense list row both
+ * land in proportion, with no per-caller overrides.
+ *
+ * `inline-flex` (not `block`) keeps it legal inside the headings, links, and
+ * table cells that already wrap it.
+ */
 export function PersonName({ person }: { person: NameFields }) {
   return (
-    <>
-      {person.preferred_name && (
-        <>
-          <span className="font-semibold text-blue-700">{person.preferred_name}</span>{" "}
-        </>
+    <span className="inline-flex flex-col align-top leading-tight">
+      {/* Preferred and formal names render identically. The preferred name
+          isn't an annotation on the "real" one — it IS the name, so styling
+          it differently would flag a distinction the reader doesn't need. */}
+      <span className="text-slate-700">{displayName(person)}</span>
+      {person.surname_tag && (
+        <span className="text-[0.6em] font-medium tracking-wide text-amber-700">
+          {person.surname_tag}
+        </span>
       )}
-      <span className="text-slate-700">{person.full_name}</span>
-      {person.surname_tag && <span className="text-amber-700"> /{person.surname_tag}/</span>}
-    </>
+    </span>
   );
 }
 
 /**
- * Preferred-name-only (TreeName) on a narrow/mobile-width screen, the full
- * PersonName on a wider one — desktop has the room to show both names
- * comfortably, phones don't. CSS-only (both versions render; a media
- * query shows/hides each), not real device detection: this is a Server
- * Component-friendly way to make this responsive without needing to know
- * what device actually requested the page, and it reacts correctly even
- * if someone resizes a desktop browser narrow.
+ * TreeName and ResponsivePersonName both now render PersonName.
+ *
+ * They were introduced to give the tree, the Ancestors chart and the Family
+ * lists a preferred-name-only label while profile headers kept showing
+ * "preferred + formal /CLAN/", with ResponsivePersonName switching between
+ * the two at the `sm` breakpoint. PersonName itself now follows the
+ * preferred-name-only rule everywhere and puts the family name on its own
+ * line, so there is no second style left to switch to — keeping them as
+ * aliases avoids churning every call site in this change.
  */
-export function ResponsivePersonName({ person }: { person: NameFields }) {
-  return (
-    <>
-      <span className="sm:hidden">
-        <TreeName person={person} />
-      </span>
-      <span className="hidden sm:inline">
-        <PersonName person={person} />
-      </span>
-    </>
-  );
-}
+export const TreeName = PersonName;
+export const ResponsivePersonName = PersonName;

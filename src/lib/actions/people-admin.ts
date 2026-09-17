@@ -206,3 +206,55 @@ export async function mergePeople(formData: FormData) {
   revalidatePath("/admin/people");
   revalidatePath("/");
 }
+
+/**
+ * Legacy-import cleanup: clears the auto-generated `marriage_notes` prose on
+ * spouse links.
+ *
+ * The old Legacy Family Tree site expressed relationships only as an English
+ * sentence on each page ("X married Y /TAG/, daughter of A and B."), so
+ * parse-legacy-tree.mjs captured that sentence verbatim. Every name in it is
+ * ALSO parsed into real foreign keys — spouses.person_a_id/person_b_id and
+ * people.father_id/mother_id — which is what the Spouse and Parents sections
+ * actually render. The sentence is therefore a prose restatement of the graph
+ * shown directly above it, complete with "//" artifacts where a surname tag
+ * was empty.
+ *
+ * Only rows matching the generated shape are touched, so a genuine note an
+ * admin typed later (a wedding date or place) is left alone. The previous
+ * values go to audit_log first, making this recoverable.
+ */
+export async function cleanupSpouseNames() {
+  const { supabase, member } = await requireAdmin();
+
+  const { data: before, error: readError } = await supabase
+    .from("spouses")
+    .select("id, marriage_notes")
+    .not("marriage_notes", "is", null)
+    .like("marriage_notes", "% married %");
+  if (readError) throw new Error(readError.message);
+  if (!before || before.length === 0) return;
+
+  const { error } = await supabase
+    .from("spouses")
+    .update({ marriage_notes: null })
+    .in(
+      "id",
+      before.map((row) => row.id),
+    );
+  if (error) throw new Error(error.message);
+
+  // person_id is deliberately null: this is a bulk maintenance action across
+  // the spouses table, not a change to one person's profile.
+  await supabase.from("audit_log").insert({
+    person_id: null,
+    change_type: "cleanup_marriage_notes",
+    old_value: before,
+    new_value: null,
+    performed_by: member.id,
+    note: `Cleared auto-generated marriage notes on ${before.length} spouse link${before.length === 1 ? "" : "s"}`,
+  });
+
+  revalidatePath("/admin/people");
+  revalidatePath("/");
+}
