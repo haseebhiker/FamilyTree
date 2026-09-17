@@ -11,9 +11,10 @@ import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions
 import { linkInviteToPerson, unlinkPersonAccount, updateLinkedAccount } from "@/lib/actions/invites";
 import { sortByAge, sortSiblings } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
-import { Card, Badge, ChevronIcon, Select, Input, Field, Textarea } from "@/components/ui";
+import { Card, Badge, ChevronIcon } from "@/components/ui";
 import { ActionButton } from "@/components/action-button";
-import { ActionForm } from "@/components/action-form";
+import { LinkedAccountForm } from "@/components/linked-account-form";
+import { LinkInviteForm } from "@/components/link-invite-form";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -712,65 +713,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="space-y-4">
               {linkedAccounts.map((acc) => (
                 <div key={`${acc.source}:${acc.id}`} className="space-y-3 rounded-md border border-slate-200 p-3">
-                  <ActionForm action={updateLinkedAccount} className="grid gap-2 sm:grid-cols-2">
-                    {({ isPending, error }) => (
-                      <>
-                    <input type="hidden" name="source" value={acc.source} />
-                    <input type="hidden" name="record_id" value={acc.id} />
-                    <input type="hidden" name="person_id" value={person.id} />
-                    {acc.accessRequest && <input type="hidden" name="access_request_id" value={acc.accessRequest.id} />}
-                    <Field label="Name">
-                      <Input name="name" defaultValue={acc.name} />
-                    </Field>
-                    <Field label="Gmail">
-                      <Input name="email" type="email" defaultValue={acc.email} />
-                    </Field>
-                    <Field label="Role">
-                      <Select name="role" defaultValue={acc.role}>
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super admin</option>
-                      </Select>
-                    </Field>
-                    <div className="flex items-end text-sm text-slate-500">
-                      <span>
-                        <span className="font-medium text-slate-500">Status:</span> {acc.status}
-                        {acc.source === "invite" && (
-                          <span className="text-slate-400"> — invite record{acc.status === "accepted" ? ", already accepted" : ", hasn't signed in yet"}</span>
-                        )}
-                      </span>
-                    </div>
-                    {acc.accessRequest ? (
-                      <>
-                        <div className="sm:col-span-2">
-                          <Field label="How they said they're related">
-                            <Textarea name="relation_description" rows={2} defaultValue={acc.accessRequest.relation_description} />
-                          </Field>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <Field label="Notes (optional)">
-                            <Textarea name="notes" rows={2} defaultValue={acc.accessRequest.notes ?? ""} />
-                          </Field>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-xs text-slate-400 sm:col-span-2">
-                        Invited directly — no access request on file to show a stated reason for.
-                      </p>
-                    )}
-                    <div className="sm:col-span-2 space-y-1">
-                      <button
-                        type="submit"
-                        disabled={isPending}
-                        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-                      >
-                        {isPending ? "Saving…" : "Save"}
-                      </button>
-                      {error && <p className="text-xs text-red-600">{error}</p>}
-                    </div>
-                      </>
-                    )}
-                  </ActionForm>
+                  <LinkedAccountForm acc={acc} personId={person.id} updateLinkedAccount={updateLinkedAccount} />
                   <ActionButton
                     action={unlinkPersonAccount}
                     fields={{ source: acc.source, record_id: acc.id, person_id: person.id }}
@@ -787,31 +730,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="space-y-2">
               <p className="text-sm text-slate-400">Not linked to any invited account.</p>
               {unlinkedInvites.length > 0 && (
-                <ActionForm action={linkInviteToPerson} className="flex items-center gap-2">
-                  {({ isPending, error }) => (
-                    <>
-                      <input type="hidden" name="person_id" value={person.id} />
-                      <Select name="invite_id" className="w-auto text-xs" required defaultValue="">
-                        <option value="" disabled>
-                          Link to…
-                        </option>
-                        {unlinkedInvites.map((inv) => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.name} ({inv.email})
-                          </option>
-                        ))}
-                      </Select>
-                      <button
-                        type="submit"
-                        disabled={isPending}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        {isPending ? "…" : "Link"}
-                      </button>
-                      {error && <span className="text-xs text-red-600">{error}</span>}
-                    </>
-                  )}
-                </ActionForm>
+                <LinkInviteForm personId={person.id} unlinkedInvites={unlinkedInvites} linkInviteToPerson={linkInviteToPerson} />
               )}
             </div>
           )}
