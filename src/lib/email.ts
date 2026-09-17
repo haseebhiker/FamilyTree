@@ -1,6 +1,31 @@
 import nodemailer from "nodemailer";
+import { createClient } from "@supabase/supabase-js";
 
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
+/**
+ * TEMPORARY — logs every failed/skipped send to audit_log so it's
+ * checkable via a script (no Vercel dashboard access from here). A send
+ * that silently fails currently leaves no trace anywhere Haseeb or I can
+ * see it; confirmed live when an approval's "your change was approved"
+ * email never arrived with no visible error. Remove once email delivery
+ * is confirmed reliable.
+ */
+async function logEmailFailure(to: string, subject: string, reason: string) {
+  try {
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    await supabase.from("audit_log").insert({
+      person_id: null,
+      change_type: "email_send_failed",
+      old_value: null,
+      new_value: { to, subject, reason },
+      performed_by: null,
+      note: "TEMP diagnostic — see logEmailFailure in src/lib/email.ts",
+    });
+  } catch {
+    // Never let logging failure mask the real issue.
+  }
+}
 
 function getTransporter() {
   const user = process.env.GMAIL_USER;
@@ -35,6 +60,7 @@ export async function sendEmail({
   const from = process.env.GMAIL_USER;
   if (!transport || !from) {
     console.warn(`[email] Not configured — would have sent "${subject}" to ${to}`);
+    await logEmailFailure(to, subject, "GMAIL_USER/GMAIL_APP_PASSWORD not configured");
     return false;
   }
 
@@ -43,6 +69,7 @@ export async function sendEmail({
     return true;
   } catch (err) {
     console.error("[email] send failed:", err);
+    await logEmailFailure(to, subject, err instanceof Error ? err.message : String(err));
     return false;
   }
 }
