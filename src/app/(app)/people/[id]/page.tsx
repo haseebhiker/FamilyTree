@@ -18,6 +18,7 @@ import { LinkInviteForm } from "@/components/link-invite-form";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
+import { PersonAvatarUpload } from "@/components/person-photo-upload";
 import { ContactIcons } from "@/components/contact-icons";
 import { ProfileHeaderName, ResponsivePersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
@@ -401,7 +402,18 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       )}
 
       <div className="flex items-start gap-4">
-        <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
+        {isOwner || isAdmin(member) ? (
+          <PersonAvatarUpload
+            personId={person.id}
+            photoUrl={person.photo_url}
+            thumbnailUrl={person.photo_thumbnail_url}
+            fullName={person.full_name}
+            previousPhotoUrl={person.photo_url}
+            previousThumbnailUrl={person.photo_thumbnail_url}
+          />
+        ) : (
+          <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
+        )}
         <div>
           <h1 className="text-lg font-semibold text-slate-900">
             <ProfileHeaderName person={person} />
