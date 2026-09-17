@@ -43,24 +43,41 @@ export function sortByAge<T extends WithBirth>(people: T[]): T[] {
 }
 
 /**
- * Sibling-specific ordering: year only wins when EVERY sibling in the set
- * has one — otherwise birth_order takes priority for the whole set,
- * unlike sortByAge's mixed behavior (which puts anyone with a year ahead
- * of anyone without one). Without this, a sibling set where only some
- * have a recorded year would scatter the ones missing it to the back by
- * default even when their birth_order says they belong in the middle.
+ * Sibling-specific ordering, per pair rather than sortByAge's whole-set
+ * "does everyone have a year" gate — that scattered a sibling set to
+ * alphabetical (by full legal name, not the preferred name actually shown)
+ * the moment even ONE sibling lacked a year, discarding perfectly good
+ * birth_year data for everyone else in the set. Confirmed live: an
+ * 11-sibling set with 10 recorded years still sorted alphabetically because
+ * the 11th had neither a year nor a birth_order.
+ *
+ * Per pair: prefer birth_order when BOTH have one (it directly encodes
+ * position within this specific sibling set); otherwise fall back to
+ * birth_year for that pair. Anyone with neither piece of data sorts after
+ * everyone who has at least one, same convention as sortByAge, rather than
+ * landing wherever alphabetical happens to place them relative to dated
+ * siblings.
  */
 export function sortSiblings<T extends WithBirth>(people: T[]): T[] {
-  const allHaveYear = people.length > 0 && people.every((p) => p.birth_year != null);
-  if (allHaveYear) return sortByAge(people);
-
   return [...people].sort((a, b) => {
+    const aHasData = a.birth_order != null || a.birth_year != null;
+    const bHasData = b.birth_order != null || b.birth_year != null;
+    if (aHasData !== bHasData) return aHasData ? -1 : 1;
+
     const aOrder = a.birth_order ?? null;
     const bOrder = b.birth_order ?? null;
     if (aOrder != null && bOrder != null) {
       if (aOrder !== bOrder) return aOrder - bOrder;
-    } else if (aOrder != null || bOrder != null) {
-      return aOrder != null ? -1 : 1;
+    } else {
+      const aYear = a.birth_year ?? null;
+      const bYear = b.birth_year ?? null;
+      if (aYear != null && bYear != null) {
+        const aKey = aYear * 10000 + (a.birth_month ?? 0) * 100 + (a.birth_day ?? 0);
+        const bKey = bYear * 10000 + (b.birth_month ?? 0) * 100 + (b.birth_day ?? 0);
+        if (aKey !== bKey) return aKey - bKey;
+      } else if (aOrder != null || bOrder != null) {
+        return aOrder != null ? -1 : 1;
+      }
     }
     return a.full_name.localeCompare(b.full_name);
   });
