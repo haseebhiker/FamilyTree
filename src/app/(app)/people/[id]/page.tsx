@@ -665,7 +665,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   {CONTACT_TYPE_LABELS[type]}
                 </div>
-                <ul className="mt-1 space-y-1 text-sm">
+                <ul className="mt-1 space-y-1 text-xs">
                   {entries.map((entry) => (
                     <li key={entry.id} className="flex items-center gap-2">
                       <ContactIcons contactType={entry.contact_type} value={entry.value} />
@@ -697,45 +697,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <p className="text-sm text-slate-400">Nothing shared here yet.</p>
         </Card>
       ) : null}
-
-      {isSuperAdmin(member) && (
-        <Card>
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">
-            Linked account{linkedAccounts.length !== 1 ? "s" : ""} (admin only)
-          </h2>
-          {linkedAccounts.length > 1 && (
-            <p className="mb-3 text-xs text-amber-700">
-              {linkedAccounts.length} accounts point here — normal right after someone accepts an invite (their
-              invite row and their new member row both still link here), but worth tidying up if it&apos;s stale.
-            </p>
-          )}
-          {linkedAccounts.length > 0 ? (
-            <div className="space-y-4">
-              {linkedAccounts.map((acc) => (
-                <div key={`${acc.source}:${acc.id}`} className="space-y-3 rounded-md border border-slate-200 p-3">
-                  <LinkedAccountForm acc={acc} personId={person.id} updateLinkedAccount={updateLinkedAccount} />
-                  <ActionButton
-                    action={unlinkPersonAccount}
-                    fields={{ source: acc.source, record_id: acc.id, person_id: person.id }}
-                    className="text-xs text-red-600 hover:underline"
-                    pendingChildren="…"
-                    confirmMessage={`Unlink ${person.full_name}'s profile from this ${acc.source} record (${acc.email})?`}
-                  >
-                    Unlink this account
-                  </ActionButton>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-slate-400">Not linked to any invited account.</p>
-              {unlinkedInvites.length > 0 && (
-                <LinkInviteForm personId={person.id} unlinkedInvites={unlinkedInvites} linkInviteToPerson={linkInviteToPerson} />
-              )}
-            </div>
-          )}
-        </Card>
-      )}
 
       {isOwner ? (
         <p className="text-xs text-slate-400">
@@ -770,6 +731,48 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </ul>
         </div>
       </details>
+
+      {isSuperAdmin(member) && (
+        <details className="group rounded-lg border border-slate-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+            <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+            Linked account{linkedAccounts.length !== 1 ? "s" : ""} (admin only)
+          </summary>
+          <div className="space-y-3 border-t border-slate-100 p-4">
+            {linkedAccounts.length > 1 && (
+              <p className="text-xs text-amber-700">
+                {linkedAccounts.length} accounts point here — normal right after someone accepts an invite (their
+                invite row and their new member row both still link here), but worth tidying up if it&apos;s stale.
+              </p>
+            )}
+            {linkedAccounts.length > 0 ? (
+              <div className="space-y-4">
+                {linkedAccounts.map((acc) => (
+                  <div key={`${acc.source}:${acc.id}`} className="space-y-3 rounded-md border border-slate-200 p-3">
+                    <LinkedAccountForm acc={acc} personId={person.id} updateLinkedAccount={updateLinkedAccount} />
+                    <ActionButton
+                      action={unlinkPersonAccount}
+                      fields={{ source: acc.source, record_id: acc.id, person_id: person.id }}
+                      className="text-xs text-red-600 hover:underline"
+                      pendingChildren="…"
+                      confirmMessage={`Unlink ${person.full_name}'s profile from this ${acc.source} record (${acc.email})?`}
+                    >
+                      Unlink this account
+                    </ActionButton>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-slate-400">Not linked to any invited account.</p>
+                {unlinkedInvites.length > 0 && (
+                  <LinkInviteForm personId={person.id} unlinkedInvites={unlinkedInvites} linkInviteToPerson={linkInviteToPerson} />
+                )}
+              </div>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
