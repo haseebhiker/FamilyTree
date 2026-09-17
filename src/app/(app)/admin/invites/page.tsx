@@ -58,7 +58,7 @@ export default async function InvitesPage() {
         </Link>
       </div>
 
-      <details className="group rounded-lg border border-slate-200 bg-white" open>
+      <details className="group rounded-lg border border-slate-200 bg-white">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
           <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
           Current members ({members?.filter((m) => m.status === "active").length ?? 0})
@@ -148,7 +148,7 @@ export default async function InvitesPage() {
         </div>
       </details>
 
-      <details className="group rounded-lg border border-slate-200 bg-white" open>
+      <details className="group rounded-lg border border-slate-200 bg-white">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
           <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
           All invites
