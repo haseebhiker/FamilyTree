@@ -3,8 +3,43 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
-import { sendEmail, emailBodyToHtml } from "@/lib/email";
+import { sendEmail } from "@/lib/email";
 import type { Role } from "@/lib/types";
+
+/**
+ * The one-time "you're approved" email — a short intro, what there is to
+ * see, and (more important than the feature list) an explicit nudge to
+ * add or fix data, since the tree's only as good as what people actually
+ * put into it.
+ */
+function approvalEmailHtml(name: string, email: string): string {
+  const features = [
+    "See exactly how you're related to anyone in the family — the app works it out for you",
+    "Search the whole family tree for anyone by name",
+    "Compare any two people and see every way they're connected",
+    "Browse the complete family tree, branch by branch",
+  ];
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;color:#1e293b;max-width:480px;margin:0 auto;">
+      <p style="margin:0 0 1em 0;">Hi ${name},</p>
+      <p style="margin:0 0 1em 0;">
+        You're approved! Log in and explore the full Nams Family Tree.
+      </p>
+      <p style="margin:0 0 0.5em 0;">A few things you can do:</p>
+      <ul style="margin:0 0 1em 0; padding-left:1.25em;">
+        ${features.map((f) => `<li style="margin:0 0 0.4em 0;">${f}</li>`).join("")}
+      </ul>
+      <p style="margin:0 0 1em 0;">
+        <strong>Most importantly</strong> — if you spot anything missing or wrong (a birthday, a relationship, a photo),
+        please add it or fix it yourself, or suggest the change if you're not sure. The tree is only as good as what we all put into it.
+      </p>
+      <p style="margin:0 0 1em 0;">
+        <a href="https://familytree.haseeb.in" style="color:#1d4ed8;">Sign in at familytree.haseeb.in</a>
+        using this Gmail address (${email}) with Google Sign-In — no separate password needed.
+      </p>
+    </div>
+  `;
+}
 
 export async function submitAccessRequest(formData: FormData) {
   const supabase = await createClient();
@@ -95,9 +130,7 @@ export async function approveAccessRequest(formData: FormData) {
   await sendEmail({
     to: request.email,
     subject: "You're approved for Nams Family Tree",
-    html: emailBodyToHtml(
-      `Hi ${request.name},\n\nYou've been approved to join Nams Family Tree.\n\nSign in at https://familytree.haseeb.in using this Gmail address (${request.email}) with Google Sign-In — no separate password needed.`,
-    ),
+    html: approvalEmailHtml(request.name, request.email),
   });
 
   revalidatePath("/admin/access-requests");
