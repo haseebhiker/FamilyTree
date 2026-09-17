@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
 import { revokeInvite, deleteInvite, linkMemberToPerson, linkInviteToPerson, sendInviteReminderEmails } from "@/lib/actions/invites";
-import { Card, Badge } from "@/components/ui";
+import { Badge, ChevronIcon } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ActionButton } from "@/components/action-button";
 import { PersonPicker } from "@/components/person-picker";
@@ -58,10 +58,13 @@ export default async function InvitesPage() {
         </Link>
       </div>
 
-      <Card>
-        <h2 className="mb-1 text-sm font-semibold text-slate-900">Current members ({members?.filter((m) => m.status === "active").length ?? 0})</h2>
-        <p className="mb-3 text-xs text-slate-500">Everyone who has ever been approved to sign in, and whether they still can.</p>
-        <div className="overflow-x-auto">
+      <details className="group rounded-lg border border-slate-200 bg-white" open>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+          Current members ({members?.filter((m) => m.status === "active").length ?? 0})
+        </summary>
+        <p className="px-4 text-xs text-slate-500">Everyone who has ever been approved to sign in, and whether they still can.</p>
+        <div className="overflow-x-auto p-4">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
@@ -143,11 +146,14 @@ export default async function InvitesPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </details>
 
-      <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">All invites</h2>
-        <div className="overflow-x-auto">
+      <details className="group rounded-lg border border-slate-200 bg-white" open>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+          All invites
+        </summary>
+        <div className="overflow-x-auto p-4">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
@@ -228,7 +234,7 @@ export default async function InvitesPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </details>
 
       <InviteEmailComposer
         invites={(invites ?? []).filter((i) => i.status === "pending")}
