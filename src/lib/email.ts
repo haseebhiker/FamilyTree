@@ -47,17 +47,29 @@ export async function sendEmail({
   }
 }
 
-/** Wraps plain body text (one <p> per blank-line-separated paragraph) in a minimal, readable HTML shell. */
+/**
+ * Wraps plain body text in a minimal, readable HTML shell — one <p> per
+ * blank-line-separated paragraph, except a run of consecutive "- " lines,
+ * which becomes a real <ul> instead (so a compose box can produce a
+ * bulleted list without needing an HTML editor).
+ */
 export function emailBodyToHtml(body: string): string {
-  const paragraphs = body
+  const blocks = body
     .split(/\n{2,}/)
-    .map((p) => p.trim())
+    .map((b) => b.trim())
     .filter(Boolean)
-    .map((p) => `<p style="margin:0 0 1em 0;">${p.replace(/\n/g, "<br>")}</p>`)
+    .map((block) => {
+      const lines = block.split("\n").map((l) => l.trim());
+      if (lines.every((l) => l.startsWith("- "))) {
+        const items = lines.map((l) => `<li style="margin:0 0 0.4em 0;">${l.slice(2)}</li>`).join("");
+        return `<ul style="margin:0 0 1em 0; padding-left:1.25em;">${items}</ul>`;
+      }
+      return `<p style="margin:0 0 1em 0;">${block.replace(/\n/g, "<br>")}</p>`;
+    })
     .join("");
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;color:#1e293b;max-width:480px;margin:0 auto;">
-      ${paragraphs}
+      ${blocks}
     </div>
   `;
 }
