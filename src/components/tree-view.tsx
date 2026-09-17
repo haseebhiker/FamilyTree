@@ -101,6 +101,35 @@ function TreeNode({
   );
 }
 
+/**
+ * A search result row — richer than TreeName (used everywhere else in the
+ * tree), since search is specifically for telling apart several people who
+ * share a name. Desktop shows full name, preferred name, and both parents'
+ * names when there's room; mobile drops straight to just the full name
+ * plus surname, since there isn't room for all of it there.
+ */
+function SearchResultRow({ person, peopleById }: { person: TreeNodeData; peopleById: Map<string, TreeNodeData> }) {
+  const father = person.father_id ? peopleById.get(person.father_id) : null;
+  const mother = person.mother_id ? peopleById.get(person.mother_id) : null;
+  const parentNames = [father, mother]
+    .filter((p): p is TreeNodeData => !!p)
+    .map((p) => p.preferred_name?.trim() || p.full_name);
+  const preferred = person.preferred_name?.trim();
+  const fullWithSurname = person.surname_tag ? `${person.full_name} ${person.surname_tag}` : person.full_name;
+
+  return (
+    <div className="px-3 py-2">
+      <div className="hidden text-sm sm:block">
+        <span className="font-medium text-slate-900">{person.full_name}</span>
+        {preferred && preferred !== person.full_name && <span className="text-slate-500"> ({preferred})</span>}
+        {person.surname_tag && <span className="text-slate-400"> {person.surname_tag}</span>}
+        {parentNames.length > 0 && <div className="text-xs text-slate-400">Child of {parentNames.join(" & ")}</div>}
+      </div>
+      <div className="text-sm font-medium text-slate-900 sm:hidden">{fullWithSurname}</div>
+    </div>
+  );
+}
+
 export function TreeView({
   roots,
   allPeople,
@@ -118,6 +147,10 @@ export function TreeView({
     () => computePathToMe(myPersonId, allPeople, roots),
     [allPeople, roots, myPersonId],
   );
+
+  // For "child of X & Y" in search results only — looks up a hit's parents
+  // by id to show their names.
+  const peopleById = useMemo(() => new Map(allPeople.map((p) => [p.id, p])), [allPeople]);
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, TreeNodeData[]>();
@@ -162,12 +195,8 @@ export function TreeView({
           <ul className="absolute z-10 mt-1 w-full max-h-72 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg">
             {searchResults.map((p) => (
               <li key={p.id}>
-                <Link
-                  href={`/people/${p.id}`}
-                  className="block px-3 py-2 text-sm hover:bg-slate-50"
-                  onClick={() => setQuery("")}
-                >
-                  <TreeName person={p} />
+                <Link href={`/people/${p.id}`} className="block hover:bg-slate-50" onClick={() => setQuery("")}>
+                  <SearchResultRow person={p} peopleById={peopleById} />
                 </Link>
               </li>
             ))}
