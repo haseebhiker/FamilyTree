@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
-import { revokeInvite, deleteInvite, linkMemberToPerson, linkInviteToPerson } from "@/lib/actions/invites";
+import { revokeInvite, deleteInvite, linkMemberToPerson, linkInviteToPerson, sendInviteReminderEmails } from "@/lib/actions/invites";
 import { Card, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ActionButton } from "@/components/action-button";
 import { PersonPicker } from "@/components/person-picker";
 import { PersonName } from "@/components/person-name";
 import { LocalTime } from "@/components/local-time";
+import { InviteEmailComposer } from "@/components/invite-email-composer";
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
@@ -228,6 +229,11 @@ export default async function InvitesPage() {
           </table>
         </div>
       </Card>
+
+      <InviteEmailComposer
+        invites={(invites ?? []).filter((i) => i.status === "pending")}
+        sendInviteReminderEmails={sendInviteReminderEmails}
+      />
     </div>
   );
 }

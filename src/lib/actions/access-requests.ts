@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
+import { sendEmail, emailBodyToHtml } from "@/lib/email";
 import type { Role } from "@/lib/types";
 
 export async function submitAccessRequest(formData: FormData) {
@@ -88,6 +89,16 @@ export async function approveAccessRequest(formData: FormData) {
     .update({ status: "approved", reviewed_by: member.id, reviewed_at: new Date().toISOString() })
     .eq("id", requestId);
   if (error) throw new Error(error.message);
+
+  // Best-effort — a failed/unconfigured email should never undo an
+  // approval that already succeeded.
+  await sendEmail({
+    to: request.email,
+    subject: "You're approved for Nams Family Tree",
+    html: emailBodyToHtml(
+      `Hi ${request.name},\n\nYou've been approved to join Nams Family Tree.\n\nSign in at https://familytree.haseeb.in using this Gmail address (${request.email}) with Google Sign-In — no separate password needed.`,
+    ),
+  });
 
   revalidatePath("/admin/access-requests");
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
+import { sendEmail, emailBodyToHtml } from "@/lib/email";
 import type { Role } from "@/lib/types";
 
 async function requireAdmin() {
@@ -239,4 +240,36 @@ export async function deleteInvite(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/invites");
+}
+
+/**
+ * A custom reminder email, in Haseeb's own words, to one or more invites
+ * that haven't signed in yet — deliberately separate from the automatic
+ * "you're approved" email sent at approval time (see access-requests.ts),
+ * since this is for people already approved a while ago who just haven't
+ * followed through, not a fresh approval notice. Best-effort per
+ * recipient: one bad address shouldn't sink the rest of the batch.
+ */
+export async function sendInviteReminderEmails(formData: FormData): Promise<{ sent: number; failed: number }> {
+  await requireAdmin();
+  const inviteIds = formData.getAll("invite_id").map(String).filter(Boolean);
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (inviteIds.length === 0) throw new Error("Pick at least one invite to email");
+  if (!subject || !body) throw new Error("Subject and message are both required");
+
+  const supabase = await createClient();
+  const { data: invites, error } = await supabase.from("invites").select("id, name, email").in("id", inviteIds);
+  if (error) throw new Error(error.message);
+
+  let sent = 0;
+  let failed = 0;
+  for (const invite of invites ?? []) {
+    const personalized = body.replace(/\{\{name\}\}/gi, invite.name);
+    const ok = await sendEmail({ to: invite.email, subject, html: emailBodyToHtml(personalized) });
+    if (ok) sent++;
+    else failed++;
+  }
+
+  return { sent, failed };
 }
