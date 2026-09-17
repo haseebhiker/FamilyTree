@@ -32,6 +32,17 @@ html {
   font-size: 22px;
 }
 
+@media (max-width: 640px) {
+  html {
+    /* A little smaller than the 22px above specifically on phones — the
+       second round-2026-09-15 bump (19px -> 22px) reportedly went a bit
+       too far on mobile, causing some text to overflow/not render right,
+       even though it read fine on desktop. text-xs/text-sm above scale
+       down proportionally with this automatically (they're rem-based). */
+    font-size: 20px;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
