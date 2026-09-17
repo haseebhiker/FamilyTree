@@ -34,7 +34,7 @@ function approvalEmailHtml(name: string, email: string): string {
         please add it or fix it yourself, or suggest the change if you're not sure. The tree is only as good as what we all put into it.
       </p>
       <p style="margin:0 0 1em 0;">
-        <a href="https://familytree.haseeb.in" style="color:#1d4ed8;">Sign in at familytree.haseeb.in</a>
+        Sign in at <a href="https://familytree.haseeb.in" style="color:#1d4ed8;">https://familytree.haseeb.in</a>
         using this Gmail address (${email}) with Google Sign-In — no separate password needed.
       </p>
     </div>

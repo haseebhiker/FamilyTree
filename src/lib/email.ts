@@ -47,11 +47,17 @@ export async function sendEmail({
   }
 }
 
+/** Turns a plain "https://..." URL in already-assembled text into a clickable, visibly-full-URL link — the point being that the actual address stays readable even if a client strips the hyperlink. */
+function linkifyUrls(text: string): string {
+  return text.replace(/(https?:\/\/[^\s<]+)/g, (url) => `<a href="${url}" style="color:#1d4ed8;">${url}</a>`);
+}
+
 /**
  * Wraps plain body text in a minimal, readable HTML shell — one <p> per
  * blank-line-separated paragraph, except a run of consecutive "- " lines,
  * which becomes a real <ul> instead (so a compose box can produce a
- * bulleted list without needing an HTML editor).
+ * bulleted list without needing an HTML editor). Any plain URL becomes a
+ * clickable link, with the full address still shown as the link text.
  */
 export function emailBodyToHtml(body: string): string {
   const blocks = body
@@ -61,10 +67,10 @@ export function emailBodyToHtml(body: string): string {
     .map((block) => {
       const lines = block.split("\n").map((l) => l.trim());
       if (lines.every((l) => l.startsWith("- "))) {
-        const items = lines.map((l) => `<li style="margin:0 0 0.4em 0;">${l.slice(2)}</li>`).join("");
+        const items = lines.map((l) => `<li style="margin:0 0 0.4em 0;">${linkifyUrls(l.slice(2))}</li>`).join("");
         return `<ul style="margin:0 0 1em 0; padding-left:1.25em;">${items}</ul>`;
       }
-      return `<p style="margin:0 0 1em 0;">${block.replace(/\n/g, "<br>")}</p>`;
+      return `<p style="margin:0 0 1em 0;">${linkifyUrls(block.replace(/\n/g, "<br>"))}</p>`;
     })
     .join("");
   return `
