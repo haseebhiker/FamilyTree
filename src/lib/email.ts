@@ -1,11 +1,26 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
+
+let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
+function getTransporter() {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  if (!transporter) {
+    transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+  }
+  return transporter;
+}
 
 /**
- * A no-op until RESEND_API_KEY/RESEND_FROM_EMAIL are configured, matching
- * how this app already treats the notify* stubs in pending-changes.ts —
- * failing to send an email should never block the action that triggered
- * it (approving someone shouldn't fail just because a reminder couldn't
- * go out), so this only logs and returns false rather than throwing.
+ * Sends via Haseeb's own Gmail over SMTP, authenticated with a Google
+ * "App Password" (a separate, revocable 16-character code — not his real
+ * account password) rather than a third-party email service. A no-op
+ * until GMAIL_USER/GMAIL_APP_PASSWORD are configured, matching how this
+ * app already treats the notify* stubs in pending-changes.ts — failing to
+ * send an email should never block the action that triggered it (approving
+ * someone shouldn't fail just because a reminder couldn't go out), so this
+ * only logs and returns false rather than throwing.
  */
 export async function sendEmail({
   to,
@@ -16,20 +31,20 @@ export async function sendEmail({
   subject: string;
   html: string;
 }): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) {
+  const transport = getTransporter();
+  const from = process.env.GMAIL_USER;
+  if (!transport || !from) {
     console.warn(`[email] Not configured — would have sent "${subject}" to ${to}`);
     return false;
   }
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({ from, to, subject, html });
-  if (error) {
-    console.error("[email] send failed:", error);
+  try {
+    await transport.sendMail({ from: `Nams Family Tree <${from}>`, to, subject, html });
+    return true;
+  } catch (err) {
+    console.error("[email] send failed:", err);
     return false;
   }
-  return true;
 }
 
 /** Wraps plain body text (one <p> per blank-line-separated paragraph) in a minimal, readable HTML shell. */
