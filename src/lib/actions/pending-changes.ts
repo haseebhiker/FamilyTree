@@ -446,8 +446,13 @@ export async function submitPersonEdit(formData: FormData, options?: { skipReval
     }
   }
 
+  // Nothing actually changed — most often a double-tap on Save while the
+  // first submission was still in flight, or tapping it again afterward
+  // just to make sure it "took." Treat it as an already-successful no-op
+  // rather than an error: there's nothing wrong with the data, it's just
+  // already exactly what was submitted.
   if (Object.keys(proposed).length === 0) {
-    throw new Error("No changes to submit");
+    return true;
   }
 
   const applied = await applyOrQueue(supabase, member, {
