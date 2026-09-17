@@ -13,6 +13,17 @@ export function displayNameText(p: NameFields) {
   return p.preferred_name ? `${p.preferred_name} ${formalName(p)}` : formalName(p);
 }
 
+/**
+ * Preferred name ONLY when set, falling back to the full formal name
+ * otherwise — unlike PersonName, which always shows both. Scoped to the
+ * tree/chart view and the relationship lists (Children/Siblings/Cousins)
+ * that explicitly asked for the same rule; profile headers, search, and
+ * everywhere else keep showing both via PersonName.
+ */
+export function TreeName({ person }: { person: NameFields }) {
+  return <>{person.preferred_name || formalName(person)}</>;
+}
+
 /** Visual label used everywhere a person's name is shown: preferred name leads in bold (what people actually go by), followed by the full formal name from the original tree — each part its own color so the three are easy to tell apart at a glance. */
 export function PersonName({ person }: { person: NameFields }) {
   return (

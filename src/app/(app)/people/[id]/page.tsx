@@ -9,14 +9,14 @@ import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions/people-admin";
 import { linkInviteToPerson, unlinkPersonAccount, updateLinkedAccount } from "@/lib/actions/invites";
-import { sortByAge } from "@/lib/sort-by-age";
+import { sortByAge, sortSiblings } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge, ChevronIcon, Select, Input, Field, Textarea } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { PersonAvatar } from "@/components/person-avatar";
 import { ContactIcons } from "@/components/contact-icons";
-import { PersonName } from "@/components/person-name";
+import { PersonName, TreeName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
@@ -67,6 +67,27 @@ async function fetchCousins(
     .or(cousinConditions.join(","))
     .order("full_name");
   return cousinsRaw ?? [];
+}
+
+interface NameLike {
+  full_name: string;
+  preferred_name: string | null;
+  surname_tag: string | null;
+}
+
+/** Name for a Children/Siblings/Cousins row, with their spouse (if any) shown in parentheses — both using the preferred-name-only rule. */
+function ListedPersonName({ person, spouse }: { person: NameLike; spouse?: NameLike }) {
+  return (
+    <>
+      <TreeName person={person} />
+      {spouse && (
+        <span className="text-slate-500">
+          {" "}
+          (<TreeName person={spouse} />)
+        </span>
+      )}
+    </>
+  );
 }
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -269,7 +290,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .select("id, full_name, preferred_name, surname_tag, father_id, mother_id, birth_year, birth_month, birth_day, birth_order")
     .or(`father_id.eq.${person.id},mother_id.eq.${person.id}`)
     .order("full_name");
-  const children = sortByAge(childrenRaw ?? []);
+  const children = sortSiblings(childrenRaw ?? []);
 
   const siblingConditions = [
     person.father_id ? `father_id.eq.${person.father_id}` : null,
@@ -283,7 +304,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           .or(siblingConditions.join(","))
           .order("full_name")
       : { data: [] };
-  const siblings = sortByAge(
+  const siblings = sortSiblings(
     (siblingsRaw ?? [])
       .filter((s) => s.id !== person.id)
       .map((s) => ({
@@ -299,6 +320,41 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const paternalCousins = sortByAge(paternalCousinsRaw.filter((c) => c.id !== person.id));
   const maternalCousins = sortByAge(maternalCousinsRaw.filter((c) => c.id !== person.id));
   const allCousinIds = new Set([...paternalCousins.map((c) => c.id), ...maternalCousins.map((c) => c.id)]);
+
+  // Spouse-in-parentheses on the Children/Siblings/Cousins lists — a
+  // single query covering every person listed anywhere in those three,
+  // rather than one round-trip per row.
+  const listedPersonIds = [
+    ...children.map((c) => c.id),
+    ...siblings.map((s) => s.id),
+    ...paternalCousins.map((c) => c.id),
+    ...maternalCousins.map((c) => c.id),
+  ];
+  const spouseByPersonId = new Map<string, { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }>();
+  if (listedPersonIds.length > 0) {
+    const [{ data: spousesAsAList }, { data: spousesAsBList }] = await Promise.all([
+      supabase
+        .from("spouses")
+        .select("person_a_id, spouse:people!spouses_person_b_id_fkey(id, full_name, preferred_name, surname_tag)")
+        .in("person_a_id", listedPersonIds),
+      supabase
+        .from("spouses")
+        .select("person_b_id, spouse:people!spouses_person_a_id_fkey(id, full_name, preferred_name, surname_tag)")
+        .in("person_b_id", listedPersonIds),
+    ]);
+    // Supabase's inferred type for this embed is an array regardless of the
+    // FK's actual (many-to-one) cardinality — it's always exactly one row
+    // or null at runtime, same as the identical join used for `marriages`
+    // above, so this just normalizes the type rather than the data.
+    for (const row of spousesAsAList ?? []) {
+      const spouse = Array.isArray(row.spouse) ? row.spouse[0] : row.spouse;
+      if (spouse) spouseByPersonId.set(row.person_a_id, spouse);
+    }
+    for (const row of spousesAsBList ?? []) {
+      const spouse = Array.isArray(row.spouse) ? row.spouse[0] : row.spouse;
+      if (spouse) spouseByPersonId.set(row.person_b_id, spouse);
+    }
+  }
 
   const { data: allPeopleForPicker } = await supabase
     .from("people")
@@ -481,7 +537,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               {(children ?? []).map((c) => (
                 <li key={c.id}>
                   <Link href={`/people/${c.id}`} className="hover:underline">
-                    <PersonName person={c} />
+                    <ListedPersonName person={c} spouse={spouseByPersonId.get(c.id)} />
                   </Link>
                 </li>
               ))}
@@ -496,7 +552,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               {siblings.map((s) => (
                 <li key={s.id}>
                   <Link href={`/people/${s.id}`} className="hover:underline">
-                    <PersonName person={s} />
+                    <ListedPersonName person={s} spouse={spouseByPersonId.get(s.id)} />
                   </Link>
                   {s.isHalf && <span className="text-xs text-slate-400"> (half-sibling)</span>}
                 </li>
@@ -518,7 +574,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     {paternalCousins.map((c) => (
                       <li key={c.id}>
                         <Link href={`/people/${c.id}`} className="hover:underline">
-                          <PersonName person={c} />
+                          <ListedPersonName person={c} spouse={spouseByPersonId.get(c.id)} />
                         </Link>
                       </li>
                     ))}
@@ -532,7 +588,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     {maternalCousins.map((c) => (
                       <li key={c.id}>
                         <Link href={`/people/${c.id}`} className="hover:underline">
-                          <PersonName person={c} />
+                          <ListedPersonName person={c} spouse={spouseByPersonId.get(c.id)} />
                         </Link>
                       </li>
                     ))}
@@ -567,51 +623,63 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      <Card>
-        <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
-        {contactDetails.length === 0 && (
-          <p className="text-sm text-slate-400">
-            {isOwner || isAdmin(member)
-              ? "No contact details added yet — add one below."
-              : "Nothing shared here yet."}
-          </p>
-        )}
-        {(["phone", "email", "address"] as const).map((type) => {
-          const entries = contactDetails.filter((c) => c.contact_type === type);
-          if (entries.length === 0) return null;
-          return (
-            <div key={type} className="mb-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {CONTACT_TYPE_LABELS[type]}
-              </div>
-              <ul className="mt-1 space-y-1 text-sm">
-                {entries.map((entry) => (
-                  <li key={entry.id} className="flex items-center gap-2">
-                    <ContactIcons contactType={entry.contact_type} value={entry.value} />
-                    <span className="text-slate-800">
-                      {entry.label && <span className="text-slate-400">{entry.label}: </span>}
-                      {entry.contact_type === "phone" ? formatPhoneForDisplay(entry.value) : entry.value}
-                    </span>
-                    {(isOwner || isAdmin(member)) && (
-                      <form action={deleteContactDetail}>
-                        <input type="hidden" name="person_id" value={person.id} />
-                        <input type="hidden" name="contact_id" value={entry.id} />
-                        <PendingButton className="text-xs text-red-600 hover:underline" pendingChildren="…">
-                          remove
-                        </PendingButton>
-                      </form>
-                    )}
-                  </li>
-                ))}
-              </ul>
+      {contactDetails.length === 0 ? (
+        (isOwner || isAdmin(member)) ? (
+          <details className="group rounded-lg border border-slate-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+              <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+              Add contact info
+            </summary>
+            <div className="border-t border-slate-100 p-4">
+              <ContactDetailForm personId={person.id} />
             </div>
-          );
-        })}
+          </details>
+        ) : (
+          <Card>
+            <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
+            <p className="text-sm text-slate-400">Nothing shared here yet.</p>
+          </Card>
+        )
+      ) : (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
+          {(["phone", "email", "address"] as const).map((type) => {
+            const entries = contactDetails.filter((c) => c.contact_type === type);
+            if (entries.length === 0) return null;
+            return (
+              <div key={type} className="mb-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {CONTACT_TYPE_LABELS[type]}
+                </div>
+                <ul className="mt-1 space-y-1 text-sm">
+                  {entries.map((entry) => (
+                    <li key={entry.id} className="flex items-center gap-2">
+                      <ContactIcons contactType={entry.contact_type} value={entry.value} />
+                      <span className="text-slate-800">
+                        {entry.label && <span className="text-slate-400">{entry.label}: </span>}
+                        {entry.contact_type === "phone" ? formatPhoneForDisplay(entry.value) : entry.value}
+                      </span>
+                      {(isOwner || isAdmin(member)) && (
+                        <form action={deleteContactDetail}>
+                          <input type="hidden" name="person_id" value={person.id} />
+                          <input type="hidden" name="contact_id" value={entry.id} />
+                          <PendingButton className="text-xs text-red-600 hover:underline" pendingChildren="…">
+                            remove
+                          </PendingButton>
+                        </form>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
 
-        {(isOwner || isAdmin(member)) && (
-          <ContactDetailForm personId={person.id} />
-        )}
-      </Card>
+          {(isOwner || isAdmin(member)) && (
+            <ContactDetailForm personId={person.id} />
+          )}
+        </Card>
+      )}
 
       {isSuperAdmin(member) && (
         <Card>

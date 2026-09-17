@@ -548,6 +548,9 @@ export async function submitFamilyRelation(formData: FormData) {
       formData.get("birth_month"),
       formData.get("birth_day"),
     );
+    const birthOrderRaw = String(formData.get("birth_order") ?? "").trim();
+    const birthOrderParsed = birthOrderRaw ? Number.parseInt(birthOrderRaw, 10) : NaN;
+    const birthOrder = Number.isInteger(birthOrderParsed) && birthOrderParsed > 0 ? birthOrderParsed : null;
 
     const proposed: Record<string, unknown> = {
       full_name: fullName,
@@ -557,6 +560,7 @@ export async function submitFamilyRelation(formData: FormData) {
       birth_year: birthDate.year,
       birth_month: birthDate.month,
       birth_day: birthDate.day,
+      birth_order: birthOrder,
       relation_to_person_id: personId,
       relation_type: relationType,
       parent_gender: parentGender,

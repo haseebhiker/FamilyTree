@@ -194,6 +194,11 @@ function FormFields({
               <Input name="birth_day" type="number" placeholder="Day" min={1} max={31} />
             </Field>
           </div>
+          <div className="sm:col-span-2">
+            <Field label="Birth order among siblings (only used when the exact year above is unknown)">
+              <Input name="birth_order" type="number" min={1} placeholder="e.g. 2 for second child" />
+            </Field>
+          </div>
           <Field label="Phone (optional)">
             <div className="flex gap-2">
               <Select name="phone_country" defaultValue={DEFAULT_COUNTRY_ISO2} className="w-28 shrink-0">

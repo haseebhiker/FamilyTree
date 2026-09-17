@@ -41,3 +41,27 @@ export function sortByAge<T extends WithBirth>(people: T[]): T[] {
     return a.full_name.localeCompare(b.full_name);
   });
 }
+
+/**
+ * Sibling-specific ordering: year only wins when EVERY sibling in the set
+ * has one — otherwise birth_order takes priority for the whole set,
+ * unlike sortByAge's mixed behavior (which puts anyone with a year ahead
+ * of anyone without one). Without this, a sibling set where only some
+ * have a recorded year would scatter the ones missing it to the back by
+ * default even when their birth_order says they belong in the middle.
+ */
+export function sortSiblings<T extends WithBirth>(people: T[]): T[] {
+  const allHaveYear = people.length > 0 && people.every((p) => p.birth_year != null);
+  if (allHaveYear) return sortByAge(people);
+
+  return [...people].sort((a, b) => {
+    const aOrder = a.birth_order ?? null;
+    const bOrder = b.birth_order ?? null;
+    if (aOrder != null && bOrder != null) {
+      if (aOrder !== bOrder) return aOrder - bOrder;
+    } else if (aOrder != null || bOrder != null) {
+      return aOrder != null ? -1 : 1;
+    }
+    return a.full_name.localeCompare(b.full_name);
+  });
+}

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { PersonName, displayNameText } from "@/components/person-name";
-import { sortByAge } from "@/lib/sort-by-age";
+import { TreeName, displayNameText } from "@/components/person-name";
+import { sortSiblings } from "@/lib/sort-by-age";
 import { ChevronIcon } from "@/components/ui";
 
 export interface TreeNodeData {
@@ -79,7 +79,7 @@ function TreeNode({
           href={`/people/${person.id}`}
           className={`text-sm hover:underline ${pathToMeIds.has(person.id) ? "font-semibold text-slate-900" : "text-slate-900"}`}
         >
-          <PersonName person={person} />
+          <TreeName person={person} />
         </Link>
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
@@ -129,7 +129,7 @@ export function TreeView({
         map.set(parentId, list);
       }
     }
-    for (const [parentId, list] of map) map.set(parentId, sortByAge(list));
+    for (const [parentId, list] of map) map.set(parentId, sortSiblings(list));
     return map;
   }, [allPeople]);
 
@@ -167,7 +167,7 @@ export function TreeView({
                   className="block px-3 py-2 text-sm hover:bg-slate-50"
                   onClick={() => setQuery("")}
                 >
-                  <PersonName person={p} />
+                  <TreeName person={p} />
                 </Link>
               </li>
             ))}
