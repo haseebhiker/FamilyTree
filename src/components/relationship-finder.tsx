@@ -7,6 +7,7 @@ import {
   describeRelationship,
   describeSpecificBlood,
   describeRelationshipTamil,
+  describeRelationshipHindi,
   type PathStep,
   type Gender,
 } from "@/lib/relationship";
@@ -40,6 +41,7 @@ function RelationshipPath({
   const summary = describeRelationship(steps, genders);
   const specific = describeSpecificBlood(steps, genders);
   const tamil = describeRelationshipTamil(steps, genders, birthYears, birthOrders, sourceId);
+  const hindi = describeRelationshipHindi(steps, genders);
   const last = peopleById.get(steps[steps.length - 1].id);
 
   return (
@@ -63,6 +65,7 @@ function RelationshipPath({
                   ({tamil.translit} · <span lang="ta">{tamil.tamil}</span>)
                 </span>
               )}
+              {hindi && <span className="text-amber-700"> · {hindi}</span>}
             </>
           ) : (
             <>See the connection ({steps.length} steps)</>

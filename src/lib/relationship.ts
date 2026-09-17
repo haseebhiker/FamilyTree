@@ -674,3 +674,40 @@ export function describeRelationshipTamil(
   if (!side) return null;
   return { tamil: `${SIDE_TAMIL[side].tamil} தூரத்து சொந்தம்`, translit: `${SIDE_TAMIL[side].translit} doorathu sontham` };
 }
+
+/**
+ * A small, separate set of Hindi/Urdu terms Haseeb's family also uses
+ * alongside the Tamil ones above — just grandparents and a brother's wife
+ * so far, not a parallel system covering everything describeRelationshipTamil
+ * does. Returns null for every other shape rather than guessing a Hindi
+ * word that wasn't given. Shown in its own color in the UI to mark it as a
+ * different language from the Tamil term next to it.
+ */
+export function describeRelationshipHindi(steps: PathStep[], genders: Map<string, Gender>): string | null {
+  if (steps.length === 0) return null;
+
+  // Grandparent: up=2, down=0, no spouse hop.
+  if (steps.length === 2) {
+    const side = firstHopSide(steps);
+    const isGrandparent = (steps[0].kind === "father" || steps[0].kind === "mother") && (steps[1].kind === "father" || steps[1].kind === "mother");
+    if (side && isGrandparent) {
+      const gender = genders.get(steps[1].id) ?? null;
+      if (gender === "M") return side === "father" ? "Dada" : "Nana";
+      if (gender === "F") return side === "father" ? "Dadi" : "Nani";
+    }
+  }
+
+  // Brother's wife: up (father/mother), child (the brother), spouse (his wife).
+  if (
+    steps.length === 3 &&
+    (steps[0].kind === "father" || steps[0].kind === "mother") &&
+    steps[1].kind === "child" &&
+    steps[2].kind === "spouse"
+  ) {
+    const siblingGender = genders.get(steps[1].id) ?? null;
+    const spouseGender = genders.get(steps[2].id) ?? null;
+    if (siblingGender === "M" && spouseGender === "F") return "Bhabhi";
+  }
+
+  return null;
+}
