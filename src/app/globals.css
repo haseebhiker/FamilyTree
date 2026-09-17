@@ -77,24 +77,29 @@ body {
   text-align: center;
   position: relative;
 }
+/* Mirrored vertically from the original top-down version: parents now
+   render above the person (see ancestor-chart.tsx), so every connector
+   that used to hang off the top of a child's box now hangs off the
+   bottom of a parent's box instead — padding-top/top/border-top swapped
+   for padding-bottom/bottom/border-bottom throughout. */
 .ancestor-chart li > ul {
   display: flex;
   justify-content: safe center;
-  padding-top: 20px;
+  padding-bottom: 20px;
   position: relative;
 }
 .ancestor-chart li > ul > li {
-  padding: 20px 8px 0 8px;
+  padding: 0 8px 20px 8px;
 }
 .ancestor-chart li > ul > li::before,
 .ancestor-chart li > ul > li::after {
   content: "";
   position: absolute;
-  top: 0;
+  bottom: 0;
   right: 50%;
   width: 50%;
   height: 20px;
-  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
 }
 .ancestor-chart li > ul > li::after {
   right: auto;
@@ -106,7 +111,7 @@ body {
   display: none;
 }
 .ancestor-chart li > ul > li:only-child {
-  padding-top: 0;
+  padding-bottom: 0;
 }
 .ancestor-chart li > ul > li:first-child::before,
 .ancestor-chart li > ul > li:last-child::after {
@@ -114,15 +119,15 @@ body {
 }
 .ancestor-chart li > ul > li:last-child::before {
   border-right: 1px solid #cbd5e1;
-  border-radius: 0 4px 0 0;
+  border-radius: 0 0 4px 0;
 }
 .ancestor-chart li > ul > li:first-child::after {
-  border-radius: 4px 0 0 0;
+  border-radius: 0 0 0 4px;
 }
 .ancestor-chart li > ul::before {
   content: "";
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 50%;
   border-left: 1px solid #cbd5e1;
   width: 0;

@@ -37,17 +37,12 @@ function AncestorNodeItem({
   rootRef?: React.RefObject<HTMLAnchorElement | null>;
 }) {
   const hasParents = !!(node.father || node.mother);
+  // Parents render above the person, not below — ancestors ABOVE the
+  // person they belong to is the convention Haseeb expects, and it also
+  // makes the DOM/reading order match what's on screen (oldest generation
+  // first), rather than reversing one but not the other via CSS.
   return (
     <li>
-      <Link
-        href={`/people/${node.id}`}
-        ref={isRoot ? rootRef : undefined}
-        className={`inline-block rounded-md border px-3 py-1.5 text-xs leading-snug whitespace-nowrap hover:bg-slate-50 ${
-          isRoot ? "border-slate-400 bg-slate-50 font-medium text-slate-900" : "border-slate-200 bg-white text-slate-700"
-        }`}
-      >
-        <TreeName person={node} />
-      </Link>
       {hasParents && (
         <ul>
           {node.father ? (
@@ -66,6 +61,15 @@ function AncestorNodeItem({
           )}
         </ul>
       )}
+      <Link
+        href={`/people/${node.id}`}
+        ref={isRoot ? rootRef : undefined}
+        className={`inline-block rounded-md border px-3 py-1.5 text-xs leading-snug whitespace-nowrap hover:bg-slate-50 ${
+          isRoot ? "border-slate-400 bg-slate-50 font-medium text-slate-900" : "border-slate-200 bg-white text-slate-700"
+        }`}
+      >
+        <TreeName person={node} />
+      </Link>
     </li>
   );
 }
@@ -84,6 +88,7 @@ function AncestorNodeItem({
  */
 export function AncestorChart({ root }: { root: AncestorNode }) {
   const rootRef = useRef<HTMLAnchorElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
 
@@ -91,11 +96,18 @@ export function AncestorChart({ root }: { root: AncestorNode }) {
   // container opens at its natural left edge rather than centered on the
   // person it's actually about — reported live: someone opening their own
   // "Ancestors" card saw a stranger's name in view and had to scroll to
-  // find themselves. Centering the root node into view on mount fixes
-  // that without needing to touch the centering CSS the rest of the chart
-  // already relies on.
+  // find themselves. Centering the root node horizontally on mount fixes
+  // that. This sets scrollLeft on the wrap div directly rather than
+  // rootRef.current.scrollIntoView(): scrollIntoView's block option walks
+  // up EVERY scrollable ancestor, not just this chart's own horizontal
+  // one — since the chart normally sits below the fold, "nearest" was
+  // dragging the whole page down to reveal it on every load, landing
+  // scrolled past the header on first open every single time.
   useEffect(() => {
-    rootRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+    const rootEl = rootRef.current;
+    const wrap = wrapRef.current;
+    if (!rootEl || !wrap) return;
+    wrap.scrollLeft = rootEl.offsetLeft - wrap.clientWidth / 2 + rootEl.offsetWidth / 2;
   }, []);
 
   if (!root.father && !root.mother) return null;
@@ -129,6 +141,7 @@ export function AncestorChart({ root }: { root: AncestorNode }) {
         <span className="ml-1 text-xs text-slate-400">Pinch, or ctrl/⌘+scroll, to zoom</span>
       </div>
       <div
+        ref={wrapRef}
         className="ancestor-chart-wrap overflow-auto py-2"
         onWheel={(e) => {
           if (!e.ctrlKey && !e.metaKey) return;

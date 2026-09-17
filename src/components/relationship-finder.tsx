@@ -38,7 +38,7 @@ function RelationshipPath({
     <details className="group rounded-md border border-slate-200 p-3">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-slate-800">
         <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
-        <span>
+        <span className="flex-1">
           {summary ? (
             <>
               {last ? <PersonName person={last} /> : "They"} is {possessive} <span className="font-semibold">{summary}</span>
@@ -46,6 +46,9 @@ function RelationshipPath({
           ) : (
             <>See the connection ({steps.length} steps)</>
           )}
+        </span>
+        <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 group-open:hidden">
+          Expand map →
         </span>
       </summary>
       <div className="mt-3 border-t border-slate-100 pt-3">

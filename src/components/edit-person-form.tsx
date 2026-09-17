@@ -95,6 +95,29 @@ function FormFields({
   return (
     <form action={onSubmit} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="person_id" value={personId} />
+      <div className="sm:col-span-2 space-y-2">
+        {submitted && (
+          <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+            Submitted — an admin will review it soon. It won&apos;t show up here yet, so there&apos;s no need to
+            submit it again.
+          </p>
+        )}
+        {error && (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-1 text-xs font-medium text-red-800 underline hover:text-red-900"
+            >
+              If that looks wrong, reload the page and try again
+            </button>
+          </div>
+        )}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : "Save"}
+        </Button>
+      </div>
       <Field label="Full name"><Input name="full_name" defaultValue={personRaw.full_name} /></Field>
       <Field label="Preferred name"><Input name="preferred_name" defaultValue={personRaw.preferred_name ?? ""} /></Field>
       <Field label="Surname tag"><Input name="surname_tag" defaultValue={personRaw.surname_tag ?? ""} /></Field>
@@ -192,7 +215,7 @@ function FormFields({
           </div>
         )}
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Submitting…" : "Submit for review"}
+          {isPending ? "Saving…" : "Save"}
         </Button>
       </div>
     </form>
