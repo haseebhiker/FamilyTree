@@ -38,3 +38,25 @@ export function PersonName({ person }: { person: NameFields }) {
     </>
   );
 }
+
+/**
+ * Preferred-name-only (TreeName) on a narrow/mobile-width screen, the full
+ * PersonName on a wider one — desktop has the room to show both names
+ * comfortably, phones don't. CSS-only (both versions render; a media
+ * query shows/hides each), not real device detection: this is a Server
+ * Component-friendly way to make this responsive without needing to know
+ * what device actually requested the page, and it reacts correctly even
+ * if someone resizes a desktop browser narrow.
+ */
+export function ResponsivePersonName({ person }: { person: NameFields }) {
+  return (
+    <>
+      <span className="sm:hidden">
+        <TreeName person={person} />
+      </span>
+      <span className="hidden sm:inline">
+        <PersonName person={person} />
+      </span>
+    </>
+  );
+}

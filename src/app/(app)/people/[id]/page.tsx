@@ -17,7 +17,7 @@ import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
 import { ContactIcons } from "@/components/contact-icons";
-import { PersonName, TreeName } from "@/components/person-name";
+import { PersonName, ResponsivePersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
@@ -76,15 +76,15 @@ interface NameLike {
   surname_tag: string | null;
 }
 
-/** Name for a Children/Siblings/Cousins row, with their spouse (if any) shown in parentheses — both using the preferred-name-only rule. */
+/** Name for a Children/Siblings/Cousins row, with their spouse (if any) shown in parentheses — preferred-name-only on mobile, full name on desktop, for both. */
 function ListedPersonName({ person, spouse }: { person: NameLike; spouse?: NameLike }) {
   return (
     <>
-      <TreeName person={person} />
+      <ResponsivePersonName person={person} />
       {spouse && (
         <span className="text-slate-500">
           {" "}
-          (<TreeName person={spouse} />)
+          (<ResponsivePersonName person={spouse} />)
         </span>
       )}
     </>
@@ -469,7 +469,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 <li key={m.spouseId ?? i}>
                   {m.spouse ? (
                     <Link href={`/people/${m.spouse.id}`} className="hover:underline">
-                      <TreeName person={m.spouse} />
+                      <ResponsivePersonName person={m.spouse} />
                     </Link>
                   ) : (
                     "Unknown"
@@ -499,7 +499,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {father ? (
               <div>
                 <Link href={`/people/${father.id}`} className="text-slate-900 hover:underline">
-                  <TreeName person={father} />
+                  <ResponsivePersonName person={father} />
                 </Link>
                 {isAdmin(member) && (
                   <form action={removeParentLink} className="inline">
@@ -524,7 +524,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {mother ? (
               <div>
                 <Link href={`/people/${mother.id}`} className="text-slate-900 hover:underline">
-                  <TreeName person={mother} />
+                  <ResponsivePersonName person={mother} />
                 </Link>
                 {isAdmin(member) && (
                   <form action={removeParentLink} className="inline">
