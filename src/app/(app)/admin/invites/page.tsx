@@ -6,7 +6,7 @@ import { Badge, ChevronIcon } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ActionButton } from "@/components/action-button";
 import { PersonPicker } from "@/components/person-picker";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 import { LocalTime } from "@/components/local-time";
 import { InviteEmailComposer } from "@/components/invite-email-composer";
 
@@ -88,7 +88,7 @@ export default async function InvitesPage() {
                   <td className="py-2 pr-4 text-slate-600">{m.role.replace(/_/g, " ")}</td>
                   <td className="py-2 pr-4 text-slate-600">
                     {linkedPerson ? (
-                      <PersonName person={linkedPerson} />
+                      <DisambiguatedName person={linkedPerson} />
                     ) : canAssignAdmin ? (
                       <form action={linkMemberToPerson} className="flex items-center gap-1">
                         <input type="hidden" name="member_id" value={m.id} />
@@ -175,7 +175,7 @@ export default async function InvitesPage() {
                   <td className="py-2 pr-4 text-slate-600">{invite.role}</td>
                   <td className="py-2 pr-4 text-slate-600">
                     {linkedPerson ? (
-                      <PersonName person={linkedPerson} />
+                      <DisambiguatedName person={linkedPerson} />
                     ) : canAssignAdmin ? (
                       <form action={linkInviteToPerson} className="flex items-center gap-1">
                         <input type="hidden" name="invite_id" value={invite.id} />

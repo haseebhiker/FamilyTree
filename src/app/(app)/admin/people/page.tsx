@@ -8,7 +8,7 @@ import {
 import { Card, Input, Button, Field } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 import Link from "next/link";
 
 export default async function PeopleManagementPage({
@@ -72,7 +72,7 @@ export default async function PeopleManagementPage({
                 <tr key={p.id} className="border-b border-slate-100">
                   <td className="py-2 pr-4">
                     <Link href={`/people/${p.id}`} className="hover:underline">
-                      <PersonName person={p} />
+                      <DisambiguatedName person={p} />
                     </Link>
                   </td>
                   <td className="py-2 pr-4">
@@ -172,7 +172,7 @@ export default async function PeopleManagementPage({
               <li key={p.id} className="flex items-center justify-between border-b border-slate-100 pb-2 text-sm">
                 <div>
                   <span className="text-slate-700">
-                    <PersonName person={p} />
+                    <DisambiguatedName person={p} />
                   </span>
                   {p.delete_reason && <p className="text-xs text-slate-400">{p.delete_reason}</p>}
                 </div>

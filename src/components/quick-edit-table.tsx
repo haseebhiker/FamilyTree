@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { Input, Select } from "@/components/ui";
-import { PersonName, displayNameText } from "@/components/person-name";
+import { DisambiguatedName, displayNameText } from "@/components/person-name";
 import { PersonPicker } from "@/components/person-picker";
 
 export interface QuickEditPerson {
@@ -260,7 +260,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
               <tr key={p.id} className="border-b border-slate-100">
                 <td className="whitespace-nowrap py-1.5 px-3">
                   <Link href={`/people/${p.id}`} className="hover:underline" target="_blank">
-                    <PersonName person={p} />
+                    <DisambiguatedName person={p} />
                   </Link>
                   {savingIds.has(p.id) && <span className="ml-2 text-xs text-slate-400">saving…</span>}
                   {savedIds.has(p.id) && <span className="ml-2 text-xs font-medium text-green-600">✓ saved</span>}

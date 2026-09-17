@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { displayNameText, searchText } from "@/components/person-name";
+import { displayNameText, searchText, DisambiguatedName } from "@/components/person-name";
 
 export interface PersonOption {
   id: string;
@@ -77,18 +77,12 @@ export function PersonPicker({
                 }}
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
               >
-                {/* Full name AND preferred name, not just one — this picker
+                {/* Preferred name in blue, then the full name — this picker
                     links a stranger's request/invite to a specific profile,
                     so it matters that whoever's picking can tell exactly
                     who they're choosing, not just whichever name happens
                     to be set as preferred. */}
-                <span className="font-medium text-slate-900">{p.full_name}</span>
-                {p.preferred_name?.trim() && p.preferred_name.trim() !== p.full_name && (
-                  <span className="text-slate-500"> ({p.preferred_name})</span>
-                )}
-                {p.surname_tag && (
-                  <div className="text-[0.7rem] font-medium tracking-wide text-amber-700">{p.surname_tag}</div>
-                )}
+                <DisambiguatedName person={p} />
               </button>
             </li>
           ))}

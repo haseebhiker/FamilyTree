@@ -82,6 +82,28 @@ export const TreeName = PersonName;
 export const ResponsivePersonName = PersonName;
 
 /**
+ * Preferred name in blue, followed by the full name, surname tag inline
+ * right after (not stacked on its own line) — for contexts where telling
+ * apart several similarly-named people matters more than a short, tidy
+ * label: admin screens, pickers, and lists where the action taken depends
+ * on picking the right specific person (approving a change, linking an
+ * account, removing someone from a group). Everywhere else keeps
+ * PersonName's preferred-replaces-full behavior.
+ */
+export function DisambiguatedName({ person }: { person: NameFields }) {
+  const preferred = person.preferred_name?.trim();
+  return (
+    <span>
+      {preferred && <span className="font-semibold text-blue-700">{preferred} </span>}
+      <span>{person.full_name}</span>
+      {person.surname_tag && (
+        <span className="ml-1 text-[0.7rem] font-medium tracking-wide text-amber-700">{person.surname_tag}</span>
+      )}
+    </span>
+  );
+}
+
+/**
  * Profile page header only: preferred name in blue, followed by the full
  * name, on one line — the pre-redesign look Haseeb asked to keep just here.
  * Surname tag still gets its own line below, styled exactly like PersonName.

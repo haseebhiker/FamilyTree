@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { displayName, searchText } from "@/components/person-name";
+import { searchText } from "@/components/person-name";
 import { sortSiblings } from "@/lib/sort-by-age";
 import { ChevronIcon } from "@/components/ui";
 
@@ -79,11 +79,17 @@ function TreeNode({
           href={`/people/${person.id}`}
           className={`text-sm hover:underline ${pathToMeIds.has(person.id) ? "font-semibold text-slate-900" : "text-slate-900"}`}
         >
-          {displayName(person)}
-          {/* Inline, not TreeName's stacked-under style — this list can run
-              to hundreds of rows, and the surname needs to be legible at a
-              glance while scanning it, not just present in small text on
-              its own line. */}
+          {/* Preferred name leads, in its own color, followed by the full
+              name — not TreeName's preferred-replaces-full behavior, since
+              here (and in search) telling people apart matters more than
+              the shorter, tidier label. Inline rather than TreeName's
+              stacked-under-name style too — this list can run to hundreds
+              of rows, and the surname needs to be legible at a glance while
+              scanning it, not just present in small text on its own line. */}
+          {person.preferred_name?.trim() && (
+            <span className="font-semibold text-blue-700">{person.preferred_name} </span>
+          )}
+          {person.full_name}
           {person.surname_tag && (
             <span className="ml-1 text-[0.7rem] font-medium tracking-wide text-amber-700">{person.surname_tag}</span>
           )}
@@ -133,8 +139,8 @@ function SearchResultRow({ person, peopleById }: { person: TreeNodeData; peopleB
   return (
     <div className="px-3 py-2">
       <div className="hidden text-sm sm:block">
+        {preferred && <span className="font-semibold text-blue-700">{preferred} </span>}
         <span className="font-medium text-slate-900">{person.full_name}</span>
-        {preferred && preferred !== person.full_name && <span className="text-slate-500"> ({preferred})</span>}
         {surname}
         {parentNames.length > 0 && <div className="text-xs text-slate-400">Child of {parentNames.join(" & ")}</div>}
       </div>

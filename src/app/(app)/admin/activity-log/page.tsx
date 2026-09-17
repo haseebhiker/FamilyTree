@@ -4,7 +4,7 @@ import { clearPageViewLog } from "@/lib/actions/page-view-log";
 import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 import { AutoSubmitCheckbox } from "@/components/auto-submit-checkbox";
 
 const PATH_LABELS: Record<string, string> = {
@@ -113,7 +113,7 @@ export default async function ActivityLogPage({
                     <td className="py-2 pr-4 text-slate-600">
                       {person ? (
                         <Link href={e.path} className="hover:underline">
-                          <PersonName person={person} />
+                          <DisambiguatedName person={person} />
                         </Link>
                       ) : match ? (
                         <span className="italic text-slate-400">Deleted profile</span>

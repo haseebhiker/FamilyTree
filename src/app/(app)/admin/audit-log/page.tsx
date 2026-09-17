@@ -4,7 +4,7 @@ import { clearAuditLog } from "@/lib/actions/audit-log";
 import { Card } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 
 export default async function AuditLogPage() {
   const supabase = await createClient();
@@ -63,7 +63,7 @@ export default async function AuditLogPage() {
                     <td className="py-2 pr-4">
                       {person ? (
                         <Link href={`/people/${person.id}`} className="hover:underline">
-                          <PersonName person={person} />
+                          <DisambiguatedName person={person} />
                         </Link>
                       ) : (
                         <span className="text-slate-400">—</span>

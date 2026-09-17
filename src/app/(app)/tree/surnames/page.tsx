@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 
 interface PersonLite {
   id: string;
@@ -74,7 +74,7 @@ export default async function SurnamesPage({
             {filtered.map((p) => (
               <li key={p.id}>
                 <Link href={`/people/${p.id}`} className="hover:underline">
-                  <PersonName person={p} />
+                  <DisambiguatedName person={p} />
                 </Link>
               </li>
             ))}

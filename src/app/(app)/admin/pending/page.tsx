@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { approvePendingChange, rejectPendingChange } from "@/lib/actions/pending-changes";
 import { Card, Input, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 import type { PendingChange } from "@/lib/types";
 
 const CHANGE_TYPE_LABELS: Record<string, string> = {
@@ -121,7 +121,7 @@ export default async function PendingApprovalsPage() {
               <div>
                 <Badge className="bg-slate-100 text-slate-700">{CHANGE_TYPE_LABELS[change.change_type]}</Badge>{" "}
                 <span className="text-sm text-slate-600">
-                  {target ? <PersonName person={target} /> : "New person"}
+                  {target ? <DisambiguatedName person={target} /> : "New person"}
                 </span>
               </div>
               <span className="text-xs text-slate-400">
@@ -174,7 +174,7 @@ export default async function PendingApprovalsPage() {
                           {value == null || value === "" ? (
                             <span className="italic text-slate-400">empty</span>
                           ) : linkedPerson ? (
-                            <PersonName person={linkedPerson} />
+                            <DisambiguatedName person={linkedPerson} />
                           ) : (
                             String(value)
                           )}

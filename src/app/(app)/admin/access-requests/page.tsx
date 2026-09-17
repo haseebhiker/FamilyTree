@@ -4,7 +4,7 @@ import { approveAccessRequest, rejectAccessRequest } from "@/lib/actions/access-
 import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 
 export default async function AccessRequestsPage() {
   const supabase = await createClient();
@@ -52,7 +52,7 @@ export default async function AccessRequestsPage() {
           {req.known_person_id && peopleById.has(req.known_person_id) && (
             <p className="mb-1 text-sm text-slate-700">
               <span className="font-medium text-slate-500">Says they know: </span>
-              <PersonName person={peopleById.get(req.known_person_id)!} />
+              <DisambiguatedName person={peopleById.get(req.known_person_id)!} />
             </p>
           )}
           <p className="mb-1 text-sm text-slate-700">

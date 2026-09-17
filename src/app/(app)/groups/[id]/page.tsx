@@ -6,7 +6,7 @@ import { addPersonToGroup, removePersonFromGroup } from "@/lib/actions/groups";
 import { Card, Button, Badge } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
-import { PersonName } from "@/components/person-name";
+import { DisambiguatedName } from "@/components/person-name";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -68,7 +68,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
             t.people ? (
               <li key={t.id} className="flex items-center justify-between">
                 <Link href={`/people/${t.people.id}`} className="hover:underline">
-                  <PersonName person={t.people} />
+                  <DisambiguatedName person={t.people} />
                 </Link>
                 {canManage && (
                   <form action={removePersonFromGroup}>
