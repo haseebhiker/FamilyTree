@@ -15,9 +15,19 @@ import { useEffect } from "react";
  * plain browser tab too. The `pageshow` event's `persisted` flag is how a
  * page tells this apart from a normal fresh load; forcing a real reload
  * when it fires guarantees this app is never looking at a frozen copy.
+ *
+ * The same resume also brings back whatever scroll offset was live when the
+ * app was backgrounded — reopening the installed PWA later lands wherever
+ * you'd scrolled to last time, not the top. `history.scrollRestoration =
+ * "manual"` opts out of the browser's own restore-previous-offset behavior;
+ * it only needs setting once, since it sticks for the rest of this tab's
+ * session history.
  */
 export function BfcacheReload() {
   useEffect(() => {
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual";
+    }
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted) {
         window.location.reload();
