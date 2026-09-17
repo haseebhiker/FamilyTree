@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isSuperAdmin } from "@/lib/members";
 import { approveAccessRequest, rejectAccessRequest } from "@/lib/actions/access-requests";
-import { Card, Field, Input, Select, Button, Badge } from "@/components/ui";
-import { PendingButton } from "@/components/pending-button";
-import { PersonPicker } from "@/components/person-picker";
+import { Card, Badge } from "@/components/ui";
 import { DisambiguatedName } from "@/components/person-name";
+import { ApproveRequestForm, RejectRequestForm } from "@/components/access-request-forms";
 
 export default async function AccessRequestsPage() {
   const supabase = await createClient();
@@ -66,38 +65,14 @@ export default async function AccessRequestsPage() {
             </p>
           )}
 
-          <form action={approveAccessRequest} className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="request_id" value={req.id} />
-            <Field label="Role">
-              <Select name="role" defaultValue="member" disabled={!canAssignAdmin}>
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </Select>
-            </Field>
-            <Field label="Link to existing profile (optional)">
-              <div className="min-w-56">
-                <PersonPicker
-                  name="person_id"
-                  people={people ?? []}
-                  placeholder="Search by name…"
-                  defaultPersonId={req.known_person_id ?? undefined}
-                />
-              </div>
-            </Field>
-            <PendingButton
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              pendingChildren="Approving…"
-            >
-              Approve
-            </PendingButton>
-          </form>
-          <form action={rejectAccessRequest} className="mt-2 flex items-center gap-2">
-            <input type="hidden" name="request_id" value={req.id} />
-            <Input name="admin_note" placeholder="Reason (optional, shown to requester)" className="max-w-sm" />
-            <Button type="submit" variant="danger">
-              Reject
-            </Button>
-          </form>
+          <ApproveRequestForm
+            requestId={req.id}
+            people={people ?? []}
+            defaultPersonId={req.known_person_id ?? undefined}
+            canAssignAdmin={canAssignAdmin}
+            approveAccessRequest={approveAccessRequest}
+          />
+          <RejectRequestForm requestId={req.id} rejectAccessRequest={rejectAccessRequest} />
         </Card>
       ))}
 

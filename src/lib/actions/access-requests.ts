@@ -139,7 +139,10 @@ export async function approveAccessRequest(formData: FormData) {
     html: approvalEmailHtml(request.name, request.email),
   });
 
-  revalidatePath("/admin/access-requests");
+  // No revalidatePath — this is now called from ApproveRequestForm, which
+  // does its own router.refresh() after success. See ActionButton's
+  // comment for why bundling a revalidatePath re-render into the action's
+  // own response was the repeated source of #441 crashes this session.
 }
 
 export async function rejectAccessRequest(formData: FormData) {

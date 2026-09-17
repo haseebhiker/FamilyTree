@@ -446,6 +446,9 @@ export async function submitPersonEdit(formData: FormData, options?: { skipReval
   for (const field of EDITABLE_PERSON_TEXT_FIELDS) {
     if (!formData.has(field)) continue;
     const value = String(formData.get(field) ?? "").trim() || null;
+    if (field === "full_name" && !value) {
+      throw new Error("Full name can't be blank.");
+    }
     if (value && URL_FIELDS.has(field) && !/^https?:\/\//i.test(value)) {
       throw new Error(`${field.replace(/_/g, " ")} needs to be a link starting with https:// — not a name or plain text.`);
     }
@@ -687,9 +690,11 @@ export async function approvePendingChange(formData: FormData) {
   });
 
   await notifySubmitterOfDecision(supabase, change.submitted_by, "approved", appliedPersonId, null);
-  revalidatePath("/admin/pending");
-  revalidatePath("/my-submissions");
-  if (appliedPersonId) revalidatePath(`/people/${appliedPersonId}`);
+  // No revalidatePath — called from PendingChangeApproveForm/
+  // PendingChangeApproveRaw, which do their own router.refresh() after
+  // success. See ActionButton's comment for why bundling a revalidatePath
+  // re-render into the action's own response was the repeated source of
+  // #441 crashes this session.
 }
 
 export async function rejectPendingChange(formData: FormData) {
@@ -718,6 +723,5 @@ export async function rejectPendingChange(formData: FormData) {
   if (error) throw new Error(error.message);
 
   await notifySubmitterOfDecision(supabase, change.submitted_by, "rejected", change.target_person_id, adminNote);
-  revalidatePath("/admin/pending");
-  revalidatePath("/my-submissions");
+  // No revalidatePath — see approvePendingChange's comment just above.
 }

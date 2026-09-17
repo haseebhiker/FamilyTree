@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { approvePendingChange, rejectPendingChange } from "@/lib/actions/pending-changes";
-import { Card, Input, Button, Badge } from "@/components/ui";
-import { PendingButton } from "@/components/pending-button";
+import { Card, Badge } from "@/components/ui";
 import { DisambiguatedName } from "@/components/person-name";
+import { PendingChangeApproveForm, PendingChangeApproveRaw, PendingChangeRejectForm } from "@/components/pending-change-forms";
 import type { PendingChange } from "@/lib/types";
 
 const CHANGE_TYPE_LABELS: Record<string, string> = {
@@ -58,24 +58,6 @@ function describeChange(
   }
 
   return null;
-}
-
-function DiffRow({ field, oldValue, newValue, editable }: { field: string; oldValue: unknown; newValue: unknown; editable: boolean }) {
-  return (
-    <div className="grid grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-100 py-1.5 text-sm">
-      <div className="font-medium text-slate-500">{field.replace(/_/g, " ")}</div>
-      <div className="text-red-700 line-through decoration-red-300">
-        {oldValue == null || oldValue === "" ? <span className="italic text-slate-400">empty</span> : String(oldValue)}
-      </div>
-      {editable ? (
-        <Input name={`edit_${field}`} defaultValue={newValue == null ? "" : String(newValue)} />
-      ) : (
-        <div className="text-green-700">
-          {newValue == null || newValue === "" ? <span className="italic text-slate-400">empty</span> : String(newValue)}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default async function PendingApprovalsPage() {
@@ -139,69 +121,23 @@ export default async function PendingApprovalsPage() {
               </p>
             )}
 
-            <form action={approvePendingChange} className="space-y-3">
-              <input type="hidden" name="change_id" value={change.id} />
+            {isEditType ? (
+              <PendingChangeApproveForm
+                changeId={change.id}
+                proposedEntries={proposedEntries as [string, unknown][]}
+                previousData={change.previous_data}
+                approvePendingChange={approvePendingChange}
+              />
+            ) : (
+              <PendingChangeApproveRaw
+                changeId={change.id}
+                proposedEntries={proposedEntries as [string, unknown][]}
+                peopleById={peopleById}
+                approvePendingChange={approvePendingChange}
+              />
+            )}
 
-              {isEditType ? (
-                <div>
-                  <div className="grid grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-200 pb-1 text-xs font-semibold text-slate-500">
-                    <div>Field</div>
-                    <div>Current</div>
-                    <div>Proposed (editable)</div>
-                  </div>
-                  {proposedEntries.map(([field, newValue]) => (
-                    <DiffRow
-                      key={field}
-                      field={field}
-                      oldValue={change.previous_data?.[field]}
-                      newValue={newValue}
-                      editable
-                    />
-                  ))}
-                </div>
-              ) : (
-                <details className="rounded-md border border-slate-200 text-sm">
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-500">
-                    Show raw submitted details
-                  </summary>
-                  <div className="border-t border-slate-100 p-3">
-                    {proposedEntries.map(([field, value]) => {
-                      const isPersonRef = field === "existing_person_id" || field === "relation_to_person_id";
-                      const linkedPerson = isPersonRef && typeof value === "string" ? peopleById.get(value) : null;
-                      return (
-                        <div key={field} className="border-b border-slate-100 py-1 last:border-0">
-                          <span className="font-medium text-slate-500">{field.replace(/_/g, " ")}: </span>
-                          {value == null || value === "" ? (
-                            <span className="italic text-slate-400">empty</span>
-                          ) : linkedPerson ? (
-                            <DisambiguatedName person={linkedPerson} />
-                          ) : (
-                            String(value)
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </details>
-              )}
-
-              <div className="flex items-center gap-2 pt-1">
-                <PendingButton
-                  className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-                  pendingChildren="Approving…"
-                >
-                  Approve
-                </PendingButton>
-              </div>
-            </form>
-
-            <form action={rejectPendingChange} className="mt-2 flex items-center gap-2">
-              <input type="hidden" name="change_id" value={change.id} />
-              <Input name="admin_note" placeholder="Reason (optional, shown to submitter)" className="max-w-sm" />
-              <Button type="submit" variant="danger">
-                Reject
-              </Button>
-            </form>
+            <PendingChangeRejectForm changeId={change.id} rejectPendingChange={rejectPendingChange} />
           </Card>
         );
       })}
