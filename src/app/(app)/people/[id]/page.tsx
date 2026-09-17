@@ -402,7 +402,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       <div className="flex items-start gap-4">
         <PersonAvatar photoUrl={person.photo_url} fullName={person.full_name} />
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-lg font-semibold text-slate-900">
             <PersonName person={person} />
           </h1>
           {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
@@ -469,12 +469,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 <li key={m.spouseId ?? i}>
                   {m.spouse ? (
                     <Link href={`/people/${m.spouse.id}`} className="hover:underline">
-                      <PersonName person={m.spouse} />
+                      <TreeName person={m.spouse} />
                     </Link>
                   ) : (
                     "Unknown"
                   )}
-                  {m.marriage_notes && <span className="text-xs text-slate-400"> — {m.marriage_notes}</span>}
                   {isAdmin(member) && (
                     <form action={removeSpouseLink} className="inline">
                       <input type="hidden" name="person_id" value={person.id} />
@@ -500,7 +499,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {father ? (
               <div>
                 <Link href={`/people/${father.id}`} className="text-slate-900 hover:underline">
-                  <PersonName person={father} />
+                  <TreeName person={father} />
                 </Link>
                 {isAdmin(member) && (
                   <form action={removeParentLink} className="inline">
@@ -525,7 +524,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             {mother ? (
               <div>
                 <Link href={`/people/${mother.id}`} className="text-slate-900 hover:underline">
-                  <PersonName person={mother} />
+                  <TreeName person={mother} />
                 </Link>
                 {isAdmin(member) && (
                   <form action={removeParentLink} className="inline">
