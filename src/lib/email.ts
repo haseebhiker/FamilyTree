@@ -53,29 +53,53 @@ function linkifyUrls(text: string): string {
 }
 
 /**
- * Wraps plain body text in a minimal, readable HTML shell — one <p> per
- * blank-line-separated paragraph, except a run of consecutive "- " lines,
- * which becomes a real <ul> instead (so a compose box can produce a
- * bulleted list without needing an HTML editor). Any plain URL becomes a
+ * Wraps plain body text in a minimal, readable HTML shell — plain lines
+ * become one <p> (joined by <br>), and any run of "- " lines becomes a
+ * real <ul>, line by line rather than requiring a whole blank-line-
+ * separated block to be entirely bullets. That per-block version missed
+ * exactly the shape this app's own templates use — an intro line
+ * ("A few things you can do:") directly followed by "- " lines with no
+ * blank line before the list — so the intro line made the whole thing
+ * fail the "every line is a bullet" check and all of it, dashes
+ * included, fell back to one plain paragraph. Any plain URL becomes a
  * clickable link, with the full address still shown as the link text.
  */
 export function emailBodyToHtml(body: string): string {
-  const blocks = body
-    .split(/\n{2,}/)
-    .map((b) => b.trim())
-    .filter(Boolean)
-    .map((block) => {
-      const lines = block.split("\n").map((l) => l.trim());
-      if (lines.every((l) => l.startsWith("- "))) {
-        const items = lines.map((l) => `<li style="margin:0 0 0.4em 0;">${linkifyUrls(l.slice(2))}</li>`).join("");
-        return `<ul style="margin:0 0 1em 0; padding-left:1.25em;">${items}</ul>`;
-      }
-      return `<p style="margin:0 0 1em 0;">${linkifyUrls(block.replace(/\n/g, "<br>"))}</p>`;
-    })
-    .join("");
+  const htmlBlocks: string[] = [];
+  let paragraphLines: string[] = [];
+  let listItems: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraphLines.length === 0) return;
+    htmlBlocks.push(`<p style="margin:0 0 1em 0;">${linkifyUrls(paragraphLines.join("<br>"))}</p>`);
+    paragraphLines = [];
+  };
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    const items = listItems.map((l) => `<li style="margin:0 0 0.4em 0;">${linkifyUrls(l)}</li>`).join("");
+    htmlBlocks.push(`<ul style="margin:0 0 1em 0; padding-left:1.25em;">${items}</ul>`);
+    listItems = [];
+  };
+
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.trim();
+    if (line === "") {
+      flushParagraph();
+      flushList();
+    } else if (line.startsWith("- ")) {
+      flushParagraph();
+      listItems.push(line.slice(2));
+    } else {
+      flushList();
+      paragraphLines.push(line);
+    }
+  }
+  flushParagraph();
+  flushList();
+
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;color:#1e293b;max-width:480px;margin:0 auto;">
-      ${blocks}
+      ${htmlBlocks.join("")}
     </div>
   `;
 }
