@@ -439,7 +439,7 @@ export interface TamilTerm {
 
 /**
  * Which of source's two parents (or grandparents) a blood path's first hop
- * runs through — "father" or "mother" become the "Appa vazhi" / "Umma
+ * runs through — "father" or "mother" become the "Vappa vazhi" / "Umma
  * vazhi" side qualifier on grandparent and distant-cousin terms below.
  */
 function firstHopSide(steps: PathStep[]): "father" | "mother" | null {
@@ -447,7 +447,7 @@ function firstHopSide(steps: PathStep[]): "father" | "mother" | null {
 }
 
 const SIDE_TAMIL: Record<"father" | "mother", TamilTerm> = {
-  father: { tamil: "அப்பா வழி", translit: "Appa vazhi" },
+  father: { tamil: "வாப்பா வழி", translit: "Vappa vazhi" },
   mother: { tamil: "உம்மா வழி", translit: "Umma vazhi" },
 };
 
@@ -529,7 +529,7 @@ function spouseTamilTerm(id: string, genders: Map<string, Gender>): TamilTerm | 
 /**
  * Haseeb's vocabulary doesn't include dedicated in-law words (no single
  * term for "mother-in-law"), so these are composed instead, the same way
- * Appa vazhi / Umma vazhi already compose a side onto a blood term:
+ * Vappa vazhi / Umma vazhi already compose a side onto a blood term:
  * "Pondatti vazhi Pethamma" ("grandmother, through [my] wife") rather than
  * a specific borrowed word. A path with a spouse hop always has one of
  * three shapes — source's spouse then blood ("wife's mother"), blood then
@@ -583,7 +583,7 @@ function describeInLawTamil(
 /**
  * The Chennai Tamil Muslim term for the relationship a shortest path
  * represents, per the vocabulary Haseeb gave — parent, child, sibling,
- * grandparent, aunt/uncle, and first cousin, each split by side (Appa
+ * grandparent, aunt/uncle, and first cousin, each split by side (Vappa
  * vazhi / Umma vazhi) and, where the vocabulary distinguishes it, by
  * relative age. Anything deeper (great-grandparents, cousins beyond the
  * first, cousins "once removed", etc.) falls back to a general "distant
