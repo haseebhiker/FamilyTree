@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
 import { sendEmail } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notify-admins";
 import type { Role } from "@/lib/types";
 
 /**
@@ -83,6 +84,11 @@ export async function submitAccessRequest(formData: FormData) {
     status: "pending",
   });
   if (error) throw new Error(error.message);
+
+  await notifyAdmins(
+    "Someone's waiting for access approval on Family Tree",
+    `${name} (${user.email}) requested access.\n\nHow they're related: ${relationDescription}\n\nReview it at https://familytree.haseeb.in/admin/access-requests`,
+  );
 
   revalidatePath("/not-authorized");
 }

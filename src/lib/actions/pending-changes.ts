@@ -8,6 +8,8 @@ import type { Member, Person, PendingChangeType } from "@/lib/types";
 import { parsePartialDateFields } from "@/lib/partial-date";
 import { encryptValue } from "@/lib/vault-crypto";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { sendEmail, emailBodyToHtml } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notify-admins";
 
 const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spouse"; gender: "M" | "F" }> = {
   father: { type: "parent", gender: "M" },
@@ -61,14 +63,53 @@ async function requireAdmin() {
   return { supabase, member };
 }
 
-async function notifyAdminsOfPendingChange() {
-  // Email notification hook (design doc §11.4) — wired up once RESEND_API_KEY
-  // is configured. Intentionally a no-op until then rather than failing the
-  // submission over a missing env var.
+async function notifyAdminsOfPendingChange(
+  supabase: SupabaseClient,
+  submitterName: string,
+  changeType: PendingChangeType,
+  targetPersonId: string | null,
+) {
+  const { data: person } = targetPersonId
+    ? await supabase.from("people").select("full_name, preferred_name").eq("id", targetPersonId).maybeSingle()
+    : { data: null };
+  const personName = person ? person.preferred_name?.trim() || person.full_name : "the family tree";
+
+  await notifyAdmins(
+    "Something's waiting for approval on Family Tree",
+    `${submitterName} submitted a change (${changeType.replace(/_/g, " ")}) for ${personName}.\n\nReview it at https://familytree.haseeb.in/admin/pending`,
+  );
 }
 
-async function notifySubmitterOfDecision() {
-  // Same as above, for the "your edit was approved/rejected" email.
+/**
+ * Tells whoever submitted a change whether it was approved or rejected —
+ * best-effort, same as every other email in this app (a failed/unconfigured
+ * send should never undo a decision that already succeeded).
+ */
+async function notifySubmitterOfDecision(
+  supabase: SupabaseClient,
+  submittedBy: string,
+  decision: "approved" | "rejected",
+  targetPersonId: string | null,
+  adminNote: string | null,
+) {
+  const { data: submitter } = await supabase.from("members").select("name, email").eq("id", submittedBy).maybeSingle();
+  if (!submitter) return;
+
+  const { data: person } = targetPersonId
+    ? await supabase.from("people").select("full_name, preferred_name").eq("id", targetPersonId).maybeSingle()
+    : { data: null };
+  const personName = person ? person.preferred_name?.trim() || person.full_name : "someone in the tree";
+
+  const body =
+    decision === "approved"
+      ? `Hi ${submitter.name},\n\nGood news — the change you submitted for ${personName} has been approved and is now live on the family tree. Thanks for keeping it accurate!\n\nSee it at https://familytree.haseeb.in`
+      : `Hi ${submitter.name},\n\nThe change you submitted for ${personName} wasn't approved.${adminNote ? ` Note from the admin: ${adminNote}` : ""}\n\nIf you have questions, feel free to ask whoever reviewed it. You can see all your submissions at https://familytree.haseeb.in/my-submissions`;
+
+  await sendEmail({
+    to: submitter.email,
+    subject: decision === "approved" ? "Your Family Tree submission was approved" : "Your Family Tree submission wasn't approved",
+    html: emailBodyToHtml(body),
+  });
 }
 
 /**
@@ -371,7 +412,7 @@ async function applyOrQueue(
     status: "pending",
   });
   if (error) throw new Error(error.message);
-  await notifyAdminsOfPendingChange();
+  await notifyAdminsOfPendingChange(supabase, member.name, input.change_type, input.target_person_id);
   return false;
 }
 
@@ -645,7 +686,7 @@ export async function approvePendingChange(formData: FormData) {
     pending_change_id: changeId,
   });
 
-  await notifySubmitterOfDecision();
+  await notifySubmitterOfDecision(supabase, change.submitted_by, "approved", appliedPersonId, null);
   revalidatePath("/admin/pending");
   revalidatePath("/my-submissions");
   if (appliedPersonId) revalidatePath(`/people/${appliedPersonId}`);
@@ -656,6 +697,13 @@ export async function rejectPendingChange(formData: FormData) {
   const changeId = String(formData.get("change_id") ?? "");
   const adminNote = String(formData.get("admin_note") ?? "").trim() || null;
   if (!changeId) throw new Error("Missing change id");
+
+  const { data: change, error: fetchError } = await supabase
+    .from("pending_changes")
+    .select("submitted_by, target_person_id")
+    .eq("id", changeId)
+    .single();
+  if (fetchError || !change) throw new Error("Change not found");
 
   const { error } = await supabase
     .from("pending_changes")
@@ -669,7 +717,7 @@ export async function rejectPendingChange(formData: FormData) {
     .eq("status", "pending");
   if (error) throw new Error(error.message);
 
-  await notifySubmitterOfDecision();
+  await notifySubmitterOfDecision(supabase, change.submitted_by, "rejected", change.target_person_id, adminNote);
   revalidatePath("/admin/pending");
   revalidatePath("/my-submissions");
 }
