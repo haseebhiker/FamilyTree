@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { PersonName } from "@/components/person-name";
+import { TreeName } from "@/components/person-name";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.5;
@@ -46,7 +46,7 @@ function AncestorNodeItem({
           isRoot ? "border-slate-400 bg-slate-50 font-medium text-slate-900" : "border-slate-200 bg-white text-slate-700"
         }`}
       >
-        <PersonName person={node} />
+        <TreeName person={node} />
       </Link>
       {hasParents && (
         <ul>
