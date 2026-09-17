@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AsYouType, type CountryCode } from "libphonenumber-js";
 import { addContactDetail } from "@/lib/actions/contact-details";
+import { ActionForm } from "@/components/action-form";
 import { Input, Select, Button } from "@/components/ui";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO2 } from "@/lib/countries";
 import type { ContactType } from "@/lib/types";
@@ -36,7 +37,9 @@ export function ContactDetailForm({ personId }: { personId: string }) {
   }
 
   return (
-    <form action={addContactDetail} className="space-y-2">
+    <ActionForm action={addContactDetail} className="space-y-2">
+      {({ isPending, error }) => (
+        <>
       <input type="hidden" name="person_id" value={personId} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -105,12 +108,17 @@ export function ContactDetailForm({ personId }: { personId: string }) {
           />
         )}
 
-        <Button type="submit" className="shrink-0">Add</Button>
+        <Button type="submit" disabled={isPending} className="shrink-0">
+          {isPending ? "Adding…" : "Add"}
+        </Button>
       </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
       <p className="text-xs text-slate-400">
         Only admins can see this until you choose who else can — set that from &quot;My Privacy Settings&quot; (in
         the ☰ menu).
       </p>
-    </form>
+        </>
+      )}
+    </ActionForm>
   );
 }

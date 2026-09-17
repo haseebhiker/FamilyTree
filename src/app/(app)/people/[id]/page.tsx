@@ -12,7 +12,8 @@ import { linkInviteToPerson, unlinkPersonAccount, updateLinkedAccount } from "@/
 import { sortByAge, sortSiblings } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge, ChevronIcon, Select, Input, Field, Textarea } from "@/components/ui";
-import { PendingButton } from "@/components/pending-button";
+import { ActionButton } from "@/components/action-button";
+import { ActionForm } from "@/components/action-form";
 import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -386,15 +387,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               {personRaw.delete_reason && <> Reason: {personRaw.delete_reason}</>} Hidden from browsing and search —
               only admins can see this page.
             </p>
-            <form action={restorePerson}>
-              <input type="hidden" name="person_id" value={person.id} />
-              <PendingButton
-                className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
-                pendingChildren="Restoring…"
-              >
-                Restore
-              </PendingButton>
-            </form>
+            <ActionButton
+              action={restorePerson}
+              fields={{ person_id: person.id }}
+              className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+              pendingChildren="Restoring…"
+            >
+              Restore
+            </ActionButton>
           </div>
         </Card>
       )}
@@ -478,17 +478,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                     "Unknown"
                   )}
                   {isAdmin(member) && (
-                    <form action={removeSpouseLink} className="inline">
-                      <input type="hidden" name="person_id" value={person.id} />
-                      <input type="hidden" name="spouse_row_id" value={m.spouseRowId} />
-                      <PendingButton
-                        className="ml-2 text-xs text-red-600 hover:underline"
-                        pendingChildren="…"
-                        confirmMessage={`Remove ${m.spouse ? m.spouse.full_name : "this spouse"} as a spouse of ${person.full_name}?`}
-                      >
-                        remove
-                      </PendingButton>
-                    </form>
+                    <ActionButton
+                      inline
+                      action={removeSpouseLink}
+                      fields={{ person_id: person.id, spouse_row_id: m.spouseRowId }}
+                      className="ml-2 text-xs text-red-600 hover:underline"
+                      pendingChildren="…"
+                      confirmMessage={`Remove ${m.spouse ? m.spouse.full_name : "this spouse"} as a spouse of ${person.full_name}?`}
+                    >
+                      remove
+                    </ActionButton>
                   )}
                 </li>
               ))}
@@ -526,17 +525,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   <ResponsivePersonName person={father} />
                 </Link>
                 {isAdmin(member) && (
-                  <form action={removeParentLink} className="inline">
-                    <input type="hidden" name="person_id" value={person.id} />
-                    <input type="hidden" name="which" value="father" />
-                    <PendingButton
-                      className="ml-2 text-xs text-red-600 hover:underline"
-                      pendingChildren="…"
-                      confirmMessage={`Remove ${father.full_name} as ${person.full_name}'s father?`}
-                    >
-                      remove
-                    </PendingButton>
-                  </form>
+                  <ActionButton
+                    inline
+                    action={removeParentLink}
+                    fields={{ person_id: person.id, which: "father" }}
+                    className="ml-2 text-xs text-red-600 hover:underline"
+                    pendingChildren="…"
+                    confirmMessage={`Remove ${father.full_name} as ${person.full_name}'s father?`}
+                  >
+                    remove
+                  </ActionButton>
                 )}
               </div>
             ) : (
@@ -551,17 +549,16 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   <ResponsivePersonName person={mother} />
                 </Link>
                 {isAdmin(member) && (
-                  <form action={removeParentLink} className="inline">
-                    <input type="hidden" name="person_id" value={person.id} />
-                    <input type="hidden" name="which" value="mother" />
-                    <PendingButton
-                      className="ml-2 text-xs text-red-600 hover:underline"
-                      pendingChildren="…"
-                      confirmMessage={`Remove ${mother.full_name} as ${person.full_name}'s mother?`}
-                    >
-                      remove
-                    </PendingButton>
-                  </form>
+                  <ActionButton
+                    inline
+                    action={removeParentLink}
+                    fields={{ person_id: person.id, which: "mother" }}
+                    className="ml-2 text-xs text-red-600 hover:underline"
+                    pendingChildren="…"
+                    confirmMessage={`Remove ${mother.full_name} as ${person.full_name}'s mother?`}
+                  >
+                    remove
+                  </ActionButton>
                 )}
               </div>
             ) : (
@@ -676,13 +673,15 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                         {entry.contact_type === "phone" ? formatPhoneForDisplay(entry.value) : entry.value}
                       </span>
                       {(isOwner || isAdmin(member)) && (
-                        <form action={deleteContactDetail}>
-                          <input type="hidden" name="person_id" value={person.id} />
-                          <input type="hidden" name="contact_id" value={entry.id} />
-                          <PendingButton className="text-xs text-red-600 hover:underline" pendingChildren="…">
-                            remove
-                          </PendingButton>
-                        </form>
+                        <ActionButton
+                          inline
+                          action={deleteContactDetail}
+                          fields={{ person_id: person.id, contact_id: entry.id }}
+                          className="text-xs text-red-600 hover:underline"
+                          pendingChildren="…"
+                        >
+                          remove
+                        </ActionButton>
                       )}
                     </li>
                   ))}
@@ -713,7 +712,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="space-y-4">
               {linkedAccounts.map((acc) => (
                 <div key={`${acc.source}:${acc.id}`} className="space-y-3 rounded-md border border-slate-200 p-3">
-                  <form action={updateLinkedAccount} className="grid gap-2 sm:grid-cols-2">
+                  <ActionForm action={updateLinkedAccount} className="grid gap-2 sm:grid-cols-2">
+                    {({ isPending, error }) => (
+                      <>
                     <input type="hidden" name="source" value={acc.source} />
                     <input type="hidden" name="record_id" value={acc.id} />
                     <input type="hidden" name="person_id" value={person.id} />
@@ -757,27 +758,28 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                         Invited directly — no access request on file to show a stated reason for.
                       </p>
                     )}
-                    <div className="sm:col-span-2">
-                      <PendingButton
+                    <div className="sm:col-span-2 space-y-1">
+                      <button
+                        type="submit"
+                        disabled={isPending}
                         className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-                        pendingChildren="Saving…"
                       >
-                        Save
-                      </PendingButton>
+                        {isPending ? "Saving…" : "Save"}
+                      </button>
+                      {error && <p className="text-xs text-red-600">{error}</p>}
                     </div>
-                  </form>
-                  <form action={unlinkPersonAccount}>
-                    <input type="hidden" name="source" value={acc.source} />
-                    <input type="hidden" name="record_id" value={acc.id} />
-                    <input type="hidden" name="person_id" value={person.id} />
-                    <PendingButton
-                      className="text-xs text-red-600 hover:underline"
-                      pendingChildren="…"
-                      confirmMessage={`Unlink ${person.full_name}'s profile from this ${acc.source} record (${acc.email})?`}
-                    >
-                      Unlink this account
-                    </PendingButton>
-                  </form>
+                      </>
+                    )}
+                  </ActionForm>
+                  <ActionButton
+                    action={unlinkPersonAccount}
+                    fields={{ source: acc.source, record_id: acc.id, person_id: person.id }}
+                    className="text-xs text-red-600 hover:underline"
+                    pendingChildren="…"
+                    confirmMessage={`Unlink ${person.full_name}'s profile from this ${acc.source} record (${acc.email})?`}
+                  >
+                    Unlink this account
+                  </ActionButton>
                 </div>
               ))}
             </div>
@@ -785,25 +787,31 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <div className="space-y-2">
               <p className="text-sm text-slate-400">Not linked to any invited account.</p>
               {unlinkedInvites.length > 0 && (
-                <form action={linkInviteToPerson} className="flex items-center gap-2">
-                  <input type="hidden" name="person_id" value={person.id} />
-                  <Select name="invite_id" className="w-auto text-xs" required defaultValue="">
-                    <option value="" disabled>
-                      Link to…
-                    </option>
-                    {unlinkedInvites.map((inv) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.name} ({inv.email})
-                      </option>
-                    ))}
-                  </Select>
-                  <PendingButton
-                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    pendingChildren="…"
-                  >
-                    Link
-                  </PendingButton>
-                </form>
+                <ActionForm action={linkInviteToPerson} className="flex items-center gap-2">
+                  {({ isPending, error }) => (
+                    <>
+                      <input type="hidden" name="person_id" value={person.id} />
+                      <Select name="invite_id" className="w-auto text-xs" required defaultValue="">
+                        <option value="" disabled>
+                          Link to…
+                        </option>
+                        {unlinkedInvites.map((inv) => (
+                          <option key={inv.id} value={inv.id}>
+                            {inv.name} ({inv.email})
+                          </option>
+                        ))}
+                      </Select>
+                      <button
+                        type="submit"
+                        disabled={isPending}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        {isPending ? "…" : "Link"}
+                      </button>
+                      {error && <span className="text-xs text-red-600">{error}</span>}
+                    </>
+                  )}
+                </ActionForm>
               )}
             </div>
           )}

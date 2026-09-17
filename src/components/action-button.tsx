@@ -20,6 +20,7 @@ export function ActionButton({
   className,
   pendingChildren = "…",
   children,
+  inline = false,
 }: {
   action: (formData: FormData) => Promise<unknown>;
   /** Built into a real FormData client-side, right before calling the action — a FormData instance itself doesn't survive being passed as a prop from the Server Component that renders this. */
@@ -28,6 +29,8 @@ export function ActionButton({
   className?: string;
   pendingChildren?: ReactNode;
   children: ReactNode;
+  /** Use when this sits inline with surrounding text (e.g. next to a name in a list) — a block-level wrapper would push it to its own line. */
+  inline?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -46,12 +49,17 @@ export function ActionButton({
     });
   }
 
+  const Wrapper = inline ? "span" : "div";
   return (
-    <div>
+    <Wrapper>
       <button type="button" onClick={handleClick} disabled={isPending} className={className}>
         {isPending ? pendingChildren : children}
       </button>
-      {error && <p className="mt-1 max-w-xs text-xs text-red-600">{error}</p>}
-    </div>
+      {error && (
+        <span className={inline ? "ml-2 text-xs text-red-600" : "mt-1 block max-w-xs text-xs text-red-600"}>
+          {error}
+        </span>
+      )}
+    </Wrapper>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
 import { updatePersonPhoto } from "@/lib/actions/person-photo";
@@ -53,53 +53,58 @@ export function PersonPhotoUpload({
   previousPhotoUrl: string | null;
   previousThumbnailUrl: string | null;
 }) {
-  const [uploading, setUploading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    const input = e.target;
     if (!file) return;
-    setUploading(true);
     setError(null);
-    try {
-      const [compressedFull, thumbnail] = await Promise.all([
-        imageCompression(file, { maxSizeMB: 0.2, fileType: "image/webp", useWebWorker: true }),
-        createSquareThumbnail(file),
-      ]);
+    // updatePersonPhoto calls revalidatePath, which — like every other
+    // Server Action call in this app that isn't wired to a <form action> —
+    // needs to run inside a transition, or the resulting cache refresh
+    // throws a real (if cryptically minified) React error client-side.
+    startTransition(async () => {
+      try {
+        const [compressedFull, thumbnail] = await Promise.all([
+          imageCompression(file, { maxSizeMB: 0.2, fileType: "image/webp", useWebWorker: true }),
+          createSquareThumbnail(file),
+        ]);
 
-      const supabase = createClient();
-      const id = crypto.randomUUID();
-      const fullPath = `${personId}/${id}.webp`;
-      const thumbPath = `${personId}/${id}-thumb.webp`;
+        const supabase = createClient();
+        const id = crypto.randomUUID();
+        const fullPath = `${personId}/${id}.webp`;
+        const thumbPath = `${personId}/${id}-thumb.webp`;
 
-      const [fullUpload, thumbUpload] = await Promise.all([
-        supabase.storage.from(BUCKET).upload(fullPath, compressedFull, { contentType: "image/webp" }),
-        supabase.storage.from(BUCKET).upload(thumbPath, thumbnail, { contentType: "image/webp" }),
-      ]);
-      if (fullUpload.error) throw fullUpload.error;
-      if (thumbUpload.error) throw thumbUpload.error;
+        const [fullUpload, thumbUpload] = await Promise.all([
+          supabase.storage.from(BUCKET).upload(fullPath, compressedFull, { contentType: "image/webp" }),
+          supabase.storage.from(BUCKET).upload(thumbPath, thumbnail, { contentType: "image/webp" }),
+        ]);
+        if (fullUpload.error) throw fullUpload.error;
+        if (thumbUpload.error) throw thumbUpload.error;
 
-      const photoUrl = supabase.storage.from(BUCKET).getPublicUrl(fullPath).data.publicUrl;
-      const thumbnailUrl = supabase.storage.from(BUCKET).getPublicUrl(thumbPath).data.publicUrl;
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const photoUrl = supabase.storage.from(BUCKET).getPublicUrl(fullPath).data.publicUrl;
+        const thumbnailUrl = supabase.storage.from(BUCKET).getPublicUrl(thumbPath).data.publicUrl;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-      await updatePersonPhoto(personId, photoUrl, thumbnailUrl, {
-        photoPath: pathFromOurUrl(previousPhotoUrl, supabaseUrl),
-        thumbnailPath: pathFromOurUrl(previousThumbnailUrl, supabaseUrl),
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed — please try again.");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
+        await updatePersonPhoto(personId, photoUrl, thumbnailUrl, {
+          photoPath: pathFromOurUrl(previousPhotoUrl, supabaseUrl),
+          thumbnailPath: pathFromOurUrl(previousThumbnailUrl, supabaseUrl),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload failed — please try again.");
+      } finally {
+        input.value = "";
+      }
+    });
   }
 
   return (
     <div>
       <label className="inline-block cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        {uploading ? "Uploading…" : hasExistingPhoto ? "Change photo" : "Add a photo"}
-        <input type="file" accept="image/*" onChange={handleChange} disabled={uploading} className="hidden" />
+        {isPending ? "Uploading…" : hasExistingPhoto ? "Change photo" : "Add a photo"}
+        <input type="file" accept="image/*" onChange={handleChange} disabled={isPending} className="hidden" />
       </label>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
