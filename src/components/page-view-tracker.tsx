@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { recordPageView } from "@/lib/actions/page-view-log";
 
 /**
@@ -13,13 +13,28 @@ import { recordPageView } from "@/lib/actions/page-view-log";
  * until someone genuinely navigates there. Mounted once in (app)/layout.tsx
  * so it re-fires on every client-side route change without needing to be
  * added to each page individually.
+ *
+ * Includes the query string (e.g. /compare?a=X&b=Y), not just the
+ * pathname — otherwise every Compare visit logs as the same bare
+ * "Compare Relationship" with no way to tell which two people it was.
+ * useSearchParams() needs a Suspense boundary around it.
  */
-export function PageViewTracker() {
+function PageViewTrackerInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    recordPageView(pathname);
-  }, [pathname]);
+    const query = searchParams.toString();
+    recordPageView(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, searchParams]);
 
   return null;
+}
+
+export function PageViewTracker() {
+  return (
+    <Suspense fallback={null}>
+      <PageViewTrackerInner />
+    </Suspense>
+  );
 }

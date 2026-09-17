@@ -24,6 +24,7 @@ const PATH_LABELS: Record<string, string> = {
 };
 
 const PERSON_PATH = /^\/people\/([0-9a-f-]{36})$/;
+const COMPARE_PATH = /^\/compare\?(.*)$/;
 
 export default async function ActivityLogPage({
   searchParams,
@@ -57,6 +58,13 @@ export default async function ActivityLogPage({
   for (const e of entries ?? []) {
     const match = e.path.match(PERSON_PATH);
     if (match) personIds.add(match[1]);
+    const compareMatch = e.path.match(COMPARE_PATH);
+    if (compareMatch) {
+      const params = new URLSearchParams(compareMatch[1]);
+      for (const id of [params.get("a"), params.get("b")]) {
+        if (id) personIds.add(id);
+      }
+    }
   }
   const { data: people } =
     personIds.size > 0
@@ -107,6 +115,10 @@ export default async function ActivityLogPage({
               {entries?.map((e) => {
                 const match = e.path.match(PERSON_PATH);
                 const person = match ? peopleById.get(match[1]) : null;
+                const compareMatch = e.path.match(COMPARE_PATH);
+                const compareParams = compareMatch ? new URLSearchParams(compareMatch[1]) : null;
+                const personA = compareParams?.get("a") ? peopleById.get(compareParams.get("a")!) : null;
+                const personB = compareParams?.get("b") ? peopleById.get(compareParams.get("b")!) : null;
                 return (
                   <tr key={e.id} className="border-b border-slate-100">
                     <td className="py-2 pr-4">{e.members?.name ?? "—"}</td>
@@ -117,6 +129,16 @@ export default async function ActivityLogPage({
                         </Link>
                       ) : match ? (
                         <span className="italic text-slate-400">Deleted profile</span>
+                      ) : compareParams ? (
+                        personA && personB ? (
+                          <Link href={e.path} className="flex flex-wrap items-center gap-1 hover:underline">
+                            <DisambiguatedName person={personA} />
+                            <span className="text-slate-400">↔</span>
+                            <DisambiguatedName person={personB} />
+                          </Link>
+                        ) : (
+                          <span className="italic text-slate-400">Compare Relationship (someone not picked yet)</span>
+                        )
                       ) : (
                         (PATH_LABELS[e.path] ?? e.path)
                       )}
