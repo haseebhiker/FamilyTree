@@ -137,25 +137,8 @@ export function NavBar({
                 <>
                   <div className="my-1 border-t border-slate-100" />
                   <div className="px-3 py-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">Admin</div>
-                  {/* Debug aid: re-render the app with admin controls hidden,
-                      to check what an ordinary member actually sees. Leaves
-                      every real role untouched; a banner offers the way out. */}
-                  <a
-                    href={`/preview?as=member&next=${encodeURIComponent(pathname)}`}
-                    className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
-                  >
-                    View as member
-                  </a>
-                  <Link
-                    href="/admin/pending"
-                    className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
-                  >
-                    Pending Approvals
-                    {pendingCount > 0 && (
-                      <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
-                        {pendingCount}
-                      </span>
-                    )}
+                  <Link href="/admin/activity-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Activity Log
                   </Link>
                   <Link
                     href="/admin/access-requests"
@@ -168,11 +151,31 @@ export function NavBar({
                       </span>
                     )}
                   </Link>
-                  <Link href="/admin/invites/new" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                    Invite Someone New
+                  <Link
+                    href="/admin/pending"
+                    className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    Pending Approvals
+                    {pendingCount > 0 && (
+                      <span className="rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                        {pendingCount}
+                      </span>
+                    )}
                   </Link>
                   <Link href="/admin/invites" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Invite Management
+                  </Link>
+                  {/* Debug aid: re-render the app with admin controls hidden,
+                      to check what an ordinary member actually sees. Leaves
+                      every real role untouched; a banner offers the way out. */}
+                  <a
+                    href={`/preview?as=member&next=${encodeURIComponent(pathname)}`}
+                    className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    View as member
+                  </a>
+                  <Link href="/admin/invites/new" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Invite Someone New
                   </Link>
                   <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     People Management
@@ -182,9 +185,6 @@ export function NavBar({
                   </Link>
                   <Link href="/admin/login-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Login Log
-                  </Link>
-                  <Link href="/admin/activity-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                    Activity Log
                   </Link>
                   <Link
                     href="/admin/privacy-defaults"
