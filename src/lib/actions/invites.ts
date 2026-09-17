@@ -199,7 +199,11 @@ export async function revokeInvite(formData: FormData) {
     .eq("invite_id", inviteId)
     .neq("role", "super_admin");
 
-  revalidatePath("/admin/invites");
+  // No revalidatePath here — this is only ever called via ActionButton,
+  // which does its own router.refresh() after success. Bundling a
+  // revalidatePath re-render into this action's own response was the
+  // repeated, hard-to-pin-down source of "Minified React error #441"
+  // crashes on this exact page; see ActionButton's comment.
 }
 
 /**
@@ -239,7 +243,7 @@ export async function deleteInvite(formData: FormData) {
   const { error } = await supabase.from("invites").delete().eq("id", inviteId);
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/invites");
+  // No revalidatePath here — see revokeInvite's comment just above.
 }
 
 /**

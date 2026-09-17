@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * A button that calls a Server Action directly (not via `<form action>`)
@@ -12,6 +13,16 @@ import { useState, useTransition, type ReactNode } from "react";
  * useful message with an opaque "Minified React error #441" screen.
  * Confirmed live: deleteInvite's deliberate "can't delete, a member still
  * references this" error did exactly that before this component existed.
+ *
+ * router.refresh() after success, rather than relying solely on whatever
+ * revalidatePath the action itself might call: a revalidatePath bundles
+ * its re-render into the SAME response as the action, and this session
+ * has repeatedly traced genuine (non-redacted-message) #441 crashes to
+ * exactly that bundled render failing for reasons that never showed up in
+ * static review or server-side error logging. A separate, client-
+ * triggered refresh — the same mechanism EditPersonForm and
+ * PersonPhotoUpload already use successfully — has been reliable every
+ * time by contrast.
  */
 export function ActionButton({
   action,
@@ -34,6 +45,7 @@ export function ActionButton({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleClick() {
     if (confirmMessage && !window.confirm(confirmMessage)) return;
@@ -43,6 +55,7 @@ export function ActionButton({
         const formData = new FormData();
         for (const [key, value] of Object.entries(fields)) formData.set(key, value);
         await action(formData);
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Something went wrong — please try again.");
       }
