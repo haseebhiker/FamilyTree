@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TreeName, searchText } from "@/components/person-name";
+import { displayName, searchText } from "@/components/person-name";
 import { sortSiblings } from "@/lib/sort-by-age";
 import { ChevronIcon } from "@/components/ui";
 
@@ -79,7 +79,14 @@ function TreeNode({
           href={`/people/${person.id}`}
           className={`text-sm hover:underline ${pathToMeIds.has(person.id) ? "font-semibold text-slate-900" : "text-slate-900"}`}
         >
-          <TreeName person={person} />
+          {displayName(person)}
+          {/* Inline, not TreeName's stacked-under style — this list can run
+              to hundreds of rows, and the surname needs to be legible at a
+              glance while scanning it, not just present in small text on
+              its own line. */}
+          {person.surname_tag && (
+            <span className="ml-1 text-[0.7rem] font-medium tracking-wide text-amber-700">{person.surname_tag}</span>
+          )}
         </Link>
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
