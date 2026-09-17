@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { TreeName, displayNameText } from "@/components/person-name";
+import { TreeName, searchText } from "@/components/person-name";
 import { sortSiblings } from "@/lib/sort-by-age";
 import { ChevronIcon } from "@/components/ui";
 
@@ -136,7 +136,7 @@ export function TreeView({
   const searchResults = useMemo(() => {
     if (query.trim().length < 2) return [];
     const q = query.trim().toLowerCase();
-    return allPeople.filter((p) => displayNameText(p).toLowerCase().includes(q)).slice(0, 15);
+    return allPeople.filter((p) => searchText(p).toLowerCase().includes(q)).slice(0, 15);
   }, [query, allPeople]);
 
   // roots is pre-sorted by descendant count (largest first, see page.tsx) —

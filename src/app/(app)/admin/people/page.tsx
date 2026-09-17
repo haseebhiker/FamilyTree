@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { softDeletePerson, restorePerson, mergePeople } from "@/lib/actions/people-admin";
+import {
+  softDeletePerson,
+  restorePerson,
+  mergePeople,
+  cleanupSpouseNames,
+} from "@/lib/actions/people-admin";
 import { Card, Input, Button, Field } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
@@ -29,6 +34,15 @@ export default async function PeopleManagementPage({
     .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
+
+  // Count only, no rows: drives the "Cleanup spouse names" button below so an
+  // admin can see exactly how many links it would touch before running it —
+  // and so the button can disappear entirely once there's nothing left.
+  const { count: legacyNoteCount } = await supabase
+    .from("spouses")
+    .select("id", { count: "exact", head: true })
+    .not("marriage_notes", "is", null)
+    .like("marriage_notes", "% married %");
 
   const { data: deletedPeople } = await supabase
     .from("people")
@@ -116,6 +130,36 @@ export default async function PeopleManagementPage({
           </div>
         </form>
       </Card>
+
+      {/* One-time legacy-import cleanup. Hidden once the count reaches zero,
+          so it disappears after it has been run rather than sitting there
+          inviting a pointless second press. */}
+      {(legacyNoteCount ?? 0) > 0 && (
+        <Card>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Cleanup spouse names</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            The old site described each marriage as a sentence — &ldquo;X married Y /TAG/, daughter of A and
+            B.&rdquo; — and the import kept it verbatim as a note on the spouse link. Every name in it is
+            already a real, clickable person shown right above it under Spouse and Parents, so it restates
+            the tree in prose and carries <code>{"//"}</code> where a family name was blank. This clears that
+            generated text on{" "}
+            <strong>
+              {legacyNoteCount} spouse link{legacyNoteCount === 1 ? "" : "s"}
+            </strong>
+            . Notes an admin typed by hand are left alone, no relationship is touched, and the old values are
+            written to the Audit Log first.
+          </p>
+          <form action={cleanupSpouseNames}>
+            <PendingButton
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              pendingChildren="Cleaning up…"
+              confirmMessage={`Clear the auto-generated marriage notes on ${legacyNoteCount} spouse link${legacyNoteCount === 1 ? "" : "s"}? The previous values are saved to the Audit Log.`}
+            >
+              Cleanup spouse names
+            </PendingButton>
+          </form>
+        </Card>
+      )}
 
       {deletedPeople && deletedPeople.length > 0 && (
         <Card>

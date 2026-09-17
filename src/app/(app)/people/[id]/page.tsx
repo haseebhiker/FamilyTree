@@ -458,6 +458,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         }
       />
 
+      {/* Family (spouse / children / parents / siblings) comes before the
+          Ancestors chart: it's the immediate household, which is what people
+          look for first — the pedigree chart is the deeper dive. */}
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Family</h2>
 
@@ -493,7 +496,28 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           </div>
         )}
 
-        <div className={`grid gap-3 text-sm sm:grid-cols-2 ${marriages.length > 0 ? "mt-5" : ""}`}>
+        {(children ?? []).length > 0 && (
+          <div className={marriages.length > 0 ? "mt-5" : ""}>
+            <div className="font-medium text-slate-500">Children ({(children ?? []).length})</div>
+            <ul className="ml-4 list-disc text-sm text-slate-700">
+              {(children ?? []).map((c) => (
+                <li key={c.id}>
+                  <Link href={`/people/${c.id}`} className="hover:underline">
+                    <ListedPersonName person={c} spouse={spouseByPersonId.get(c.id)} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Hidden entirely when neither parent is known, rather than showing a
+            pair of "Unknown" placeholders — that's the normal case for the
+            oldest generation in the tree, where it's noise rather than a gap
+            worth pointing at. A person with exactly one known parent still
+            shows both columns, since there the blank IS meaningful. */}
+        {(father || mother) && (
+        <div className={`grid gap-3 text-sm sm:grid-cols-2 ${marriages.length > 0 || (children ?? []).length > 0 ? "mt-5" : ""}`}>
           <div>
             <div className="font-medium text-slate-500">Father</div>
             {father ? (
@@ -545,20 +569,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         </div>
-
-        {(children ?? []).length > 0 && (
-          <div className="mt-5">
-            <div className="font-medium text-slate-500">Children ({(children ?? []).length})</div>
-            <ul className="ml-4 list-disc text-sm text-slate-700">
-              {(children ?? []).map((c) => (
-                <li key={c.id}>
-                  <Link href={`/people/${c.id}`} className="hover:underline">
-                    <ListedPersonName person={c} spouse={spouseByPersonId.get(c.id)} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
         )}
 
         {siblings.length > 0 && (
