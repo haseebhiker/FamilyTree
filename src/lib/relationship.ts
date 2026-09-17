@@ -502,16 +502,76 @@ function tamilAuntUncleTerm(
   return order === "b" ? { tamil: "பெரியம்மா", translit: "Periyamma" } : { tamil: "சின்னம்மா", translit: "Chinnamma" };
 }
 
+function spouseTamilTerm(id: string, genders: Map<string, Gender>): TamilTerm | null {
+  const gender = genders.get(id) ?? null;
+  if (gender === "M") return { tamil: "புருஷன்", translit: "Purushan" };
+  if (gender === "F") return { tamil: "பொண்டாட்டி", translit: "Pondatti" };
+  return null;
+}
+
 /**
- * The Chennai Tamil Muslim term for the relationship a shortest blood path
+ * Haseeb's vocabulary doesn't include dedicated in-law words (no single
+ * term for "mother-in-law"), so these are composed instead, the same way
+ * Appa vazhi / Umma vazhi already compose a side onto a blood term:
+ * "Pondatti vazhi Pethamma" ("grandmother, through [my] wife") rather than
+ * a specific borrowed word. A path with a spouse hop always has one of
+ * three shapes — source's spouse then blood ("wife's mother"), blood then
+ * target's spouse ("great-uncle's wife"), or both ("wife's sister's
+ * husband") — handled by recursing into the blood segment with
+ * describeRelationshipTamil, re-rooted at whichever spouse that segment is
+ * actually relative to (age comparisons inside it need to run against that
+ * spouse, not the original viewer).
+ */
+function describeInLawTamil(
+  steps: PathStep[],
+  spouseIdx: number[],
+  genders: Map<string, Gender>,
+  birthYears: Map<string, number | null | undefined>,
+  sourceId: string,
+): TamilTerm | null {
+  if (spouseIdx.length === 1 && spouseIdx[0] === 0) {
+    const spouseId = steps[0].id;
+    const prefix = spouseTamilTerm(spouseId, genders);
+    const rest = steps.slice(1);
+    const inner = rest.length > 0 ? describeRelationshipTamil(rest, genders, birthYears, spouseId) : null;
+    if (!prefix || !inner) return null;
+    return { tamil: `${prefix.tamil} வழி ${inner.tamil}`, translit: `${prefix.translit} vazhi ${inner.translit}` };
+  }
+
+  if (spouseIdx.length === 1 && spouseIdx[0] === steps.length - 1) {
+    const bloodSteps = steps.slice(0, -1);
+    const bloodTerm = bloodSteps.length > 0 ? describeRelationshipTamil(bloodSteps, genders, birthYears, sourceId) : null;
+    const spouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
+    if (!bloodTerm || !spouseTerm) return null;
+    return { tamil: `${bloodTerm.tamil} ${spouseTerm.tamil}`, translit: `${bloodTerm.translit} ${spouseTerm.translit}` };
+  }
+
+  if (spouseIdx.length === 2 && spouseIdx[0] === 0 && spouseIdx[1] === steps.length - 1) {
+    const spouseId = steps[0].id;
+    const prefix = spouseTamilTerm(spouseId, genders);
+    const middle = steps.slice(1, -1);
+    const middleTerm = middle.length > 0 ? describeRelationshipTamil(middle, genders, birthYears, spouseId) : null;
+    const lastSpouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
+    if (!prefix || !middleTerm || !lastSpouseTerm) return null;
+    return {
+      tamil: `${prefix.tamil} வழி ${middleTerm.tamil} ${lastSpouseTerm.tamil}`,
+      translit: `${prefix.translit} vazhi ${middleTerm.translit} ${lastSpouseTerm.translit}`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * The Chennai Tamil Muslim term for the relationship a shortest path
  * represents, per the vocabulary Haseeb gave — parent, child, sibling,
  * grandparent, aunt/uncle, and first cousin, each split by side (Appa
  * vazhi / Umma vazhi) and, where the vocabulary distinguishes it, by
  * relative age. Anything deeper (great-grandparents, cousins beyond the
  * first, cousins "once removed", etc.) falls back to a general "distant
- * relative on X's side" phrase rather than inventing a specific term.
- * Any relationship that crosses a marriage (in-laws) returns null — that
- * vocabulary hasn't been given yet, so those keep showing English only.
+ * relative on X's side" phrase rather than inventing a specific term. A
+ * relationship that crosses a marriage (in-laws) is composed via
+ * describeInLawTamil rather than a dedicated word, since none was given.
  */
 export function describeRelationshipTamil(
   steps: PathStep[],
@@ -522,12 +582,13 @@ export function describeRelationshipTamil(
   if (steps.length === 0) return null;
 
   if (steps.length === 1 && steps[0].kind === "spouse") {
-    const gender = genders.get(steps[0].id) ?? null;
-    if (gender === "M") return { tamil: "புருஷன்", translit: "Purushan" };
-    if (gender === "F") return { tamil: "பொண்டாட்டி", translit: "Pondatti" };
-    return null;
+    return spouseTamilTerm(steps[0].id, genders);
   }
-  if (steps.some((s) => s.kind === "spouse")) return null; // in-law chain — vocabulary not given yet
+
+  const spouseIdx = steps.map((s, i) => (s.kind === "spouse" ? i : -1)).filter((i) => i >= 0);
+  if (spouseIdx.length > 0) {
+    return describeInLawTamil(steps, spouseIdx, genders, birthYears, sourceId);
+  }
 
   const up = steps.filter((s) => s.kind === "father" || s.kind === "mother").length;
   const down = steps.filter((s) => s.kind === "child").length;
