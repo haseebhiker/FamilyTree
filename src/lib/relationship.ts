@@ -522,7 +522,7 @@ function tamilAuntUncleTerm(
 function spouseTamilTerm(id: string, genders: Map<string, Gender>): TamilTerm | null {
   const gender = genders.get(id) ?? null;
   if (gender === "M") return { tamil: "புருஷன்", translit: "Purushan" };
-  if (gender === "F") return { tamil: "பொண்டாட்டி", translit: "Pondatti" };
+  if (gender === "F") return { tamil: "மனைவி", translit: "Manaivi" };
   return null;
 }
 
@@ -530,7 +530,7 @@ function spouseTamilTerm(id: string, genders: Map<string, Gender>): TamilTerm | 
  * Haseeb's vocabulary doesn't include dedicated in-law words (no single
  * term for "mother-in-law"), so these are composed instead, the same way
  * Vappa vazhi / Umma vazhi already compose a side onto a blood term:
- * "Pondatti vazhi Pethamma" ("grandmother, through [my] wife") rather than
+ * "Manaivi vazhi Pethamma" ("grandmother, through [my] wife") rather than
  * a specific borrowed word. A path with a spouse hop always has one of
  * three shapes — source's spouse then blood ("wife's mother"), blood then
  * target's spouse ("great-uncle's wife"), or both ("wife's sister's
