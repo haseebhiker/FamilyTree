@@ -27,8 +27,12 @@ export function ProfileActionButtons({
 }) {
   const [open, setOpen] = useState<Section | null>(null);
 
+  // Short enough that all three fit on one line even on a narrow phone —
+  // the full-length labels ("Suggest an edit", "Add a family member")
+  // were wide enough to force a wrap on mobile, defeating the point of a
+  // compact one-line row in the first place.
   function buttonClass(key: Section) {
-    return `rounded-md border px-3 py-1.5 text-sm font-medium ${
+    return `flex-1 rounded-md border px-2 py-1 text-xs font-medium ${
       open === key
         ? "border-slate-900 bg-slate-900 text-white"
         : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -41,17 +45,17 @@ export function ProfileActionButtons({
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2">
         {showAddContact && (
           <button type="button" onClick={() => toggle("contact")} className={buttonClass("contact")}>
-            + Add contact
+            Contact
           </button>
         )}
         <button type="button" onClick={() => toggle("edit")} className={buttonClass("edit")}>
-          Suggest an edit
+          Edit
         </button>
         <button type="button" onClick={() => toggle("family")} className={buttonClass("family")}>
-          Add a family member
+          Add
         </button>
       </div>
       {open && (
