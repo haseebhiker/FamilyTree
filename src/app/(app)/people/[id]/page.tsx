@@ -14,6 +14,7 @@ import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge, ChevronIcon, Select, Input, Field, Textarea } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { ContactDetailForm } from "@/components/contact-detail-form";
+import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
 import { ContactIcons } from "@/components/contact-icons";
 import { PersonName, TreeName } from "@/components/person-name";
@@ -434,12 +435,28 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         />
       )}
 
-      {ancestorChart.father || ancestorChart.mother ? (
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-900">Ancestors</h2>
-          <AncestorChart root={ancestorChart} />
-        </Card>
-      ) : null}
+      <ProfileActionButtons
+        showAddContact={isOwner || isAdmin(member)}
+        contactForm={
+          <div className="p-4">
+            <ContactDetailForm personId={person.id} />
+          </div>
+        }
+        editForm={<EditPersonForm personId={person.id} personRaw={personRaw as Person} />}
+        addFamilyMemberForm={
+          <div className="p-4">
+            <AddFamilyMemberForm
+              personId={person.id}
+              hasFather={!!person.father_id}
+              hasMother={!!person.mother_id}
+              people={allPeopleForPicker ?? []}
+              existingChildren={children}
+              existingSiblings={siblings}
+              existingSpouses={marriages.map((m) => m.spouse).filter((s): s is NonNullable<typeof s> => !!s)}
+            />
+          </div>
+        }
+      />
 
       <Card>
         <h2 className="mb-2 text-sm font-semibold text-slate-900">Family</h2>
@@ -600,6 +617,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         )}
       </Card>
 
+      {ancestorChart.father || ancestorChart.mother ? (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Ancestors</h2>
+          <AncestorChart root={ancestorChart} />
+        </Card>
+      ) : null}
+
       {(person.place_of_birth || person.place_of_death || person.facebook_url || person.linkedin_url || person.bio) && (
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-slate-900">About</h2>
@@ -623,24 +647,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      {contactDetails.length === 0 ? (
-        (isOwner || isAdmin(member)) ? (
-          <details className="group rounded-lg border border-slate-200 bg-white">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
-              <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
-              Add contact info
-            </summary>
-            <div className="border-t border-slate-100 p-4">
-              <ContactDetailForm personId={person.id} />
-            </div>
-          </details>
-        ) : (
-          <Card>
-            <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
-            <p className="text-sm text-slate-400">Nothing shared here yet.</p>
-          </Card>
-        )
-      ) : (
+      {contactDetails.length > 0 ? (
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
           {(["phone", "email", "address"] as const).map((type) => {
@@ -674,12 +681,13 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               </div>
             );
           })}
-
-          {(isOwner || isAdmin(member)) && (
-            <ContactDetailForm personId={person.id} />
-          )}
         </Card>
-      )}
+      ) : !(isOwner || isAdmin(member)) ? (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-slate-900">Contact Information</h2>
+          <p className="text-sm text-slate-400">Nothing shared here yet.</p>
+        </Card>
+      ) : null}
 
       {isSuperAdmin(member) && (
         <Card>
@@ -792,34 +800,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           )}
         </Card>
       )}
-
-      <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
-          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
-          Suggest an edit
-        </summary>
-        <div className="border-t border-slate-100">
-          <EditPersonForm personId={person.id} personRaw={personRaw as Person} />
-        </div>
-      </details>
-
-      <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
-          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
-          Add a family member
-        </summary>
-        <div className="border-t border-slate-100 p-4">
-          <AddFamilyMemberForm
-            personId={person.id}
-            hasFather={!!person.father_id}
-            hasMother={!!person.mother_id}
-            people={allPeopleForPicker ?? []}
-            existingChildren={children}
-            existingSiblings={siblings}
-            existingSpouses={marriages.map((m) => m.spouse).filter((s): s is NonNullable<typeof s> => !!s)}
-          />
-        </div>
-      </details>
 
       {isOwner ? (
         <p className="text-xs text-slate-400">

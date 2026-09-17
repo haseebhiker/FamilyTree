@@ -36,7 +36,7 @@ export function ContactDetailForm({ personId }: { personId: string }) {
   }
 
   return (
-    <form action={addContactDetail} className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+    <form action={addContactDetail} className="space-y-2">
       <input type="hidden" name="person_id" value={personId} />
 
       <div className="flex flex-wrap items-center gap-2">
