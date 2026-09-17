@@ -115,17 +115,26 @@ function SearchResultRow({ person, peopleById }: { person: TreeNodeData; peopleB
     .filter((p): p is TreeNodeData => !!p)
     .map((p) => p.preferred_name?.trim() || p.full_name);
   const preferred = person.preferred_name?.trim();
-  const fullWithSurname = person.surname_tag ? `${person.full_name} ${person.surname_tag}` : person.full_name;
+  // Same amber, small-caps treatment PersonName/TreeName use for the
+  // surname everywhere else — a trailing gray fragment was too easy to
+  // miss when the whole point of showing it here is telling apart same-
+  // named people at a glance.
+  const surname = person.surname_tag && (
+    <div className="text-[0.7rem] font-medium tracking-wide text-amber-700">{person.surname_tag}</div>
+  );
 
   return (
     <div className="px-3 py-2">
       <div className="hidden text-sm sm:block">
         <span className="font-medium text-slate-900">{person.full_name}</span>
         {preferred && preferred !== person.full_name && <span className="text-slate-500"> ({preferred})</span>}
-        {person.surname_tag && <span className="text-slate-400"> {person.surname_tag}</span>}
+        {surname}
         {parentNames.length > 0 && <div className="text-xs text-slate-400">Child of {parentNames.join(" & ")}</div>}
       </div>
-      <div className="text-sm font-medium text-slate-900 sm:hidden">{fullWithSurname}</div>
+      <div className="text-sm sm:hidden">
+        <span className="font-medium text-slate-900">{person.full_name}</span>
+        {surname}
+      </div>
     </div>
   );
 }
