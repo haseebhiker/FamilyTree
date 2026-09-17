@@ -454,19 +454,32 @@ const SIDE_TAMIL: Record<"father" | "mother", TamilTerm> = {
 /**
  * `a` and `b` are two people one generation apart in a known family
  * relationship (a person and their sibling, or a parent and that parent's
- * sibling) — this says which one is older, purely from birth_year, so
- * callers can pick between an "older"/"younger" pair of Tamil terms (Periya
- * Anna vs. Thambi, Periyappa vs. Chithappa, etc.). Returns null whenever
- * either birth_year is missing, which is common in this tree; callers show
- * BOTH terms joined by "/" in that case (e.g. "Periyappa/Chithappa") rather
- * than guessing which one or showing nothing — birth_year being missing
- * shouldn't be the reason a relationship gets no Tamil term at all.
+ * sibling) — this says which one is older, so callers can pick between an
+ * "older"/"younger" pair of Tamil terms (Periya Anna vs. Thambi, Periyappa
+ * vs. Chithappa, etc.). Prefers birth_year; when either is missing (common
+ * in this tree), falls back to birth_order — valid here specifically
+ * because `a` and `b` are always full siblings of each other (see callers),
+ * so their birth_order values rank them against exactly the same set of
+ * siblings, unlike birth_year which needs no such relationship to compare.
+ * Returns null only when NEITHER birth_year nor birth_order distinguishes
+ * them; callers show BOTH terms joined by "/" in that case (e.g.
+ * "Periyappa/Chithappa") rather than guessing which one or showing nothing.
  */
-function olderOf(a: string, b: string, birthYears: Map<string, number | null | undefined>): "a" | "b" | null {
+function olderOf(
+  a: string,
+  b: string,
+  birthYears: Map<string, number | null | undefined>,
+  birthOrders: Map<string, number | null | undefined>,
+): "a" | "b" | null {
   const yearA = birthYears.get(a);
   const yearB = birthYears.get(b);
-  if (!yearA || !yearB || yearA === yearB) return null;
-  return yearA < yearB ? "a" : "b";
+  if (yearA && yearB && yearA !== yearB) return yearA < yearB ? "a" : "b";
+
+  const orderA = birthOrders.get(a);
+  const orderB = birthOrders.get(b);
+  if (orderA && orderB && orderA !== orderB) return orderA < orderB ? "a" : "b";
+
+  return null;
 }
 
 /**
@@ -485,6 +498,7 @@ function tamilAuntUncleTerm(
   auntUncleId: string,
   genders: Map<string, Gender>,
   birthYears: Map<string, number | null | undefined>,
+  birthOrders: Map<string, number | null | undefined>,
 ): TamilTerm | null {
   const gender = genders.get(auntUncleId) ?? null;
   if (gender !== "M" && gender !== "F") return null;
@@ -493,14 +507,14 @@ function tamilAuntUncleTerm(
     if (gender === "F") return { tamil: "மாமி", translit: "Mami" };
     // olderOf(parentId, auntUncleId): "a" means the PARENT is older, i.e.
     // auntUncleId is the YOUNGER sibling — Chithappa, not Periyappa. When
-    // birth_year is missing for either (common in this tree), show both
+    // neither birth_year nor birth_order distinguishes them, show both
     // rather than nothing — see the fallback note on describeRelationshipTamil.
-    const order = olderOf(parentId, auntUncleId, birthYears);
+    const order = olderOf(parentId, auntUncleId, birthYears, birthOrders);
     if (!order) return { tamil: "பெரியப்பா/சித்தப்பா", translit: "Periyappa/Chithappa" };
     return order === "b" ? { tamil: "பெரியப்பா", translit: "Periyappa" } : { tamil: "சித்தப்பா", translit: "Chithappa" };
   }
   if (gender === "M") return { tamil: "மாமா", translit: "Mama" };
-  const order = olderOf(parentId, auntUncleId, birthYears);
+  const order = olderOf(parentId, auntUncleId, birthYears, birthOrders);
   if (!order) return { tamil: "பெரியம்மா/சின்னம்மா", translit: "Periyamma/Chinnamma" };
   return order === "b" ? { tamil: "பெரியம்மா", translit: "Periyamma" } : { tamil: "சின்னம்மா", translit: "Chinnamma" };
 }
@@ -530,20 +544,21 @@ function describeInLawTamil(
   spouseIdx: number[],
   genders: Map<string, Gender>,
   birthYears: Map<string, number | null | undefined>,
+  birthOrders: Map<string, number | null | undefined>,
   sourceId: string,
 ): TamilTerm | null {
   if (spouseIdx.length === 1 && spouseIdx[0] === 0) {
     const spouseId = steps[0].id;
     const prefix = spouseTamilTerm(spouseId, genders);
     const rest = steps.slice(1);
-    const inner = rest.length > 0 ? describeRelationshipTamil(rest, genders, birthYears, spouseId) : null;
+    const inner = rest.length > 0 ? describeRelationshipTamil(rest, genders, birthYears, birthOrders, spouseId) : null;
     if (!prefix || !inner) return null;
     return { tamil: `${prefix.tamil} வழி ${inner.tamil}`, translit: `${prefix.translit} vazhi ${inner.translit}` };
   }
 
   if (spouseIdx.length === 1 && spouseIdx[0] === steps.length - 1) {
     const bloodSteps = steps.slice(0, -1);
-    const bloodTerm = bloodSteps.length > 0 ? describeRelationshipTamil(bloodSteps, genders, birthYears, sourceId) : null;
+    const bloodTerm = bloodSteps.length > 0 ? describeRelationshipTamil(bloodSteps, genders, birthYears, birthOrders, sourceId) : null;
     const spouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
     if (!bloodTerm || !spouseTerm) return null;
     return { tamil: `${bloodTerm.tamil} ${spouseTerm.tamil}`, translit: `${bloodTerm.translit} ${spouseTerm.translit}` };
@@ -553,7 +568,7 @@ function describeInLawTamil(
     const spouseId = steps[0].id;
     const prefix = spouseTamilTerm(spouseId, genders);
     const middle = steps.slice(1, -1);
-    const middleTerm = middle.length > 0 ? describeRelationshipTamil(middle, genders, birthYears, spouseId) : null;
+    const middleTerm = middle.length > 0 ? describeRelationshipTamil(middle, genders, birthYears, birthOrders, spouseId) : null;
     const lastSpouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
     if (!prefix || !middleTerm || !lastSpouseTerm) return null;
     return {
@@ -580,6 +595,7 @@ export function describeRelationshipTamil(
   steps: PathStep[],
   genders: Map<string, Gender>,
   birthYears: Map<string, number | null | undefined>,
+  birthOrders: Map<string, number | null | undefined>,
   sourceId: string,
 ): TamilTerm | null {
   if (steps.length === 0) return null;
@@ -590,7 +606,7 @@ export function describeRelationshipTamil(
 
   const spouseIdx = steps.map((s, i) => (s.kind === "spouse" ? i : -1)).filter((i) => i >= 0);
   if (spouseIdx.length > 0) {
-    return describeInLawTamil(steps, spouseIdx, genders, birthYears, sourceId);
+    return describeInLawTamil(steps, spouseIdx, genders, birthYears, birthOrders, sourceId);
   }
 
   const up = steps.filter((s) => s.kind === "father" || s.kind === "mother").length;
@@ -613,7 +629,7 @@ export function describeRelationshipTamil(
   }
   if (up === 1 && down === 1) {
     if (targetGender !== "M" && targetGender !== "F") return null;
-    const order = olderOf(sourceId, targetId, birthYears);
+    const order = olderOf(sourceId, targetId, birthYears, birthOrders);
     if (targetGender === "M") {
       if (!order) return { tamil: "பெரிய அண்ணா/தம்பி", translit: "Periya Anna/Thambi" };
       return order === "b" ? { tamil: "பெரிய அண்ணா", translit: "Periya Anna" } : { tamil: "தம்பி", translit: "Thambi" };
@@ -628,13 +644,13 @@ export function describeRelationshipTamil(
   }
   if (up === 2 && down === 1) {
     if (!side) return null;
-    return tamilAuntUncleTerm(steps[0].id, side, targetId, genders, birthYears);
+    return tamilAuntUncleTerm(steps[0].id, side, targetId, genders, birthYears, birthOrders);
   }
   if (up === 1 && down === 2) {
     const siblingId = steps[1].id;
     const siblingGender = genders.get(siblingId) ?? null;
     if (siblingGender !== "M" && siblingGender !== "F") return null;
-    const order = olderOf(sourceId, siblingId, birthYears);
+    const order = olderOf(sourceId, siblingId, birthYears, birthOrders);
     const siblingTerm = !order
       ? siblingGender === "M"
         ? { tamil: "அண்ணன்/தம்பி", translit: "Anna/Thambi" }
@@ -650,7 +666,7 @@ export function describeRelationshipTamil(
   }
   if (up === 2 && down === 2) {
     if (!side) return null;
-    const auntUncle = tamilAuntUncleTerm(steps[0].id, side, steps[2].id, genders, birthYears);
+    const auntUncle = tamilAuntUncleTerm(steps[0].id, side, steps[2].id, genders, birthYears, birthOrders);
     if (!auntUncle) return null;
     return { tamil: `${auntUncle.tamil} பிள்ளை`, translit: `${auntUncle.translit} Pillai` };
   }

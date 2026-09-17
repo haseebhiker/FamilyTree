@@ -25,6 +25,7 @@ export default async function ComparePage({
   let personB: typeof personA;
   let peopleById = new Map<string, NonNullable<typeof personA>>();
   let birthYears = new Map<string, number | null>();
+  let birthOrders = new Map<string, number | null>();
 
   if (a && b && a !== b) {
     personA = (people ?? []).find((p) => p.id === a);
@@ -60,10 +61,11 @@ export default async function ComparePage({
       const involvedIds = [...new Set([...paths.flat().map((s) => s.id), a])];
       const { data: involvedPeople } = await supabase
         .from("people")
-        .select("id, full_name, preferred_name, surname_tag, birth_year")
+        .select("id, full_name, preferred_name, surname_tag, birth_year, birth_order")
         .in("id", involvedIds.length ? involvedIds : ["-"]);
       peopleById = new Map((involvedPeople ?? []).map((p) => [p.id, p]));
       birthYears = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_year]));
+      birthOrders = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_order]));
     }
   }
 
@@ -107,6 +109,7 @@ export default async function ComparePage({
             paths={result.paths}
             genders={result.genders}
             birthYears={birthYears}
+            birthOrders={birthOrders}
             sourceId={personA.id}
             peopleById={peopleById}
             sourceLabel={<PersonName person={personA} />}

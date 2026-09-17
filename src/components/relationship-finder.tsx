@@ -22,6 +22,7 @@ function RelationshipPath({
   steps,
   genders,
   birthYears,
+  birthOrders,
   sourceId,
   peopleById,
   sourceLabel,
@@ -30,6 +31,7 @@ function RelationshipPath({
   steps: PathStep[];
   genders: Map<string, Gender>;
   birthYears: Map<string, number | null | undefined>;
+  birthOrders: Map<string, number | null | undefined>;
   sourceId: string;
   peopleById: Map<string, PersonLite>;
   sourceLabel: ReactNode;
@@ -37,7 +39,7 @@ function RelationshipPath({
 }) {
   const summary = describeRelationship(steps, genders);
   const specific = describeSpecificBlood(steps, genders);
-  const tamil = describeRelationshipTamil(steps, genders, birthYears, sourceId);
+  const tamil = describeRelationshipTamil(steps, genders, birthYears, birthOrders, sourceId);
   const last = peopleById.get(steps[steps.length - 1].id);
 
   return (
@@ -102,6 +104,7 @@ export function RelationshipFinder({
   paths,
   genders,
   birthYears,
+  birthOrders,
   sourceId,
   peopleById,
   title = "How you're related",
@@ -111,6 +114,7 @@ export function RelationshipFinder({
   paths: PathStep[][];
   genders: Map<string, Gender>;
   birthYears: Map<string, number | null | undefined>;
+  birthOrders: Map<string, number | null | undefined>;
   sourceId: string;
   peopleById: Map<string, PersonLite>;
   title?: string;
@@ -142,6 +146,7 @@ export function RelationshipFinder({
             steps={steps}
             genders={genders}
             birthYears={birthYears}
+            birthOrders={birthOrders}
             sourceId={sourceId}
             peopleById={peopleById}
             sourceLabel={sourceLabel}
@@ -162,6 +167,7 @@ export function RelationshipFinder({
                 steps={steps}
                 genders={genders}
                 birthYears={birthYears}
+                birthOrders={birthOrders}
                 sourceId={sourceId}
                 peopleById={peopleById}
                 sourceLabel={sourceLabel}

@@ -130,6 +130,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     paths: ReturnType<typeof findRelationshipPaths>["paths"];
     genders: ReturnType<typeof findRelationshipPaths>["genders"];
     birthYears: Map<string, number | null>;
+    birthOrders: Map<string, number | null>;
     peopleById: Map<string, { id: string; full_name: string; preferred_name: string | null; surname_tag: string | null }>;
   } | null = null;
   if (member?.person_id && member.person_id !== person.id) {
@@ -160,11 +161,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       const involvedIds = [...new Set([...paths.flat().map((s) => s.id), member.person_id])];
       const { data: involvedPeople } = await supabase
         .from("people")
-        .select("id, full_name, preferred_name, surname_tag, birth_year")
+        .select("id, full_name, preferred_name, surname_tag, birth_year, birth_order")
         .in("id", involvedIds);
       const peopleById = new Map((involvedPeople ?? []).map((p) => [p.id, p]));
       const birthYears = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_year]));
-      relationshipFinder = { paths, genders, birthYears, peopleById };
+      const birthOrders = new Map((involvedPeople ?? []).map((p) => [p.id, p.birth_order]));
+      relationshipFinder = { paths, genders, birthYears, birthOrders, peopleById };
     }
   }
 
@@ -450,6 +452,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           paths={relationshipFinder.paths}
           genders={relationshipFinder.genders}
           birthYears={relationshipFinder.birthYears}
+          birthOrders={relationshipFinder.birthOrders}
           sourceId={member!.person_id!}
           peopleById={relationshipFinder.peopleById}
         />
