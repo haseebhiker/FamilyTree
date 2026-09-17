@@ -267,9 +267,14 @@ export async function sendInviteReminderEmails(formData: FormData): Promise<{ se
   for (const invite of invites ?? []) {
     const personalized = body.replace(/\{\{name\}\}/gi, invite.name);
     const ok = await sendEmail({ to: invite.email, subject, html: emailBodyToHtml(personalized) });
-    if (ok) sent++;
-    else failed++;
+    if (ok) {
+      sent++;
+      await supabase.from("invites").update({ last_reminder_sent_at: new Date().toISOString() }).eq("id", invite.id);
+    } else {
+      failed++;
+    }
   }
 
+  revalidatePath("/admin/invites");
   return { sent, failed };
 }

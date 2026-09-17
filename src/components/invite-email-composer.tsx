@@ -2,11 +2,13 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { ChevronIcon, Input, Textarea, Button } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 
 interface InviteOption {
   id: string;
   name: string;
   email: string;
+  last_reminder_sent_at: string | null;
 }
 
 // Same content as the automatic "you're approved" email (see
@@ -84,11 +86,34 @@ export function InviteEmailComposer({
         Email invites who haven&apos;t signed in yet ({invites.length})
       </summary>
       <div className="space-y-3 border-t border-slate-100 p-4">
+        <div className="flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setSelected(new Set(invites.map((i) => i.id)))}
+            className="font-medium text-slate-600 hover:underline"
+          >
+            Select all
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="font-medium text-slate-600 hover:underline"
+          >
+            Deselect all
+          </button>
+        </div>
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
           {invites.map((inv) => (
             <label key={inv.id} className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={selected.has(inv.id)} onChange={() => toggle(inv.id)} />
               {inv.name} <span className="text-slate-400">({inv.email})</span>
+              <span className="text-xs text-slate-400">
+                {inv.last_reminder_sent_at ? (
+                  <>— reminded <LocalTime iso={inv.last_reminder_sent_at} /></>
+                ) : (
+                  "— never reminded"
+                )}
+              </span>
             </label>
           ))}
         </div>

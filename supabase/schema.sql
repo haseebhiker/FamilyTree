@@ -105,7 +105,10 @@ create table invites (
   status text not null default 'pending' check (status in ('pending', 'accepted', 'revoked')),
   invited_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
-  accepted_at timestamptz
+  accepted_at timestamptz,
+  -- Last time a manual reminder email went out to this invite, so the
+  -- composer can show "already sent" instead of leaving it a guess.
+  last_reminder_sent_at timestamptz
 );
 
 -- Self-service "request access" flow: a Google account that signed in but
