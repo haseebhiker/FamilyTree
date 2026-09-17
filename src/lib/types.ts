@@ -61,6 +61,7 @@ export interface Person {
   place_of_death: string | null;
   current_location: string | null;
   photo_url: string | null;
+  photo_thumbnail_url: string | null;
   bio: string | null;
   facebook_url: string | null;
   linkedin_url: string | null;

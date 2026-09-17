@@ -38,6 +38,10 @@ create table people (
   place_of_death text,
   current_location text,
   photo_url text,
+  -- 200x200 square WebP thumbnail of photo_url, generated client-side on
+  -- upload (see person-photo-upload.tsx) — used anywhere a small avatar
+  -- renders instead of fetching/decoding the full-size photo.
+  photo_thumbnail_url text,
   bio text,
   facebook_url text,
   linkedin_url text,
@@ -708,6 +712,29 @@ create policy "admins write privacy_defaults" on privacy_defaults
   for insert with check (is_admin());
 create policy "admins update privacy_defaults" on privacy_defaults
   for update using (is_admin());
+
+-- ---------------------------------------------------------------------------
+-- Storage: profile photos, uploaded directly from the browser (never
+-- through a Server Action — Vercel's request body limit), pre-compressed
+-- to WebP client-side. Public bucket (matches the old plain-text
+-- photo_url field, which was already just an unauthenticated link); any
+-- signed-in member can upload one, only an admin can delete one, since
+-- RLS here is the actual enforcement for a browser-direct upload/delete —
+-- the app's own owner-or-admin check on the DB row is a separate, second
+-- gate on top of it. See src/components/person-photo-upload.tsx.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('person-photos', 'person-photos', true)
+on conflict (id) do nothing;
+
+create policy "signed-in members can upload person photos" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'person-photos');
+create policy "admins can delete person photos" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'person-photos' and is_admin());
+create policy "anyone can view person photos" on storage.objects
+  for select using (bucket_id = 'person-photos');
 
 -- ---------------------------------------------------------------------------
 -- Seed data

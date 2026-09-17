@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
 import { Field, Input, Select, Textarea, Button } from "@/components/ui";
+import { PersonPhotoUpload } from "@/components/person-photo-upload";
 import type { Person } from "@/lib/types";
 
 /**
@@ -157,7 +158,16 @@ function FormFields({
 
       <Field label="Place of birth"><Input name="place_of_birth" defaultValue={personRaw.place_of_birth ?? ""} /></Field>
       <Field label="Place of death"><Input name="place_of_death" defaultValue={personRaw.place_of_death ?? ""} /></Field>
-      <Field label="Photo URL"><Input name="photo_url" defaultValue={personRaw.photo_url ?? ""} /></Field>
+      <div className="sm:col-span-2">
+        <Field label="Photo">
+          <PersonPhotoUpload
+            personId={personId}
+            hasExistingPhoto={!!personRaw.photo_url}
+            previousPhotoUrl={personRaw.photo_url}
+            previousThumbnailUrl={personRaw.photo_thumbnail_url}
+          />
+        </Field>
+      </div>
       <Field label="Facebook URL"><Input name="facebook_url" defaultValue={personRaw.facebook_url ?? ""} /></Field>
       <Field label="LinkedIn URL"><Input name="linkedin_url" defaultValue={personRaw.linkedin_url ?? ""} /></Field>
       <div className="sm:col-span-2"><Field label="Bio / notes"><Textarea name="bio" rows={3} defaultValue={personRaw.bio ?? ""} /></Field></div>

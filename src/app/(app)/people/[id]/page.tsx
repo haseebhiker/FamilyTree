@@ -400,7 +400,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       )}
 
       <div className="flex items-start gap-4">
-        <PersonAvatar photoUrl={person.photo_url} fullName={person.full_name} />
+        <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
         <div>
           <h1 className="text-lg font-semibold text-slate-900">
             <PersonName person={person} />

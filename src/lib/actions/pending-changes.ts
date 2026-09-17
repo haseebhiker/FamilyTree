@@ -20,7 +20,9 @@ const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spo
   wife: { type: "spouse", gender: "F" },
 };
 
-const URL_FIELDS = new Set(["photo_url", "facebook_url", "linkedin_url"]);
+// photo_url isn't in here anymore — it's set directly by updatePersonPhoto
+// after a real upload (see person-photo-upload.tsx), not hand-typed.
+const URL_FIELDS = new Set(["facebook_url", "linkedin_url"]);
 
 const EDITABLE_PERSON_TEXT_FIELDS = [
   "full_name",
@@ -32,7 +34,6 @@ const EDITABLE_PERSON_TEXT_FIELDS = [
   "place_of_birth",
   "place_of_death",
   "current_location",
-  "photo_url",
   "bio",
   "facebook_url",
   "linkedin_url",
