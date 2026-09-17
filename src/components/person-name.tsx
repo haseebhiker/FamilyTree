@@ -80,3 +80,27 @@ export function PersonName({ person }: { person: NameFields }) {
  */
 export const TreeName = PersonName;
 export const ResponsivePersonName = PersonName;
+
+/**
+ * Profile page header only: preferred name in blue, followed by the full
+ * name, on one line — the pre-redesign look Haseeb asked to keep just here.
+ * Surname tag still gets its own line below, styled exactly like PersonName.
+ */
+export function ProfileHeaderName({ person }: { person: NameFields }) {
+  return (
+    <span className="inline-flex flex-col align-top leading-tight">
+      <span>
+        {person.preferred_name?.trim() && (
+          <span className="font-semibold text-blue-700">{person.preferred_name}</span>
+        )}
+        {person.preferred_name?.trim() && " "}
+        <span className="text-slate-700">{person.full_name}</span>
+      </span>
+      {person.surname_tag && (
+        <span className="text-[0.6em] font-medium tracking-wide text-amber-700">
+          {person.surname_tag}
+        </span>
+      )}
+    </span>
+  );
+}

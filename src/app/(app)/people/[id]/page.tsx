@@ -18,7 +18,7 @@ import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
 import { ContactIcons } from "@/components/contact-icons";
-import { PersonName, ResponsivePersonName } from "@/components/person-name";
+import { ProfileHeaderName, ResponsivePersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
@@ -403,7 +403,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
         <div>
           <h1 className="text-lg font-semibold text-slate-900">
-            <PersonName person={person} />
+            <ProfileHeaderName person={person} />
           </h1>
           {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
           <div className="mt-1 flex items-center gap-2">
