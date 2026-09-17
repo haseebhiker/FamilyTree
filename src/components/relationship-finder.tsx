@@ -108,10 +108,17 @@ export function RelationshipFinder({
 
   return (
     <Card>
-      <h2 className="mb-1 text-sm font-semibold text-slate-900">{title}</h2>
-      {paths.length > 1 && (
-        <p className="mb-3 text-xs text-slate-500">Related {paths.length} different ways — see each below.</p>
-      )}
+      <h2 className="mb-3 text-sm font-semibold text-slate-900">
+        {paths.length > 1 ? (
+          sourceLabel === "You" ? (
+            <>You&apos;re related {paths.length} different ways</>
+          ) : (
+            <>{sourceLabel} is related {paths.length} different ways</>
+          )
+        ) : (
+          title
+        )}
+      </h2>
       <div className="space-y-2">
         {visible.map((steps, i) => (
           <RelationshipPath
