@@ -381,17 +381,6 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     .order("full_name")
     .limit(2000);
 
-  // Year-only by default at the top of the page — the full date (with
-  // month/day, when known) still shows in the "Suggest an edit" form and
-  // wherever else it's already displayed; this is just the at-a-glance
-  // header line, which reads better short.
-  const birthYearDisplay = person.birth_year ? String(person.birth_year) : null;
-  const deathYearDisplay = person.death_year ? String(person.death_year) : null;
-  const lifespan =
-    birthYearDisplay || deathYearDisplay
-      ? `${birthYearDisplay ?? "?"} – ${person.living_status === "living" ? "present" : deathYearDisplay ?? "?"}`
-      : null;
-
   return (
     <div className="space-y-6">
       {personRaw.deleted_at && (
@@ -445,8 +434,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                   {person.living_status}
                 </Badge>
               )}
-              {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
-              {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
+              {person.current_location && <span className="text-sm text-slate-500">{person.current_location}</span>}
             </div>
             <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
               Compare relationship with someone else…
