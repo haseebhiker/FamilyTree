@@ -19,6 +19,7 @@ import { ContactDetailForm } from "@/components/contact-detail-form";
 import { ProfileActionButtons } from "@/components/profile-action-buttons";
 import { PersonAvatar } from "@/components/person-avatar";
 import { PersonAvatarUpload } from "@/components/person-photo-upload";
+import { ShareButton } from "@/components/share-button";
 import { ContactIcons } from "@/components/contact-icons";
 import { ProfileHeaderName, ResponsivePersonName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
@@ -413,43 +414,49 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      <div className="flex items-start gap-4">
-        {isOwner || isAdmin(member) ? (
-          <PersonAvatarUpload
-            personId={person.id}
-            photoUrl={person.photo_url}
-            thumbnailUrl={person.photo_thumbnail_url}
-            fullName={person.full_name}
-            previousPhotoUrl={person.photo_url}
-            previousThumbnailUrl={person.photo_thumbnail_url}
-          />
-        ) : (
-          <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
-        )}
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">
-            <ProfileHeaderName person={person} />
-          </h1>
-          {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
-          <div className="mt-1 flex items-center gap-2">
-            {person.living_status !== "unknown" && (
-              <Badge
-                className={
-                  person.living_status === "deceased"
-                    ? "bg-slate-200 text-slate-700"
-                    : "bg-green-100 text-green-800"
-                }
-              >
-                {person.living_status}
-              </Badge>
-            )}
-            {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
-            {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          {isOwner || isAdmin(member) ? (
+            <PersonAvatarUpload
+              personId={person.id}
+              photoUrl={person.photo_url}
+              thumbnailUrl={person.photo_thumbnail_url}
+              fullName={person.full_name}
+              previousPhotoUrl={person.photo_url}
+              previousThumbnailUrl={person.photo_thumbnail_url}
+            />
+          ) : (
+            <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
+          )}
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">
+              <ProfileHeaderName person={person} />
+            </h1>
+            {person.other_names && <p className="text-sm text-slate-500">Also known as {person.other_names}</p>}
+            <div className="mt-1 flex items-center gap-2">
+              {person.living_status !== "unknown" && (
+                <Badge
+                  className={
+                    person.living_status === "deceased"
+                      ? "bg-slate-200 text-slate-700"
+                      : "bg-green-100 text-green-800"
+                  }
+                >
+                  {person.living_status}
+                </Badge>
+              )}
+              {lifespan && <span className="text-sm text-slate-500">{lifespan}</span>}
+              {person.current_location && <span className="text-sm text-slate-500">· {person.current_location}</span>}
+            </div>
+            <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
+              Compare relationship with someone else…
+            </Link>
           </div>
-          <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
-            Compare relationship with someone else…
-          </Link>
         </div>
+        <ShareButton
+          title={`${person.preferred_name?.trim() || person.full_name} — Nams Family Tree`}
+          url={`https://familytree.haseeb.in/people/${person.id}`}
+        />
       </div>
 
       {relationshipFinder && (
