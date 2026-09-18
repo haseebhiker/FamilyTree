@@ -157,13 +157,8 @@ function FormFields({
         <Field label="Date of birth (any part can be left blank)">
           <div className="flex gap-2">
             <Input name="birth_year" type="number" placeholder="Year" defaultValue={personRaw.birth_year ?? ""} />
-            <Select name="birth_month" defaultValue={personRaw.birth_month ?? ""}>
-              <option value="">Month</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
-              ))}
-            </Select>
-            <Input name="birth_day" type="number" placeholder="Day" defaultValue={personRaw.birth_day ?? ""} />
+            <Input name="birth_month" type="number" placeholder="Month" min={1} max={12} defaultValue={personRaw.birth_month ?? ""} />
+            <Input name="birth_day" type="number" placeholder="Day" min={1} max={31} defaultValue={personRaw.birth_day ?? ""} />
           </div>
         </Field>
       </div>
@@ -171,13 +166,8 @@ function FormFields({
         <Field label="Date of death (any part can be left blank)">
           <div className="flex gap-2">
             <Input name="death_year" type="number" placeholder="Year" defaultValue={personRaw.death_year ?? ""} />
-            <Select name="death_month" defaultValue={personRaw.death_month ?? ""}>
-              <option value="">Month</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString("en", { month: "long" })}</option>
-              ))}
-            </Select>
-            <Input name="death_day" type="number" placeholder="Day" defaultValue={personRaw.death_day ?? ""} />
+            <Input name="death_month" type="number" placeholder="Month" min={1} max={12} defaultValue={personRaw.death_month ?? ""} />
+            <Input name="death_day" type="number" placeholder="Day" min={1} max={31} defaultValue={personRaw.death_day ?? ""} />
           </div>
         </Field>
       </div>

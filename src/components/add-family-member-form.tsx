@@ -115,6 +115,30 @@ function FormFields({
     <form action={onSubmit} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="person_id" value={personId} />
 
+      <div className="sm:col-span-2 space-y-2">
+        {submitted && (
+          <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+            Submitted — an admin will review it soon. It won&apos;t show up here yet, so there&apos;s no need to
+            submit it again.
+          </p>
+        )}
+        {error && (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-1 text-xs font-medium text-red-800 underline hover:text-red-900"
+            >
+              If that looks wrong, reload the page and try again
+            </button>
+          </div>
+        )}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Submitting…" : "Submit for review"}
+        </Button>
+      </div>
+
       <div className="sm:col-span-2">
         <Field label="Relation">
           <Select name="relation" value={relation} onChange={(e) => setRelation(e.target.value as Relation)}>
