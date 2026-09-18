@@ -19,6 +19,18 @@ function SearchIcon() {
   );
 }
 
+function ActivityIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+      <path
+        fillRule="evenodd"
+        d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-12.5a.75.75 0 0 0-1.5 0V10c0 .27.12.526.328.696l3 2.5a.75.75 0 1 0 .944-1.164l-2.672-2.226V5.5Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
@@ -76,6 +88,11 @@ export function NavBar({
           <Link href="/tree" aria-label="Search for a person" className="hover:text-slate-900">
             <SearchIcon />
           </Link>
+          {isAdmin && (
+            <Link href="/admin/activity-log" aria-label="Activity Log" title="Activity Log" className="hover:text-slate-900">
+              <ActivityIcon />
+            </Link>
+          )}
 
           <details ref={menuRef} className="group relative">
             <summary
