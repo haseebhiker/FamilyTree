@@ -102,8 +102,8 @@ async function notifySubmitterOfDecision(
 
   const body =
     decision === "approved"
-      ? `Hi ${submitter.name},\n\nGood news — the change you submitted for ${personName} has been approved and is now live on the family tree. Thanks for keeping it accurate!\n\nSee it at https://familytree.haseeb.in`
-      : `Hi ${submitter.name},\n\nThe change you submitted for ${personName} wasn't approved.${adminNote ? ` Note from the admin: ${adminNote}` : ""}\n\nIf you have questions, feel free to ask whoever reviewed it. You can see all your submissions at https://familytree.haseeb.in/my-submissions`;
+      ? `Hi ${submitter.name},\n\nThank you for the change you submitted for ${personName} — it's approved and now live on the family tree!\n\nContributions like yours are exactly what keeps this tree accurate and growing, for all of us and for the generations who come after. Every change counts, however small it might seem.\n\nIf you spot anything else missing or worth adding, please keep them coming.\n\nSee it at https://familytree.haseeb.in`
+      : `Hi ${submitter.name},\n\nThe change you submitted for ${personName} wasn't approved this time.${adminNote ? ` Note from the admin: ${adminNote}` : ""}\n\nThank you for taking the time to contribute — please don't let this discourage you from submitting more. If you have questions, feel free to ask whoever reviewed it. You can see all your submissions at https://familytree.haseeb.in/my-submissions`;
 
   await sendEmail({
     to: submitter.email,

@@ -4,23 +4,24 @@ import { createClient } from "@supabase/supabase-js";
 let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
 /**
- * TEMPORARY — logs every failed/skipped send to audit_log so it's
- * checkable via a script (no Vercel dashboard access from here). A send
- * that silently fails currently leaves no trace anywhere Haseeb or I can
- * see it; confirmed live when an approval's "your change was approved"
- * email never arrived with no visible error. Remove once email delivery
- * is confirmed reliable.
+ * TEMPORARY — logs every send attempt (success included, not just
+ * failures) to audit_log so it's checkable via a script (no Vercel
+ * dashboard access from here). An empty failure-only log is ambiguous —
+ * it's equally consistent with "every send succeeded" and "sendEmail is
+ * never being called at all" — confirmed live when an approval's "your
+ * change was approved" email never arrived with nothing logged either
+ * way. Remove once email delivery is confirmed reliable.
  */
-async function logEmailFailure(to: string, subject: string, reason: string) {
+async function logEmailAttempt(to: string, subject: string, status: "sent" | "skipped" | "failed", reason?: string) {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     await supabase.from("audit_log").insert({
       person_id: null,
-      change_type: "email_send_failed",
+      change_type: "email_attempt",
       old_value: null,
-      new_value: { to, subject, reason },
+      new_value: { to, subject, status, reason },
       performed_by: null,
-      note: "TEMP diagnostic — see logEmailFailure in src/lib/email.ts",
+      note: "TEMP diagnostic — see logEmailAttempt in src/lib/email.ts",
     });
   } catch {
     // Never let logging failure mask the real issue.
@@ -60,16 +61,17 @@ export async function sendEmail({
   const from = process.env.GMAIL_USER;
   if (!transport || !from) {
     console.warn(`[email] Not configured — would have sent "${subject}" to ${to}`);
-    await logEmailFailure(to, subject, "GMAIL_USER/GMAIL_APP_PASSWORD not configured");
+    await logEmailAttempt(to, subject, "skipped", "GMAIL_USER/GMAIL_APP_PASSWORD not configured");
     return false;
   }
 
   try {
     await transport.sendMail({ from: `Nams Family Tree <${from}>`, to, subject, html });
+    await logEmailAttempt(to, subject, "sent");
     return true;
   } catch (err) {
     console.error("[email] send failed:", err);
-    await logEmailFailure(to, subject, err instanceof Error ? err.message : String(err));
+    await logEmailAttempt(to, subject, "failed", err instanceof Error ? err.message : String(err));
     return false;
   }
 }
