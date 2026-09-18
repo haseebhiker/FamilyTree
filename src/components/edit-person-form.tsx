@@ -16,7 +16,16 @@ import type { Person } from "@/lib/types";
  * just stays there looking unsubmitted — which is exactly what led to the
  * same edit being submitted three or four times over.
  */
-export function EditPersonForm({ personId, personRaw }: { personId: string; personRaw: Person }) {
+export function EditPersonForm({
+  personId,
+  personRaw,
+  onSuccess,
+}: {
+  personId: string;
+  personRaw: Person;
+  /** When given (ProfileActionButtons wires this up), called instead of showing the "Submitted" message inline — the parent collapses this section and shows the message in its place instead, so a successful save doesn't leave the whole form sitting open. */
+  onSuccess?: (message: string) => void;
+}) {
   const router = useRouter();
   const [generation, setGeneration] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -29,7 +38,13 @@ export function EditPersonForm({ personId, personRaw }: { personId: string; pers
     startTransition(async () => {
       try {
         await submitPersonEdit(formData);
-        setSubmitted(true);
+        if (onSuccess) {
+          onSuccess(
+            "Submitted — an admin will review it soon. It won't show up here yet, so there's no need to submit it again.",
+          );
+        } else {
+          setSubmitted(true);
+        }
         setGeneration((g) => g + 1);
         // The remount above only resets the form's own state — personRaw is
         // a prop from the parent Server Component, captured at the last page

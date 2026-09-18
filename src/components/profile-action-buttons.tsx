@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
 type Section = "contact" | "edit" | "family";
 
@@ -26,6 +26,7 @@ export function ProfileActionButtons({
   addFamilyMemberForm: ReactNode;
 }) {
   const [open, setOpen] = useState<Section | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Short enough that all three fit on one line even on a narrow phone —
   // the full-length labels ("Suggest an edit", "Add a family member")
@@ -40,8 +41,24 @@ export function ProfileActionButtons({
   }
 
   function toggle(key: Section) {
+    setSuccessMessage(null);
     setOpen((current) => (current === key ? null : key));
   }
+
+  // A successful save collapses the section instead of leaving the whole
+  // form sitting open with just a message at the top of it — the
+  // confirmation shows here, between the button row and Family, instead.
+  function handleEditSuccess(message: string) {
+    setOpen(null);
+    setSuccessMessage(message);
+  }
+
+  const editFormWithCallback =
+    isValidElement(editForm) && open === "edit"
+      ? cloneElement(editForm as ReactElement<{ onSuccess?: (message: string) => void }>, {
+          onSuccess: handleEditSuccess,
+        })
+      : editForm;
 
   return (
     <div>
@@ -58,10 +75,13 @@ export function ProfileActionButtons({
           Add
         </button>
       </div>
+      {successMessage && (
+        <p className="mt-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">{successMessage}</p>
+      )}
       {open && (
         <div className="mt-3 rounded-lg border border-slate-200 bg-white">
           {open === "contact" && contactForm}
-          {open === "edit" && editForm}
+          {open === "edit" && editFormWithCallback}
           {open === "family" && addFamilyMemberForm}
         </div>
       )}
