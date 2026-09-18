@@ -439,6 +439,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
               Compare relationship with someone else…
             </Link>
+            <p className="mt-0.5 text-[10px] text-slate-300 select-all">ID: {person.id}</p>
           </div>
         </div>
         <ShareButton
