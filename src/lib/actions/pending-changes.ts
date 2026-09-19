@@ -8,7 +8,6 @@ import type { Member, Person, PendingChangeType } from "@/lib/types";
 import { parsePartialDateFields } from "@/lib/partial-date";
 import { encryptValue } from "@/lib/vault-crypto";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
-import { sendEmail, emailBodyToHtml } from "@/lib/email";
 
 const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spouse"; gender: "M" | "F" }> = {
   father: { type: "parent", gender: "M" },
@@ -60,38 +59,6 @@ async function requireAdmin() {
   const { supabase, member } = await requireMember();
   if (!isAdmin(member)) throw new Error("Admins only");
   return { supabase, member };
-}
-
-/**
- * Tells whoever submitted a change whether it was approved or rejected —
- * best-effort, same as every other email in this app (a failed/unconfigured
- * send should never undo a decision that already succeeded).
- */
-async function notifySubmitterOfDecision(
-  supabase: SupabaseClient,
-  submittedBy: string,
-  decision: "approved" | "rejected",
-  targetPersonId: string | null,
-  adminNote: string | null,
-) {
-  const { data: submitter } = await supabase.from("members").select("name, email").eq("id", submittedBy).maybeSingle();
-  if (!submitter) return;
-
-  const { data: person } = targetPersonId
-    ? await supabase.from("people").select("full_name, preferred_name").eq("id", targetPersonId).maybeSingle()
-    : { data: null };
-  const personName = person ? person.preferred_name?.trim() || person.full_name : "someone in the tree";
-
-  const body =
-    decision === "approved"
-      ? `Hi ${submitter.name},\n\nThank you for the change you submitted for ${personName} — it's approved and now live on the family tree!\n\nContributions like yours are exactly what keeps this tree accurate and growing, for all of us and for the generations who come after. Every change counts, however small it might seem.\n\nIf you spot anything else missing or worth adding, please keep them coming.\n\nSee it at https://familytree.haseeb.in`
-      : `Hi ${submitter.name},\n\nThe change you submitted for ${personName} wasn't approved this time.${adminNote ? ` Note from the admin: ${adminNote}` : ""}\n\nThank you for taking the time to contribute — please don't let this discourage you from submitting more. If you have questions, feel free to ask whoever reviewed it. You can see all your submissions at https://familytree.haseeb.in/my-submissions`;
-
-  await sendEmail({
-    to: submitter.email,
-    subject: decision === "approved" ? "Your Family Tree submission was approved" : "Your Family Tree submission wasn't approved",
-    html: emailBodyToHtml(body),
-  });
 }
 
 /**
@@ -671,7 +638,6 @@ export async function approvePendingChange(formData: FormData) {
     pending_change_id: changeId,
   });
 
-  await notifySubmitterOfDecision(supabase, change.submitted_by, "approved", appliedPersonId, null);
   // No revalidatePath — called from PendingChangeApproveForm/
   // PendingChangeApproveRaw, which do their own router.refresh() after
   // success. See ActionButton's comment for why bundling a revalidatePath
@@ -704,6 +670,5 @@ export async function rejectPendingChange(formData: FormData) {
     .eq("status", "pending");
   if (error) throw new Error(error.message);
 
-  await notifySubmitterOfDecision(supabase, change.submitted_by, "rejected", change.target_person_id, adminNote);
   // No revalidatePath — see approvePendingChange's comment just above.
 }
