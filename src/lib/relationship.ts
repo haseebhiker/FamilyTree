@@ -285,21 +285,24 @@ export function findRelationshipPaths(
     }
   }
 
-  // 6. Blood path from source to one half of ANY marriage, then blood path
-  // from the other half to target ("son's wife's mother" — a "sammandhi").
-  // Categories 2-4 are the special cases of this where one or both blood
-  // segments are empty (source or target IS one half of the marriage);
-  // this is the general case where neither is, so it isn't source's own
-  // marriage or target's own marriage doing the connecting, but someone
-  // else's in between.
+  // 6. Source's direct parent or child, married to a direct parent or
+  // child of target ("son's wife's mother" — a "sammandhi"). Categories
+  // 2-4 are the special cases of this where one or both sides are empty
+  // (source or target IS one half of the marriage); this is the general
+  // case where neither is. Deliberately limited to ONE hop on each side
+  // (not "any blood relative, however distant", which findBloodPaths could
+  // also return) — in a family with any amount of cousin marriage,
+  // widening this to every blood relative floods a comparison with dozens
+  // of technically-real but meaningless distant bridges instead of the one
+  // or two that are actually worth showing.
   for (const marriage of spouses) {
     for (const [aId, bId] of [
       [marriage.person_a_id, marriage.person_b_id],
       [marriage.person_b_id, marriage.person_a_id],
     ] as const) {
       if (aId === sourceId || bId === targetId) continue;
-      for (const p of dedupe(findBloodPaths(people, sourceId, aId, maxPaths))) {
-        for (const q of dedupe(findBloodPaths(people, bId, targetId, maxPaths))) {
+      for (const p of dedupe(findBloodPaths(people, sourceId, aId, maxPaths)).filter((path) => path.length === 1)) {
+        for (const q of dedupe(findBloodPaths(people, bId, targetId, maxPaths)).filter((path) => path.length === 1)) {
           candidates.push([...p, { id: bId, kind: "spouse" }, ...q]);
         }
       }
