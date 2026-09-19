@@ -416,6 +416,14 @@ export function describeRelationship(steps: PathStep[], genders: Map<string, Gen
   };
 
   if (spouseIdx.length === 1 && spouseIdx[0] === steps.length - 1) {
+    // A direct child's spouse has its own word (daughter-in-law /
+    // son-in-law) rather than "son's wife" / "daughter's husband" —
+    // everything deeper (e.g. grandchild's spouse) still composes.
+    if (steps.length === 2 && steps[0].kind === "child") {
+      const spouseWord = spouseTermFor(steps[1].id);
+      if (spouseWord === "wife") return "daughter-in-law";
+      if (spouseWord === "husband") return "son-in-law";
+    }
     const bloodTerm = blood(steps.slice(0, -1), genders);
     return bloodTerm ? `${bloodTerm}'s ${spouseTermFor(steps[steps.length - 1].id)}` : null;
   }
@@ -558,6 +566,14 @@ function describeInLawTamil(
 
   if (spouseIdx.length === 1 && spouseIdx[0] === steps.length - 1) {
     const bloodSteps = steps.slice(0, -1);
+    // A direct child's spouse (son's wife / daughter's husband) has its own
+    // dedicated word rather than the general "child + spouse" composition
+    // used for everything deeper (e.g. grandchild's spouse).
+    if (bloodSteps.length === 1 && bloodSteps[0].kind === "child") {
+      const spouseGender = genders.get(steps[steps.length - 1].id) ?? null;
+      if (spouseGender === "F") return { tamil: "மருமகள்", translit: "Marumagal" };
+      if (spouseGender === "M") return { tamil: "மருமகன்", translit: "Marumagan" };
+    }
     const bloodTerm = bloodSteps.length > 0 ? describeRelationshipTamil(bloodSteps, genders, birthYears, birthOrders, sourceId) : null;
     const spouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
     if (!bloodTerm || !spouseTerm) return null;
