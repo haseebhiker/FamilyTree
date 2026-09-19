@@ -71,7 +71,7 @@ function RelationshipPath({
             <>See the connection ({steps.length} steps)</>
           )}
         </span>
-        <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 group-open/path:hidden">
+        <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 group-open/path:hidden">
           Expand map →
         </span>
       </summary>
