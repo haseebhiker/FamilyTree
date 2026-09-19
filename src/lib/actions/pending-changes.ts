@@ -378,7 +378,7 @@ async function applyOrQueue(
  * it likely, without changing behavior for the normal single-submit case
  * (EditPersonForm), which still wants the revalidation.
  */
-export async function submitPersonEdit(formData: FormData, options?: { skipRevalidate?: boolean }): Promise<boolean> {
+async function submitPersonEditImpl(formData: FormData, options?: { skipRevalidate?: boolean }): Promise<boolean> {
   const { supabase, member } = await requireMember();
   const targetPersonId = String(formData.get("person_id") ?? "");
   if (!targetPersonId) throw new Error("Missing person id");
@@ -467,6 +467,26 @@ export async function submitPersonEdit(formData: FormData, options?: { skipReval
 }
 
 /**
+ * In production, an Error thrown from a Server Action reaches the browser
+ * with its message stripped — the user just sees "Minified React error
+ * #441" (React's "an error occurred in the Server Components render, message
+ * omitted"), even for plain validation failures like "Month must be between
+ * 1 and 12". So the user-facing submit actions below catch and RETURN the
+ * message as data instead of throwing it.
+ */
+export async function submitPersonEdit(
+  formData: FormData,
+  options?: { skipRevalidate?: boolean },
+): Promise<{ applied: boolean } | { error: string }> {
+  try {
+    return { applied: await submitPersonEditImpl(formData, options) };
+  } catch (e) {
+    console.error("[submitPersonEdit]", e);
+    return { error: e instanceof Error ? e.message : "Something went wrong — please try again." };
+  }
+}
+
+/**
  * Single entry point for "Add a family member" — one relation dropdown
  * (Father/Mother/Son/Daughter/Brother/Sister/Husband/Wife, so gender is
  * implied by the choice instead of asked separately) followed by either
@@ -477,7 +497,7 @@ export async function submitPersonEdit(formData: FormData, options?: { skipReval
  * existing "child" sets the *other* person's parent field to point back
  * at this one — same primitive, just aimed at whichever side needs it.
  */
-export async function submitFamilyRelation(formData: FormData) {
+async function submitFamilyRelationImpl(formData: FormData) {
   const { supabase, member } = await requireMember();
 
   const personId = String(formData.get("person_id") ?? "").trim();
@@ -581,6 +601,17 @@ export async function submitFamilyRelation(formData: FormData) {
   // response was the repeated, hard-to-pin-down source of "Minified React
   // error #441" elsewhere in this app (see ActionButton's comment). The
   // caller does its own router.refresh() after success instead.
+}
+
+/** See submitPersonEdit's comment — same reason for returning the error instead of throwing it. */
+export async function submitFamilyRelation(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  try {
+    await submitFamilyRelationImpl(formData);
+    return { ok: true };
+  } catch (e) {
+    console.error("[submitFamilyRelation]", e);
+    return { error: e instanceof Error ? e.message : "Something went wrong — please try again." };
+  }
 }
 
 export async function approvePendingChange(formData: FormData) {

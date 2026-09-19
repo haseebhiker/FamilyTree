@@ -129,8 +129,12 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     formData.set("person_id", personId);
     for (const [k, v] of Object.entries(fields)) formData.set(k, v);
     try {
-      const applied = await submitPersonEdit(formData, { skipRevalidate: true });
-      if (applied) {
+      const result = await submitPersonEdit(formData, { skipRevalidate: true });
+      if ("error" in result) {
+        setErrorIds((errs) => ({ ...errs, [personId]: result.error }));
+        return;
+      }
+      if (result.applied) {
         // Admin: this IS now the real value — reflect it, and the "missing"
         // filter above correctly drops the row.
         setPeople((ps) => ps.map((p) => (p.id === personId ? { ...p, ...patch } : p)));

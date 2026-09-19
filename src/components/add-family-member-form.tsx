@@ -54,7 +54,11 @@ export function AddFamilyMemberForm(props: FormProps) {
     setError(null);
     startTransition(async () => {
       try {
-        await submitFamilyRelation(formData);
+        const result = await submitFamilyRelation(formData);
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
         setSubmitted(true);
         setGeneration((g) => g + 1);
         // hasFather/hasMother (and the Family list elsewhere on the page)

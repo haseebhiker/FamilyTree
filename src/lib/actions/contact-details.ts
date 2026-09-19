@@ -20,7 +20,7 @@ async function requireOwnerOrAdmin(personId: string) {
   return supabase;
 }
 
-export async function addContactDetail(formData: FormData) {
+async function addContactDetailImpl(formData: FormData) {
   const personId = String(formData.get("person_id") ?? "");
   if (!personId) throw new Error("Missing person id");
   const supabase = await requireOwnerOrAdmin(personId);
@@ -73,6 +73,17 @@ export async function addContactDetail(formData: FormData) {
   // source of "Minified React error #441" elsewhere in this app (see
   // ActionButton's comment). The caller does its own router.refresh()
   // after success instead.
+}
+
+/** Returns the message instead of throwing — a thrown Server Action error reaches the browser as a stripped "Minified React error #441" in production. */
+export async function addContactDetail(formData: FormData): Promise<{ ok: true } | { error: string }> {
+  try {
+    await addContactDetailImpl(formData);
+    return { ok: true };
+  } catch (e) {
+    console.error("[addContactDetail]", e);
+    return { error: e instanceof Error ? e.message : "Something went wrong — please try again." };
+  }
 }
 
 export async function deleteContactDetail(formData: FormData) {

@@ -34,7 +34,13 @@ export function ActionForm({
     setError(null);
     startTransition(async () => {
       try {
-        await action(formData);
+        const result = await action(formData);
+        // A Server Action's thrown error loses its message in production, so
+        // actions used here return { error } instead of throwing.
+        if (result && typeof result === "object" && "error" in result && typeof result.error === "string") {
+          setError(result.error);
+          return;
+        }
         onSuccess?.();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong — please try again.");

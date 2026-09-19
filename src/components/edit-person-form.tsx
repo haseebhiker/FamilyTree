@@ -43,7 +43,11 @@ export function EditPersonForm({
         // source of "Minified React error #441" elsewhere in this app (see
         // ActionButton's comment). router.refresh() below does the
         // equivalent re-fetch as its own separate, client-triggered render.
-        await submitPersonEdit(formData, { skipRevalidate: true });
+        const result = await submitPersonEdit(formData, { skipRevalidate: true });
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
         if (onSuccess) {
           onSuccess(
             "Submitted — an admin will review it soon. It won't show up here yet, so there's no need to submit it again.",
