@@ -321,7 +321,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                           type="number"
                           placeholder="Year"
                           defaultValue={p.birth_year ?? ""}
-                          className={`${cellInputClass} w-16`}
+                          className={`${cellInputClass} w-20! shrink-0`}
                           onBlur={(e) => {
                             const value = e.target.value.trim();
                             const year = value ? Number(value) : null;
@@ -343,7 +343,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                           min={1}
                           max={12}
                           defaultValue={p.birth_month ?? ""}
-                          className={`${cellInputClass} w-14`}
+                          className={`${cellInputClass} w-14! shrink-0`}
                           onBlur={(e) => {
                             const value = e.target.value.trim();
                             const month = value ? Number(value) : null;
@@ -365,7 +365,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                           min={1}
                           max={31}
                           defaultValue={p.birth_day ?? ""}
-                          className={`${cellInputClass} w-14`}
+                          className={`${cellInputClass} w-14! shrink-0`}
                           onBlur={(e) => {
                             const value = e.target.value.trim();
                             const day = value ? Number(value) : null;
@@ -389,7 +389,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
                         min={1}
                         placeholder="e.g. 2"
                         defaultValue={p.birth_order ?? ""}
-                        className={`${cellInputClass} w-16`}
+                        className={`${cellInputClass} w-16! shrink-0`}
                         onBlur={(e) => {
                           const value = e.target.value.trim();
                           const order = value ? Number(value) : null;
