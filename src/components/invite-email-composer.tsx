@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronIcon, Input, Textarea, Button } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 
@@ -50,6 +51,7 @@ export function InviteEmailComposer({
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   if (invites.length === 0) return null;
 
@@ -73,6 +75,7 @@ export function InviteEmailComposer({
         formData.set("body", body);
         for (const id of selected) formData.append("invite_id", id);
         setResult(await sendInviteReminderEmails(formData));
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong — please try again.");
       }

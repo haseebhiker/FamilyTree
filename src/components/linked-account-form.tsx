@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Field, Input, Select, Textarea } from "@/components/ui";
 
 interface LinkedAccount {
@@ -35,6 +36,7 @@ export function LinkedAccountForm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -43,6 +45,7 @@ export function LinkedAccountForm({
     startTransition(async () => {
       try {
         await updateLinkedAccount(formData);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong — please try again.");
       }

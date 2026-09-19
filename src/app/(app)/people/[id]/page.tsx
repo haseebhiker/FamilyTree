@@ -8,7 +8,7 @@ import { AddFamilyMemberForm } from "@/components/add-family-member-form";
 import { EditPersonForm } from "@/components/edit-person-form";
 import { deleteContactDetail } from "@/lib/actions/contact-details";
 import { restorePerson, removeParentLink, removeSpouseLink } from "@/lib/actions/people-admin";
-import { linkInviteToPerson, unlinkPersonAccount, updateLinkedAccount } from "@/lib/actions/invites";
+import { linkInviteToPersonDirect, unlinkPersonAccount, updateLinkedAccount } from "@/lib/actions/invites";
 import { sortByAge, sortSiblings } from "@/lib/sort-by-age";
 import { formatPhoneForDisplay } from "@/lib/countries";
 import { Card, Badge, ChevronIcon } from "@/components/ui";
@@ -794,7 +794,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               <div className="space-y-2">
                 <p className="text-sm text-slate-400">Not linked to any invited account.</p>
                 {unlinkedInvites.length > 0 && (
-                  <LinkInviteForm personId={person.id} unlinkedInvites={unlinkedInvites} linkInviteToPerson={linkInviteToPerson} />
+                  <LinkInviteForm personId={person.id} unlinkedInvites={unlinkedInvites} linkInviteToPerson={linkInviteToPersonDirect} />
                 )}
               </div>
             )}

@@ -83,7 +83,7 @@ export async function linkMemberToPerson(formData: FormData) {
  * their already-existing members row and never re-consults the invite —
  * so the members row needs updating directly too in that case).
  */
-export async function linkInviteToPerson(formData: FormData) {
+async function applyInviteLink(formData: FormData) {
   const { supabase, member } = await requireAdmin();
   if (!isSuperAdmin(member)) throw new Error("Only a super admin can link an invite to a profile");
 
@@ -100,8 +100,23 @@ export async function linkInviteToPerson(formData: FormData) {
     .eq("invite_id", inviteId)
     .is("person_id", null);
   if (memberError) throw new Error(memberError.message);
+}
 
+/** For the bare `<form action>` on the Invite Management page, which has no client-side refresh of its own. */
+export async function linkInviteToPerson(formData: FormData) {
+  await applyInviteLink(formData);
   revalidatePath("/admin/invites");
+}
+
+/**
+ * For LinkInviteForm on the profile page, which calls this directly (not via
+ * a bare <form action>) and does its own router.refresh() after success — so
+ * no revalidatePath here. Bundling one into this action's own response was
+ * the repeated, hard-to-pin-down source of "Minified React error #441"
+ * elsewhere in this app; see ActionButton's comment for the fuller account.
+ */
+export async function linkInviteToPersonDirect(formData: FormData) {
+  await applyInviteLink(formData);
 }
 
 /**
@@ -138,8 +153,11 @@ export async function updateLinkedAccount(formData: FormData) {
     if (reqError) throw new Error(reqError.message);
   }
 
-  revalidatePath(`/people/${personId}`);
-  revalidatePath("/admin/invites");
+  // No revalidatePath — called directly from LinkedAccountForm (not a bare
+  // <form action>), which does its own router.refresh() after success.
+  // Bundling one into this action's own response was the repeated,
+  // hard-to-pin-down source of "Minified React error #441" elsewhere in
+  // this app; see ActionButton's comment for the fuller account.
 }
 
 /**
@@ -279,6 +297,10 @@ export async function sendInviteReminderEmails(formData: FormData): Promise<{ se
     }
   }
 
-  revalidatePath("/admin/invites");
+  // No revalidatePath — called directly from InviteEmailComposer (not a
+  // bare <form action>), which does its own router.refresh() after success
+  // to pick up the new "reminded" timestamps. See ActionButton's comment
+  // for why bundling a revalidatePath re-render into the action's own
+  // response was the repeated source of #441 crashes.
   return { sent, failed };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Select } from "@/components/ui";
 
 /** See LinkedAccountForm for why this needs to be its own client component instead of ActionForm's render-prop pattern. */
@@ -15,6 +16,7 @@ export function LinkInviteForm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -23,6 +25,7 @@ export function LinkInviteForm({
     startTransition(async () => {
       try {
         await linkInviteToPerson(formData);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong — please try again.");
       }
