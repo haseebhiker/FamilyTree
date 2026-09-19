@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { provisionMemberFromInvite } from "@/lib/members";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/not-authorized"];
+// /api/cron/* has no user session (Vercel Cron calls it); each handler checks CRON_SECRET itself.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/not-authorized", "/api/cron/"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

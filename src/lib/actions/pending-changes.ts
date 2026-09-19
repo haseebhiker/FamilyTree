@@ -9,7 +9,6 @@ import { parsePartialDateFields } from "@/lib/partial-date";
 import { encryptValue } from "@/lib/vault-crypto";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import { sendEmail, emailBodyToHtml } from "@/lib/email";
-import { notifyAdmins } from "@/lib/notify-admins";
 
 const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spouse"; gender: "M" | "F" }> = {
   father: { type: "parent", gender: "M" },
@@ -61,23 +60,6 @@ async function requireAdmin() {
   const { supabase, member } = await requireMember();
   if (!isAdmin(member)) throw new Error("Admins only");
   return { supabase, member };
-}
-
-async function notifyAdminsOfPendingChange(
-  supabase: SupabaseClient,
-  submitterName: string,
-  changeType: PendingChangeType,
-  targetPersonId: string | null,
-) {
-  const { data: person } = targetPersonId
-    ? await supabase.from("people").select("full_name, preferred_name").eq("id", targetPersonId).maybeSingle()
-    : { data: null };
-  const personName = person ? person.preferred_name?.trim() || person.full_name : "the family tree";
-
-  await notifyAdmins(
-    "Something's waiting for approval on Family Tree",
-    `${submitterName} submitted a change (${changeType.replace(/_/g, " ")}) for ${personName}.\n\nReview it at https://familytree.haseeb.in/admin/pending`,
-  );
 }
 
 /**
@@ -412,7 +394,8 @@ async function applyOrQueue(
     status: "pending",
   });
   if (error) throw new Error(error.message);
-  await notifyAdminsOfPendingChange(supabase, member.name, input.change_type, input.target_person_id);
+  // No per-change email to admins — someone doing a mass edit would send one
+  // each. /api/cron/pending-digest sends a single daily summary instead.
   return false;
 }
 
