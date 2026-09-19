@@ -74,9 +74,11 @@ export async function restorePerson(formData: FormData) {
     performed_by: member.id,
   });
 
-  revalidatePath("/admin/people");
-  revalidatePath(`/people/${personId}`);
-  revalidatePath("/");
+  // No revalidatePath — called directly from ActionButton (not a bare
+  // <form action>), which does its own router.refresh() after success.
+  // Bundling one into this action's own response was the repeated,
+  // hard-to-pin-down source of "Minified React error #441" elsewhere in
+  // this app; see ActionButton's comment for the fuller account.
 }
 
 /**
@@ -108,7 +110,7 @@ export async function removeParentLink(formData: FormData) {
     performed_by: member.id,
   });
 
-  revalidatePath(`/people/${personId}`);
+  // No revalidatePath — see restorePerson's comment above.
 }
 
 /** Removes one spouse pairing entirely. See removeParentLink for why there's no direct "change" action. */
@@ -130,7 +132,7 @@ export async function removeSpouseLink(formData: FormData) {
     performed_by: member.id,
   });
 
-  revalidatePath(`/people/${personId}`);
+  // No revalidatePath — see restorePerson's comment above.
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AsYouType, type CountryCode } from "libphonenumber-js";
 import { addContactDetail } from "@/lib/actions/contact-details";
 import { ActionForm } from "@/components/action-form";
@@ -15,6 +16,7 @@ const LABEL_OPTIONS: Record<ContactType, string[]> = {
 };
 
 export function ContactDetailForm({ personId }: { personId: string }) {
+  const router = useRouter();
   const [contactType, setContactType] = useState<ContactType>("phone");
   const [label, setLabel] = useState(LABEL_OPTIONS.phone[0]);
   const [countryIso2, setCountryIso2] = useState(DEFAULT_COUNTRY_ISO2);
@@ -37,7 +39,7 @@ export function ContactDetailForm({ personId }: { personId: string }) {
   }
 
   return (
-    <ActionForm action={addContactDetail} className="space-y-2">
+    <ActionForm action={addContactDetail} onSuccess={() => router.refresh()} className="space-y-2">
       {({ isPending, error }) => (
         <>
       <input type="hidden" name="person_id" value={personId} />

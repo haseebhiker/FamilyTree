@@ -164,8 +164,8 @@ export async function unlinkPersonAccount(formData: FormData) {
   const { error } = await supabase.from(source === "member" ? "members" : "invites").update({ person_id: null }).eq("id", recordId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/people/${personId}`);
-  revalidatePath("/admin/invites");
+  // No revalidatePath — see revokeInvite's comment below; this is also only
+  // ever called via ActionButton.
 }
 
 export async function revokeInvite(formData: FormData) {

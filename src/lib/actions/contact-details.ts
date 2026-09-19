@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 import { encryptValue } from "@/lib/vault-crypto";
@@ -68,7 +67,12 @@ export async function addContactDetail(formData: FormData) {
     if (groupsError) throw new Error(groupsError.message);
   }
 
-  revalidatePath(`/people/${personId}`);
+  // No revalidatePath — this is called directly from ContactDetailForm
+  // (via ActionForm's onSubmit, not a bare <form action>), so bundling one
+  // into this action's own response was the repeated, hard-to-pin-down
+  // source of "Minified React error #441" elsewhere in this app (see
+  // ActionButton's comment). The caller does its own router.refresh()
+  // after success instead.
 }
 
 export async function deleteContactDetail(formData: FormData) {
@@ -80,5 +84,6 @@ export async function deleteContactDetail(formData: FormData) {
   const { error } = await supabase.from("contact_details").delete().eq("id", contactId).eq("person_id", personId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/people/${personId}`);
+  // No revalidatePath — see addContactDetail's comment above; this one is
+  // called via ActionButton, which does its own router.refresh().
 }
