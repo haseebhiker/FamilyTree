@@ -158,5 +158,6 @@ export async function rejectAccessRequest(formData: FormData) {
     .eq("status", "pending");
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/access-requests");
+  // No revalidatePath — see approveAccessRequest's comment above; this is
+  // called from RejectRequestForm, which does its own router.refresh().
 }
