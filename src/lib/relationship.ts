@@ -224,12 +224,15 @@ function buildSpousesOf(spouses: SpouseEdge[]): Map<string, string[]> {
  * a direct marriage, source's own spouse's blood tie to target ("wife's
  * mother"), target's spouse's blood tie to source ("great-uncle's wife" —
  * covers a target who's simply married to *any* blood relative, close or
- * distant), and the two-marriage combination ("wife's sister's husband").
- * Searching each marriage separately (rather than one global "shortest
- * path using a spouse edge" search) is what finds a real but longer
- * connection like "grandmother's brother's wife" even when a shorter,
- * unrelated in-law path to the same person already exists — the earlier
- * single-shortest-in-law approach could only ever surface one of them.
+ * distant), the two-marriage combination ("wife's sister's husband"), and
+ * a marriage connecting a blood relative of source to a blood relative of
+ * target where neither of them is part of that marriage themselves
+ * ("son's wife's mother" — a "sammandhi"). Searching each marriage
+ * separately (rather than one global "shortest path using a spouse edge"
+ * search) is what finds a real but longer connection like "grandmother's
+ * brother's wife" even when a shorter, unrelated in-law path to the same
+ * person already exists — the earlier single-shortest-in-law approach
+ * could only ever surface one of them.
  */
 export function findRelationshipPaths(
   people: PersonNode[],
@@ -278,6 +281,27 @@ export function findRelationshipPaths(
       if (mySpouseId === targetSpouseId || targetSpouseId === sourceId) continue;
       for (const p of dedupe(findBloodPaths(people, mySpouseId, targetSpouseId, maxPaths))) {
         candidates.push([{ id: mySpouseId, kind: "spouse" }, ...p, { id: targetId, kind: "spouse" }]);
+      }
+    }
+  }
+
+  // 6. Blood path from source to one half of ANY marriage, then blood path
+  // from the other half to target ("son's wife's mother" — a "sammandhi").
+  // Categories 2-4 are the special cases of this where one or both blood
+  // segments are empty (source or target IS one half of the marriage);
+  // this is the general case where neither is, so it isn't source's own
+  // marriage or target's own marriage doing the connecting, but someone
+  // else's in between.
+  for (const marriage of spouses) {
+    for (const [aId, bId] of [
+      [marriage.person_a_id, marriage.person_b_id],
+      [marriage.person_b_id, marriage.person_a_id],
+    ] as const) {
+      if (aId === sourceId || bId === targetId) continue;
+      for (const p of dedupe(findBloodPaths(people, sourceId, aId, maxPaths))) {
+        for (const q of dedupe(findBloodPaths(people, bId, targetId, maxPaths))) {
+          candidates.push([...p, { id: bId, kind: "spouse" }, ...q]);
+        }
       }
     }
   }
@@ -431,6 +455,15 @@ export function describeRelationship(steps: PathStep[], genders: Map<string, Gen
     const bloodTerm = blood(steps.slice(1), genders);
     return bloodTerm ? `${spouseTermFor(steps[0].id)}'s ${bloodTerm}` : null;
   }
+  if (spouseIdx.length === 1 && spouseIdx[0] > 0 && spouseIdx[0] < steps.length - 1) {
+    // Spouse hop in the middle, blood on both sides — e.g. "son's wife's
+    // mother" (a "sammandhi"), where neither source nor target is part of
+    // the marriage itself.
+    const beforeTerm = blood(steps.slice(0, spouseIdx[0]), genders);
+    const afterTerm = blood(steps.slice(spouseIdx[0] + 1), genders);
+    if (!beforeTerm || !afterTerm) return null;
+    return `${beforeTerm}'s ${spouseTermFor(steps[spouseIdx[0]].id)}'s ${afterTerm}`;
+  }
   if (spouseIdx.length === 2 && spouseIdx[0] === 0 && spouseIdx[1] === steps.length - 1) {
     const middle = steps.slice(1, -1);
     const bloodTerm = blood(middle, genders);
@@ -536,16 +569,18 @@ function spouseTamilTerm(id: string, genders: Map<string, Gender>): TamilTerm | 
 
 /**
  * Haseeb's vocabulary doesn't include dedicated in-law words (no single
- * term for "mother-in-law"), so these are composed instead, the same way
- * Vappa vazhi / Umma vazhi already compose a side onto a blood term:
- * "Manaivi vazhi Pethamma" ("grandmother, through [my] wife") rather than
- * a specific borrowed word. A path with a spouse hop always has one of
- * three shapes — source's spouse then blood ("wife's mother"), blood then
- * target's spouse ("great-uncle's wife"), or both ("wife's sister's
- * husband") — handled by recursing into the blood segment with
- * describeRelationshipTamil, re-rooted at whichever spouse that segment is
- * actually relative to (age comparisons inside it need to run against that
- * spouse, not the original viewer).
+ * term for "mother-in-law"), so most of these are composed instead, the
+ * same way Vappa vazhi / Umma vazhi already compose a side onto a blood
+ * term: "Manaivi vazhi Pethamma" ("grandmother, through [my] wife") rather
+ * than a specific borrowed word. A path with a spouse hop has one of four
+ * shapes — source's spouse then blood ("wife's mother"), blood then
+ * target's spouse ("great-uncle's wife"), both ("wife's sister's
+ * husband"), or blood on both sides of a spouse in the middle ("son's
+ * wife's mother" — a "sammandhi", which does get its own word) — handled
+ * by recursing into each blood segment with describeRelationshipTamil,
+ * re-rooted at whichever spouse that segment is actually relative to (age
+ * comparisons inside it need to run against that spouse, not the original
+ * viewer).
  */
 function describeInLawTamil(
   steps: PathStep[],
@@ -578,6 +613,32 @@ function describeInLawTamil(
     const spouseTerm = spouseTamilTerm(steps[steps.length - 1].id, genders);
     if (!bloodTerm || !spouseTerm) return null;
     return { tamil: `${bloodTerm.tamil} ${spouseTerm.tamil}`, translit: `${bloodTerm.translit} ${spouseTerm.translit}` };
+  }
+
+  if (spouseIdx.length === 1 && spouseIdx[0] > 0 && spouseIdx[0] < steps.length - 1) {
+    const idx = spouseIdx[0];
+    const beforeSteps = steps.slice(0, idx);
+    const afterSteps = steps.slice(idx + 1);
+    // The common case — my child's spouse's parent — has its own word
+    // rather than the general "blood + spouse + blood" composition used
+    // for anything else shaped this way (e.g. a sibling's wife's brother).
+    if (
+      beforeSteps.length === 1 &&
+      beforeSteps[0].kind === "child" &&
+      afterSteps.length === 1 &&
+      (afterSteps[0].kind === "father" || afterSteps[0].kind === "mother")
+    ) {
+      return { tamil: "சம்மந்தி", translit: "Sammandhi" };
+    }
+    const spouseId = steps[idx].id;
+    const beforeTerm = describeRelationshipTamil(beforeSteps, genders, birthYears, birthOrders, sourceId);
+    const spouseTerm = spouseTamilTerm(spouseId, genders);
+    const afterTerm = afterSteps.length > 0 ? describeRelationshipTamil(afterSteps, genders, birthYears, birthOrders, spouseId) : null;
+    if (!beforeTerm || !spouseTerm || !afterTerm) return null;
+    return {
+      tamil: `${beforeTerm.tamil} ${spouseTerm.tamil} வழி ${afterTerm.tamil}`,
+      translit: `${beforeTerm.translit} ${spouseTerm.translit} vazhi ${afterTerm.translit}`,
+    };
   }
 
   if (spouseIdx.length === 2 && spouseIdx[0] === 0 && spouseIdx[1] === steps.length - 1) {
