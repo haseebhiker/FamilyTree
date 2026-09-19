@@ -23,9 +23,18 @@ interface Row {
   adds: number;
 }
 
-export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab: tabParam } = await searchParams;
+export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<{ tab?: string; range?: string }> }) {
+  const { tab: tabParam, range: rangeParam } = await searchParams;
   const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "overall";
+  const monthly = rangeParam !== "all";
+  const monthLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", month: "long", year: "numeric" }).format(new Date());
+  const href = (t: TabKey, m: boolean) => {
+    const q = new URLSearchParams();
+    if (t !== "overall") q.set("tab", t);
+    if (!m) q.set("range", "all");
+    const qs = q.toString();
+    return qs ? `/leaderboard?${qs}` : "/leaderboard";
+  };
 
   const supabase = await createClient();
   const {
@@ -34,7 +43,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const member = await getCurrentMember(supabase, user!.id);
   const showCounts = isSuperAdmin(member);
 
-  const { data } = await supabase.rpc("contribution_leaderboard");
+  const { data } = await supabase.rpc("contribution_leaderboard", { p_monthly: monthly });
   const score = (r: Row) => (tab === "edits" ? r.edits : tab === "adds" ? r.adds : r.edits + r.adds);
   const top = ((data ?? []) as Row[])
     .filter((r) => score(r) > 0)
@@ -52,10 +61,29 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       </div>
 
       <div className="flex gap-2">
+        {[
+          { m: true, label: monthLabel },
+          { m: false, label: "All time" },
+        ].map((r) => (
+          <Link
+            key={r.label}
+            href={href(tab, r.m)}
+            className={`flex-1 rounded-md border px-2 py-1.5 text-center text-sm font-medium ${
+              monthly === r.m
+                ? "border-blue-700 bg-blue-700 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {r.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={t.key === "overall" ? "/leaderboard" : `/leaderboard?tab=${t.key}`}
+            href={href(t.key, monthly)}
             className={`flex-1 rounded-md border px-2 py-1.5 text-center text-sm font-medium ${
               tab === t.key
                 ? "border-slate-900 bg-slate-900 text-white"
@@ -69,7 +97,9 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
 
       <Card>
         {top.length === 0 ? (
-          <p className="text-sm text-slate-500">No approved contributions yet.</p>
+          <p className="text-sm text-slate-500">
+            {monthly ? "No approved contributions yet this month." : "No approved contributions yet."}
+          </p>
         ) : (
           <ol className="divide-y divide-slate-100">
             {top.map((r, i) => (

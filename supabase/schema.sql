@@ -366,10 +366,12 @@ as $$
 $$;
 
 -- Per-member counts of APPROVED contributions, for the Leaderboard page.
--- Runs as definer because a regular member can't read other members' rows
--- or submissions (RLS), and only aggregate counts leave this function.
--- Super admins are left out entirely — they aren't part of the ranking.
-create or replace function contribution_leaderboard()
+-- Runs as definer because a regular member can't read other members' rows or
+-- submissions (RLS); only aggregate counts leave this function. Super admins
+-- are left out — they aren't part of the ranking.
+-- p_monthly = true counts only changes approved since the 1st of the
+-- current month (Pacific time); false counts everything ever.
+create or replace function contribution_leaderboard(p_monthly boolean default false)
 returns table (member_id uuid, name text, edits bigint, adds bigint)
 language sql
 security definer
@@ -385,12 +387,16 @@ as $$
   join members m on m.id = pc.submitted_by
   where pc.status = 'approved'
     and m.role <> 'super_admin'
+    and (
+      not p_monthly
+      or pc.reviewed_at >= date_trunc('month', now() at time zone 'America/Los_Angeles') at time zone 'America/Los_Angeles'
+    )
     and exists (select 1 from members me where me.id = auth.uid() and me.status = 'active')
   group by m.id, m.name;
 $$;
 
-revoke all on function contribution_leaderboard() from public;
-grant execute on function contribution_leaderboard() to authenticated;
+revoke all on function contribution_leaderboard(boolean) from public;
+grant execute on function contribution_leaderboard(boolean) to authenticated;
 
 -- Runs as definer purely so the "only an admin may create a public group"
 -- rule can be enforced server-side even though there's no insert policy on
