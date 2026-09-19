@@ -209,6 +209,9 @@ export function NavBar({
                   >
                     View as member
                   </a>
+                  <Link href="/admin/announcement" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Send an Announcement
+                  </Link>
                   <Link href="/admin/invites/new" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Invite Someone New
                   </Link>
