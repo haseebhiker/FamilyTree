@@ -124,6 +124,9 @@ export function NavBar({
               <Link href="/quick-edit" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Quick Edit
               </Link>
+              <Link href="/leaderboard" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Leaderboard
+              </Link>
               <Link
                 href="/suggestions"
                 className="flex items-center justify-between px-3 py-2 hover:bg-slate-50 hover:text-slate-900"
