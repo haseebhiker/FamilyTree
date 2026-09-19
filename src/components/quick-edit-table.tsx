@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { submitPersonEdit } from "@/lib/actions/pending-changes";
+import { sortByAge } from "@/lib/sort-by-age";
 import { Input, Select } from "@/components/ui";
 import { DisambiguatedName, displayNameText } from "@/components/person-name";
 import { PersonPicker } from "@/components/person-picker";
@@ -100,7 +101,10 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
     let result = people;
     if (branchIds) result = result.filter((p) => branchIds.has(p.id));
     if (missingFilter !== "none") result = result.filter(isMissing[missingFilter]);
-    return result;
+    // Eldest first — filling in a missing birth field is much easier when
+    // it's obvious who's a sibling/generation of whom, which alphabetical
+    // order doesn't show at all.
+    return sortByAge(result);
   }, [people, missingFilter, branchIds]);
 
   function moveColumn(key: ColumnKey, dir: -1 | 1) {

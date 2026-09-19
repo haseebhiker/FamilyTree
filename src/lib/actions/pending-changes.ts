@@ -543,13 +543,10 @@ export async function submitFamilyRelation(formData: FormData) {
   const relationType = mapped.type;
   const parentGender = mapped.gender === "M" ? "father" : "mother";
 
-  const revalidateIds = new Set<string>([personId]);
-
   if (mode === "existing") {
     const existingPersonId = String(formData.get("existing_person_id") ?? "").trim();
     if (!existingPersonId) throw new Error("Choose a person");
     if (existingPersonId === personId) throw new Error("A person can't be related to themselves");
-    revalidateIds.add(existingPersonId);
 
     if (relationType === "parent") {
       await applyOrQueue(supabase, member, {
@@ -629,9 +626,11 @@ export async function submitFamilyRelation(formData: FormData) {
     });
   }
 
-  revalidatePath("/my-submissions");
-  revalidatePath("/admin/pending");
-  for (const id of revalidateIds) revalidatePath(`/people/${id}`);
+  // No revalidatePath — this is called directly from AddFamilyMemberForm
+  // (not via a bare <form action>), so bundling one into this action's own
+  // response was the repeated, hard-to-pin-down source of "Minified React
+  // error #441" elsewhere in this app (see ActionButton's comment). The
+  // caller does its own router.refresh() after success instead.
 }
 
 export async function approvePendingChange(formData: FormData) {

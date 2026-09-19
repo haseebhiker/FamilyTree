@@ -37,7 +37,13 @@ export function EditPersonForm({
     setError(null);
     startTransition(async () => {
       try {
-        await submitPersonEdit(formData);
+        // skipRevalidate: this action is called directly (not via a bare
+        // <form action>), so a revalidatePath inside it bundles a re-render
+        // into this action's own response — the repeated, hard-to-pin-down
+        // source of "Minified React error #441" elsewhere in this app (see
+        // ActionButton's comment). router.refresh() below does the
+        // equivalent re-fetch as its own separate, client-triggered render.
+        await submitPersonEdit(formData, { skipRevalidate: true });
         if (onSuccess) {
           onSuccess(
             "Submitted — an admin will review it soon. It won't show up here yet, so there's no need to submit it again.",
