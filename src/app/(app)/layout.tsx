@@ -1,4 +1,5 @@
 import { AskHaseebLine } from "@/components/ask-haseeb";
+import { askHaseebMessage } from "@/lib/ask-haseeb-message";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, getRealMember, isAdmin } from "@/lib/members";
@@ -39,6 +40,8 @@ export default async function AppLayout({
     pendingAccessRequestCount = requestCount ?? 0;
     openSuggestionCount = suggestionCount ?? 0;
   }
+
+  const askMessage = await askHaseebMessage(supabase, member);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -84,7 +87,7 @@ export default async function AppLayout({
         </aside>
       </main>
       <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2">
-        <AskHaseebLine />
+        <AskHaseebLine message={askMessage} />
       </footer>
     </div>
   );

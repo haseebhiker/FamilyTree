@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ChevronIcon } from "@/components/ui";
 import { AskHaseebButton } from "@/components/ask-haseeb";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentMember } from "@/lib/members";
+import { askHaseebMessage } from "@/lib/ask-haseeb-message";
 
 function Steps({ children }: { children: React.ReactNode }) {
   return <ol className="ml-5 list-decimal space-y-1.5 text-sm text-slate-700">{children}</ol>;
@@ -24,7 +27,14 @@ function Section({ title, defaultOpen, children }: { title: string; defaultOpen?
 
 const link = "font-medium text-blue-700 hover:underline";
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const member = user ? await getCurrentMember(supabase, user.id) : null;
+  const askMessage = member ? await askHaseebMessage(supabase, member) : undefined;
+
   return (
     <div className="space-y-4">
       <div>
@@ -33,7 +43,7 @@ export default function HelpPage() {
           Simple steps for the things people ask most. Tap a heading to open it.
         </p>
         <div className="mt-3">
-          <AskHaseebButton />
+          <AskHaseebButton message={askMessage} />
         </div>
         <p className="mt-1 text-xs text-slate-400">Have a question that isn&apos;t answered below? Message Haseeb directly.</p>
       </div>
@@ -212,7 +222,7 @@ export default function HelpPage() {
             <li>Or message Haseeb directly:</li>
           </ul>
           <div className="pt-2">
-            <AskHaseebButton />
+            <AskHaseebButton message={askMessage} />
           </div>
         </Section>
       </div>
