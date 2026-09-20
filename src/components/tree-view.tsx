@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { searchText } from "@/components/person-name";
 import { sortSiblings } from "@/lib/sort-by-age";
@@ -44,6 +44,10 @@ function computePathToMe(myPersonId: string | null | undefined, allPeople: TreeN
   return new Set(path);
 }
 
+/** "Expand/collapse everything under this person" — a numbered signal passed down the tree; a node obeys the newest one it has seen. */
+type Force = { n: number; open: boolean } | null;
+let forceCounter = 0;
+
 function TreeNode({
   person,
   childrenByParent,
@@ -51,6 +55,7 @@ function TreeNode({
   defaultExpanded,
   pathToMeIds,
   spouseNames,
+  force,
 }: {
   person: TreeNodeData;
   childrenByParent: Map<string, TreeNodeData[]>;
@@ -58,9 +63,21 @@ function TreeNode({
   defaultExpanded: boolean;
   pathToMeIds: Set<string>;
   spouseNames: Record<string, string[]>;
+  force: Force;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(force ? force.open : defaultExpanded);
+  const [localForce, setLocalForce] = useState<Force>(null);
   const kids = childrenByParent.get(person.id) ?? [];
+  const effectiveForce = localForce && (!force || localForce.n > force.n) ? localForce : force;
+  const lastApplied = useRef(force?.n ?? 0);
+  useEffect(() => {
+    if (effectiveForce && effectiveForce.n !== lastApplied.current) {
+      lastApplied.current = effectiveForce.n;
+      setExpanded(effectiveForce.open);
+    }
+  }, [effectiveForce]);
+  const hasGrandkids = kids.some((k) => (childrenByParent.get(k.id)?.length ?? 0) > 0);
+  const subtreeOpen = effectiveForce?.open === true;
 
   return (
     <li>
@@ -100,6 +117,19 @@ function TreeNode({
           <span className="ml-3 text-xs text-violet-600">({spouseNames[person.id].join(", ")})</span>
         )}
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
+        {hasGrandkids && (
+          <button
+            type="button"
+            onClick={() => {
+              const open = !(subtreeOpen && expanded);
+              setLocalForce({ n: ++forceCounter, open });
+              setExpanded(open);
+            }}
+            className="ml-auto shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+          >
+            {subtreeOpen && expanded ? "Collapse all" : "Expand all"}
+          </button>
+        )}
       </div>
       {expanded && kids.length > 0 && (
         <ul className="ml-5 border-l border-slate-200 pl-3">
@@ -112,6 +142,7 @@ function TreeNode({
               defaultExpanded={pathToMeIds.size > 0 ? pathToMeIds.has(child.id) : depth + 1 < 1}
               pathToMeIds={pathToMeIds}
               spouseNames={spouseNames}
+              force={effectiveForce}
             />
           ))}
         </ul>
@@ -242,7 +273,8 @@ export function TreeView({
             depth={0}
             defaultExpanded
             pathToMeIds={pathToMeIds}
-              spouseNames={spouseNames}
+            spouseNames={spouseNames}
+            force={null}
           />
         </ul>
       )}
@@ -262,7 +294,8 @@ export function TreeView({
                 depth={0}
                 defaultExpanded={pathToMeIds.has(root.id)}
                 pathToMeIds={pathToMeIds}
-              spouseNames={spouseNames}
+                spouseNames={spouseNames}
+                force={null}
               />
             ))}
           </ul>
