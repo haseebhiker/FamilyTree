@@ -218,6 +218,10 @@ function buildSpousesOf(spouses: SpouseEdge[]): Map<string, string[]> {
   return spousesOf;
 }
 
+const BLOOD_SEGMENT_MAX = 3;
+const CHAIN_MAX_HOPS = 8;
+const spouseCount = (path: PathStep[]) => path.filter((s) => s.kind === "spouse").length;
+
 /**
  * Every relationship worth surfacing runs through source, target, or one
  * marriage connecting a blood relative of one to the other — direct blood,
@@ -247,6 +251,7 @@ export function findRelationshipPaths(
   const dedupe = (paths: PathStep[][]) => dedupeCoupleEquivalentPaths(paths, spousePairs);
 
   const candidates: PathStep[][] = [];
+  const peopleById0 = new Map(people.map((p) => [p.id, p]));
 
   // 1. Direct blood.
   candidates.push(...findBloodPaths(people, sourceId, targetId, maxPaths));
@@ -285,25 +290,84 @@ export function findRelationshipPaths(
     }
   }
 
-  // 6. Source's direct parent or child, married to a direct parent or
-  // child of target ("son's wife's mother" — a "sammandhi"). Categories
-  // 2-4 are the special cases of this where one or both sides are empty
-  // (source or target IS one half of the marriage); this is the general
-  // case where neither is. Deliberately limited to ONE hop on each side
-  // (not "any blood relative, however distant", which findBloodPaths could
-  // also return) — in a family with any amount of cousin marriage,
-  // widening this to every blood relative floods a comparison with dozens
-  // of technically-real but meaningless distant bridges instead of the one
-  // or two that are actually worth showing.
-  for (const marriage of spouses) {
-    for (const [aId, bId] of [
-      [marriage.person_a_id, marriage.person_b_id],
-      [marriage.person_b_id, marriage.person_a_id],
-    ] as const) {
-      if (aId === sourceId || bId === targetId) continue;
-      for (const p of dedupe(findBloodPaths(people, sourceId, aId, maxPaths)).filter((path) => path.length === 1)) {
-        for (const q of dedupe(findBloodPaths(people, bId, targetId, maxPaths)).filter((path) => path.length === 1)) {
-          candidates.push([...p, { id: bId, kind: "spouse" }, ...q]);
+  // 6. Chains of one or two marriages with short blood segments between
+  // them ("son's wife's mother" — a "sammandhi"; "husband's sister's
+  // husband's niece"). Categories 2-5 are the special cases where source or
+  // target is themselves part of the marriage; this is the general case.
+  // Each blood segment is capped at BLOOD_SEGMENT_MAX hops (parent/child,
+  // sibling, grandparent, aunt/uncle, niece/nephew...) and the whole path at
+  // CHAIN_MAX_HOPS — in a family with cousin marriage, unlimited segments
+  // flood a comparison with dozens of technically-real but meaningless
+  // chains, while too tight a cap hides ordinary in-law ties like "my
+  // sister-in-law's niece".
+  const childrenOf = new Map<string, string[]>();
+  for (const p of people) {
+    for (const parentId of [p.father_id, p.mother_id]) {
+      if (!parentId) continue;
+      const list = childrenOf.get(parentId) ?? [];
+      list.push(p.id);
+      childrenOf.set(parentId, list);
+    }
+  }
+  const reachCache = new Map<string, Map<string, PathStep[]>>();
+  // Everyone within BLOOD_SEGMENT_MAX hops of `startId` by going UP to
+  // ancestors and then DOWN to descendants (never down-then-up, which would
+  // sneak in a spouse via a shared child), each with the path to them.
+  const reach = (startId: string): Map<string, PathStep[]> => {
+    const cached = reachCache.get(startId);
+    if (cached) return cached;
+    const result = new Map<string, PathStep[]>([[startId, []]]);
+    const seen = new Set<string>([`${startId}|up`]);
+    let frontier: { id: string; path: PathStep[]; phase: "up" | "down" }[] = [{ id: startId, path: [], phase: "up" }];
+    for (let depth = 0; depth < BLOOD_SEGMENT_MAX; depth++) {
+      const next: typeof frontier = [];
+      for (const { id, path, phase } of frontier) {
+        const moves: { id: string; kind: EdgeKind; phase: "up" | "down" }[] = [];
+        if (phase === "up") {
+          const person = peopleById0.get(id);
+          if (person?.father_id) moves.push({ id: person.father_id, kind: "father", phase: "up" });
+          if (person?.mother_id) moves.push({ id: person.mother_id, kind: "mother", phase: "up" });
+        }
+        for (const childId of childrenOf.get(id) ?? []) moves.push({ id: childId, kind: "child", phase: "down" });
+        for (const m of moves) {
+          const key = `${m.id}|${m.phase}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const newPath = [...path, { id: m.id, kind: m.kind }];
+          if (!result.has(m.id)) result.set(m.id, newPath);
+          next.push({ id: m.id, path: newPath, phase: m.phase });
+        }
+      }
+      frontier = next;
+    }
+    reachCache.set(startId, result);
+    return result;
+  };
+  const isSimple = (path: PathStep[]) => {
+    const ids = new Set<string>([sourceId]);
+    for (const step of path) {
+      if (ids.has(step.id)) return false;
+      ids.add(step.id);
+    }
+    return true;
+  };
+  const pushChain = (path: PathStep[]) => {
+    if (path.length <= CHAIN_MAX_HOPS && isSimple(path)) candidates.push(path);
+  };
+  for (const [aId, segA] of reach(sourceId)) {
+    for (const bId of spousesOf.get(aId) ?? []) {
+      // One marriage, real blood ties on both sides (empty sides are categories 2-4).
+      const segB = reach(bId).get(targetId);
+      if (segB && segA.length > 0 && segB.length > 0) {
+        pushChain([...segA, { id: bId, kind: "spouse" }, ...segB]);
+      }
+      // Two marriages, with a real blood tie in between.
+      for (const [cId, segMid] of reach(bId)) {
+        if (segMid.length === 0) continue;
+        for (const dId of spousesOf.get(cId) ?? []) {
+          const segC = reach(dId).get(targetId);
+          if (!segC) continue;
+          pushChain([...segA, { id: bId, kind: "spouse" }, ...segMid, { id: dId, kind: "spouse" }, ...segC]);
         }
       }
     }
@@ -315,9 +379,18 @@ export function findRelationshipPaths(
       (p) => !hasRedundantParentSpouseDetour(p, sourceId, peopleById) && !hasRedundantSpouseChildDetour(p, sourceId, peopleById),
     ),
   )
-    .sort((a, b) => a.length - b.length)
-    .slice(0, maxPaths);
-  return { paths, genders };
+    .sort((a, b) => a.length - b.length || spouseCount(a) - spouseCount(b));
+  // Several chains of the same SHAPE (e.g. "1st cousin's wife's niece"
+  // reached through different cousins) are one relationship to a reader —
+  // keep only the shortest of each.
+  const seenShapes = new Set<string>();
+  const distinct = paths.filter((p) => {
+    const shape = p.map((s) => `${s.kind}:${genders.get(s.id) ?? "?"}`).join(",");
+    if (seenShapes.has(shape)) return false;
+    seenShapes.add(shape);
+    return true;
+  });
+  return { paths: distinct.slice(0, maxPaths), genders };
 }
 
 /** The single-hop label for `kind`, gendered when known — e.g. what shows under one arrow in the breadcrumb. */
@@ -473,7 +546,22 @@ export function describeRelationship(steps: PathStep[], genders: Map<string, Gen
     if (!bloodTerm) return null;
     return `${spouseTermFor(steps[0].id)}'s ${bloodTerm}'s ${spouseTermFor(steps[steps.length - 1].id)}`;
   }
-  return null;
+
+  // Any other chain of blood segments joined by marriages, e.g.
+  // "husband's sister's husband's niece".
+  const parts: string[] = [];
+  let segStart = 0;
+  for (const boundary of [...spouseIdx, steps.length]) {
+    const segment = steps.slice(segStart, boundary);
+    if (segment.length > 0) {
+      const term = blood(segment, genders);
+      if (!term) return null;
+      parts.push(term);
+    }
+    if (boundary < steps.length) parts.push(spouseTermFor(steps[boundary].id));
+    segStart = boundary + 1;
+  }
+  return parts.join("'s ");
 }
 
 export interface TamilTerm {

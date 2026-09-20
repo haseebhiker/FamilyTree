@@ -51,7 +51,7 @@ export default async function ComparePage({
         if (page.length < 1000) break;
       }
 
-      const { paths, genders } = findRelationshipPaths(graphPeople, graphSpouses, a, b, 20);
+      const { paths, genders } = findRelationshipPaths(graphPeople, graphSpouses, a, b, 10);
       result = { paths, genders };
 
       // personA (the source, per findRelationshipPaths's a/b args above) is
