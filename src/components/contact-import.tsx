@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui";
 import { PersonPicker, type PersonOption } from "@/components/person-picker";
 import { displayNameText } from "@/components/person-name";
-import { parseVCards, type ParsedContact } from "@/lib/vcard";
-import { buildIndex, candidatesFor } from "@/lib/contact-match";
+import { parseVCards } from "@/lib/vcard";
+import { mergeContacts, type MergedContact } from "@/lib/contact-merge";
+import { buildIndex, candidatesFor, type Candidate } from "@/lib/contact-match";
 import { importContacts, type ImportItem } from "@/lib/actions/contact-import";
 
 export type PickerPerson = PersonOption & { other_names: string | null };
@@ -15,7 +16,10 @@ type Filter = "likely" | "other" | "selected";
 const PAGE = 100;
 
 export function ContactImport({ people }: { people: PickerPerson[] }) {
-  const [contacts, setContacts] = useState<ParsedContact[] | null>(null);
+  const [contacts, setContacts] = useState<MergedContact[] | null>(null);
+  const [cands, setCands] = useState<Candidate[][]>([]);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [rawCount, setRawCount] = useState(0);
   const [fileName, setFileName] = useState("");
   const [include, setInclude] = useState<Set<number>>(new Set());
   const [choice, setChoice] = useState<Record<number, string>>({});
@@ -30,33 +34,66 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
 
   const index = useMemo(() => buildIndex(people), [people]);
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
-  const cands = useMemo(() => (contacts ? contacts.map((c) => candidatesFor(c.name, index)) : []), [contacts, index]);
+
+  const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+  /** Best few tree people for a contact, trying every name it was saved under. */
+  function bestCandidates(c: MergedContact): Candidate[] {
+    const best = new Map<number, number>();
+    for (const n of [c.name, ...c.alsoNamed]) {
+      for (const x of candidatesFor(n, index)) best.set(x.personIdx, Math.max(best.get(x.personIdx) ?? 0, x.score));
+    }
+    return [...best.entries()]
+      .map(([personIdx, score]) => ({ personIdx, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  }
 
   async function handleFile(file: File) {
     setError(null);
     setMessage(null);
-    const text = await file.text();
-    const parsed = parseVCards(text);
-    if (parsed.length === 0) {
-      setError("I couldn't find any contacts with a phone number or email in that file. It should be a .vcf (vCard) export.");
-      return;
+    try {
+      setProgress("Reading your file…");
+      await tick();
+      const text = await file.text();
+      const parsedRaw = parseVCards(text);
+      if (parsedRaw.length === 0) {
+        setError("I couldn't find any contacts with a phone number or email in that file. It should be a .vcf (vCard) export.");
+        return;
+      }
+      setProgress(`Merging duplicates among ${parsedRaw.length.toLocaleString()} entries…`);
+      await tick();
+      const merged = mergeContacts(parsedRaw);
+
+      // Matching is quick per contact but there can be thousands: do it in slices so the page stays responsive.
+      const allCands: Candidate[][] = [];
+      const inc = new Set<number>();
+      const ch: Record<number, string> = {};
+      for (let i = 0; i < merged.length; i++) {
+        const cs = bestCandidates(merged[i]);
+        allCands.push(cs);
+        if (cs.length > 0) ch[i] = people[cs[0].personIdx].id;
+        if (cs[0] && cs[0].score >= 0.85 && (!cs[1] || cs[0].score - cs[1].score >= 0.08)) inc.add(i);
+        if (i % 400 === 399) {
+          setProgress(`Matching to the family tree… ${(i + 1).toLocaleString()} of ${merged.length.toLocaleString()}`);
+          await tick();
+        }
+      }
+      setRawCount(parsedRaw.length);
+      setFileName(file.name);
+      setCands(allCands);
+      setContacts(merged);
+      setInclude(inc);
+      setChoice(ch);
+      setSaved(new Set());
+      setSearching(new Set());
+      setFilter("likely");
+      setShown(PAGE);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't read that file.");
+    } finally {
+      setProgress(null);
     }
-    const inc = new Set<number>();
-    const ch: Record<number, string> = {};
-    parsed.forEach((c, i) => {
-      const cs = candidatesFor(c.name, index);
-      if (cs.length > 0) ch[i] = people[cs[0].personIdx].id;
-      const strong = cs[0] && cs[0].score >= 0.85 && (!cs[1] || cs[0].score - cs[1].score >= 0.08);
-      if (strong) inc.add(i);
-    });
-    setFileName(file.name);
-    setContacts(parsed);
-    setInclude(inc);
-    setChoice(ch);
-    setSaved(new Set());
-    setSearching(new Set());
-    setFilter("likely");
-    setShown(PAGE);
   }
 
   const likelyIdx = useMemo(
@@ -149,12 +186,13 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
     return (
       <div className="space-y-3">
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-white px-4 py-10 text-center hover:bg-slate-50">
-          <span className="text-sm font-medium text-slate-900">Choose your contacts file (.vcf)</span>
+          <span className="text-sm font-medium text-slate-900">{progress ?? "Choose your contacts file (.vcf)"}</span>
           <span className="mt-1 text-xs text-slate-500">It is read in this browser only. Nothing is saved until you tick contacts and press Save.</span>
           <input
             type="file"
             accept=".vcf,text/vcard,text/x-vcard,text/directory"
             className="hidden"
+            disabled={!!progress}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void handleFile(f);
@@ -170,7 +208,9 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
         <span>
-          <b className="text-slate-900">{contacts.length}</b> contacts in {fileName} &middot; {likelyIdx.length} look like family &middot;{" "}
+          <b className="text-slate-900">{rawCount.toLocaleString()}</b> entries in {fileName} became{" "}
+          <b className="text-slate-900">{contacts.length.toLocaleString()}</b> after merging duplicates &middot;{" "}
+          {likelyIdx.length.toLocaleString()} look like family &middot;{" "}
           {saved.size} saved
         </span>
         <button type="button" className="text-xs font-medium text-slate-500 hover:underline" onClick={() => setContacts(null)}>
@@ -247,6 +287,12 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
                   <span className="block break-words text-xs text-slate-500">
                     {[...c.phones.map((p) => p.value), ...c.emails.map((e) => e.value)].join("  ·  ")}
                   </span>
+                  {(c.dupCount > 1 || c.alsoNamed.length > 0) && (
+                    <span className="block text-[11px] text-slate-400">
+                      {c.dupCount > 1 && `merged from ${c.dupCount} entries`}
+                      {c.alsoNamed.length > 0 && `${c.dupCount > 1 ? " · " : ""}also saved as ${c.alsoNamed.slice(0, 3).join(", ")}`}
+                    </span>
+                  )}
                 </span>
               </label>
               <div className="mt-2 pl-7">
