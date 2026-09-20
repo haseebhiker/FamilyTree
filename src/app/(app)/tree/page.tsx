@@ -29,6 +29,24 @@ export default async function TreePage() {
     if (page.length < 1000) break;
   }
 
+  // Spouses shown beside each name in the tree — same paging reason as above.
+  const spouseRows: { person_a_id: string; person_b_id: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page } = await supabase.from("spouses").select("person_a_id, person_b_id").range(from, from + 999);
+    if (!page || page.length === 0) break;
+    spouseRows.push(...page);
+    if (page.length < 1000) break;
+  }
+  const peopleById = new Map(allPeople.map((p) => [p.id, p]));
+  const spouseNames: Record<string, string[]> = {};
+  for (const { person_a_id: a, person_b_id: b } of spouseRows) {
+    const pa = peopleById.get(a);
+    const pb = peopleById.get(b);
+    if (!pa || !pb) continue;
+    (spouseNames[a] ??= []).push(pb.preferred_name?.trim() || pb.full_name);
+    (spouseNames[b] ??= []).push(pa.preferred_name?.trim() || pa.full_name);
+  }
+
   const childrenByParent = new Map<string, TreeNodeData[]>();
   for (const p of allPeople) {
     for (const parentId of [p.father_id, p.mother_id]) {
@@ -75,7 +93,7 @@ export default async function TreePage() {
         </Link>
       </div>
       <p className="text-sm text-slate-500">{allPeople.length} people</p>
-      <TreeView roots={roots} allPeople={allPeople} myPersonId={member?.person_id} />
+      <TreeView roots={roots} allPeople={allPeople} spouseNames={spouseNames} myPersonId={member?.person_id} />
     </div>
   );
 }

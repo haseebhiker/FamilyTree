@@ -50,12 +50,14 @@ function TreeNode({
   depth,
   defaultExpanded,
   pathToMeIds,
+  spouseNames,
 }: {
   person: TreeNodeData;
   childrenByParent: Map<string, TreeNodeData[]>;
   depth: number;
   defaultExpanded: boolean;
   pathToMeIds: Set<string>;
+  spouseNames: Record<string, string[]>;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const kids = childrenByParent.get(person.id) ?? [];
@@ -94,6 +96,9 @@ function TreeNode({
             <span className="ml-1 text-[0.7rem] font-medium tracking-wide text-amber-700">{person.surname_tag}</span>
           )}
         </Link>
+        {(spouseNames[person.id]?.length ?? 0) > 0 && (
+          <span className="ml-3 text-xs text-violet-600">({spouseNames[person.id].join(", ")})</span>
+        )}
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
       </div>
       {expanded && kids.length > 0 && (
@@ -106,6 +111,7 @@ function TreeNode({
               depth={depth + 1}
               defaultExpanded={pathToMeIds.size > 0 ? pathToMeIds.has(child.id) : depth + 1 < 1}
               pathToMeIds={pathToMeIds}
+              spouseNames={spouseNames}
             />
           ))}
         </ul>
@@ -155,10 +161,12 @@ function SearchResultRow({ person, peopleById }: { person: TreeNodeData; peopleB
 export function TreeView({
   roots,
   allPeople,
+  spouseNames,
   myPersonId,
 }: {
   roots: TreeNodeData[];
   allPeople: TreeNodeData[];
+  spouseNames: Record<string, string[]>;
   myPersonId?: string | null;
 }) {
   const [query, setQuery] = useState("");
@@ -234,6 +242,7 @@ export function TreeView({
             depth={0}
             defaultExpanded
             pathToMeIds={pathToMeIds}
+              spouseNames={spouseNames}
           />
         </ul>
       )}
@@ -253,6 +262,7 @@ export function TreeView({
                 depth={0}
                 defaultExpanded={pathToMeIds.has(root.id)}
                 pathToMeIds={pathToMeIds}
+              spouseNames={spouseNames}
               />
             ))}
           </ul>
