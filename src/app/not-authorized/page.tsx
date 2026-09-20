@@ -88,7 +88,11 @@ export default async function NotAuthorizedPage() {
 
         {existingRequest?.status === "pending" && (
           <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            <p className="mb-2">Your request is submitted and waiting on an admin.</p>
+            <p className="mb-2 font-medium">Thank you — your request is submitted and waiting on an admin.</p>
+            <p className="mb-2 text-xs text-amber-900">
+              There&apos;s nothing more to do, and please don&apos;t submit it again. You&apos;ll get an email when you&apos;re
+              approved. To check any time, open familytree.haseeb.in and sign in with this same Google account.
+            </p>
             <a
               href="/not-authorized"
               className="inline-flex items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"

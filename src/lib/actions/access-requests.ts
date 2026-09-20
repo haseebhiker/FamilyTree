@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin, isSuperAdmin } from "@/lib/members";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, emailBodyToHtml } from "@/lib/email";
 import { notifyAdmins } from "@/lib/notify-admins";
 import type { Role } from "@/lib/types";
 
@@ -89,6 +89,21 @@ export async function submitAccessRequest(formData: FormData) {
     "Someone's waiting for access approval on Family Tree",
     `${name} (${user.email}) requested access.\n\nHow they're related: ${relationDescription}\n\nReview it at https://familytree.haseeb.in/admin/access-requests`,
   );
+
+  // A confirmation to the applicant, so they know it went through and how to
+  // check on it later. Best-effort like every other email here (sendEmail
+  // never throws, but nothing after the insert may break their screen).
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "We got your request to join the Nams Family Tree",
+      html: emailBodyToHtml(
+        `Hi ${name},\n\nThank you — we've received your request to join the Nams Family Tree. There's nothing more you need to do, and please don't submit it again.\n\nHaseeb reviews every request personally and connects you to the right person in the tree, so it can take a little while.\n\nTo check on it any time:\n- Open https://familytree.haseeb.in\n- Sign in with the same Google account (${user.email})\n- You'll see "waiting on an admin" until it's approved\n\nYou'll also get an email as soon as you're approved. If you'd like to add any detail about how you're related, just reply to this email.`,
+      ),
+    });
+  } catch (e) {
+    console.error("[submitAccessRequest] confirmation email failed (continuing):", e);
+  }
 
   revalidatePath("/not-authorized");
 }
