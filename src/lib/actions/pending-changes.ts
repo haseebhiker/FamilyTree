@@ -214,7 +214,7 @@ async function applyChange(
   }
 
   if (change.change_type === "add_relationship") {
-    const { existing_person_id, parent_gender, mode, relation_to_person_id, marriage_notes } = proposedData;
+    const { existing_person_id, parent_gender, mode, relation_to_person_id, marriage_notes, other_parent_id } = proposedData;
 
     if (mode === "sibling") {
       // target_person_id is the (existing) person being made a sibling —
@@ -250,10 +250,15 @@ async function applyChange(
     // gender at submission time, not the parent being linked.
     const resolvedGender = (await resolveParentGender(supabase, existing_person_id as string)) ?? parent_gender;
     const parentField = resolvedGender === "mother" ? "mother_id" : "father_id";
-    const { error } = await supabase
-      .from("people")
-      .update({ [parentField]: existing_person_id })
-      .eq("id", change.target_person_id);
+    const parentUpdate: Record<string, unknown> = { [parentField]: existing_person_id };
+    // Also record the parent's spouse as the child's other parent — but only
+    // into an EMPTY slot, never over a parent that's already recorded.
+    if (other_parent_id) {
+      const otherField = parentField === "father_id" ? "mother_id" : "father_id";
+      const { data: child } = await supabase.from("people").select(otherField).eq("id", change.target_person_id).single();
+      if (child && !(child as unknown as Record<string, unknown>)[otherField]) parentUpdate[otherField] = other_parent_id;
+    }
+    const { error } = await supabase.from("people").update(parentUpdate).eq("id", change.target_person_id);
     if (error) throw new Error(error.message);
     return change.target_person_id;
   }
@@ -497,6 +502,31 @@ export async function submitPersonEdit(
  * existing "child" sets the *other* person's parent field to point back
  * at this one — same primitive, just aimed at whichever side needs it.
  */
+/**
+ * For a child being added to `personId`: which of their spouses is the OTHER
+ * parent. Almost every marriage in this family is a single one, so a person
+ * with exactly one spouse defaults to that spouse; someone with several has
+ * to say which (or "not sure"); a form can also explicitly opt out.
+ */
+async function resolveOtherParent(supabase: SupabaseClient, personId: string, formData: FormData): Promise<string | null> {
+  if (String(formData.get("other_parent_choice") ?? "") === "none") return null;
+  const { data: rows } = await supabase
+    .from("spouses")
+    .select("person_a_id, person_b_id")
+    .or(`person_a_id.eq.${personId},person_b_id.eq.${personId}`);
+  const spouseIds = (rows ?? []).map((r) => (r.person_a_id === personId ? r.person_b_id : r.person_a_id));
+  const chosen = String(formData.get("other_parent_id") ?? "").trim();
+  if (chosen) {
+    if (!spouseIds.includes(chosen)) throw new Error("The other parent has to be this person's husband or wife.");
+    return chosen;
+  }
+  if (spouseIds.length === 1) return spouseIds[0];
+  if (spouseIds.length > 1) {
+    throw new Error("This person has more than one husband/wife recorded — please choose which one is the other parent (or choose \"not sure\").");
+  }
+  return null;
+}
+
 async function submitFamilyRelationImpl(formData: FormData) {
   const { supabase, member } = await requireMember();
 
@@ -512,6 +542,7 @@ async function submitFamilyRelationImpl(formData: FormData) {
 
   const relationType = mapped.type;
   const parentGender = mapped.gender === "M" ? "father" : "mother";
+  const otherParentId = relationType === "child" ? await resolveOtherParent(supabase, personId, formData) : null;
 
   if (mode === "existing") {
     const existingPersonId = String(formData.get("existing_person_id") ?? "").trim();
@@ -530,7 +561,12 @@ async function submitFamilyRelationImpl(formData: FormData) {
       await applyOrQueue(supabase, member, {
         change_type: "add_relationship",
         target_person_id: existingPersonId,
-        proposed_data: { relation_to_person_id: existingPersonId, existing_person_id: personId, parent_gender: parentGender },
+        proposed_data: {
+          relation_to_person_id: existingPersonId,
+          existing_person_id: personId,
+          parent_gender: parentGender,
+          ...(otherParentId ? { other_parent_id: otherParentId } : {}),
+        },
         previous_data: {},
         note,
       });
@@ -581,6 +617,7 @@ async function submitFamilyRelationImpl(formData: FormData) {
       relation_to_person_id: personId,
       relation_type: relationType,
       parent_gender: parentGender,
+      ...(otherParentId ? { other_parent_id: otherParentId } : {}),
       marriage_notes: relationType === "spouse" ? String(formData.get("marriage_notes") ?? "").trim() || null : null,
       pending_phone_country: String(formData.get("phone_country") ?? "").trim() || null,
       pending_phone_number: String(formData.get("phone_number") ?? "").trim() || null,

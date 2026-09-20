@@ -102,6 +102,14 @@ function FormFields({
   const [relation, setRelation] = useState<Relation>("son");
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const isSpouse = relation === "husband" || relation === "wife";
+  const isChild = relation === "son" || relation === "daughter";
+  // A child added to someone with a spouse is (almost always) that couple's
+  // child, so the spouse is recorded as the other parent unless unticked —
+  // otherwise it shows up as a child with one parent unknown, and siblings
+  // look like half-siblings. Several spouses: pick which one.
+  const spouseOptions = existingSpouses ?? [];
+  const [includeOther, setIncludeOther] = useState(true);
+  const [otherChoice, setOtherChoice] = useState("");
 
   // Father/mother aren't included here — the dropdown above already
   // disables those once hasFather/hasMother is true, which covers the
@@ -170,6 +178,48 @@ function FormFields({
               </Link>
             </span>
           ))}
+        </div>
+      )}
+
+      {isChild && spouseOptions.length === 1 && (
+        <div className="sm:col-span-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-900">
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={includeOther}
+              onChange={(e) => setIncludeOther(e.target.checked)}
+            />
+            <span>
+              Also record <b>{displayNameText(spouseOptions[0])}</b> as the other parent (their husband/wife).
+              Untick only if this child is from a different marriage.
+            </span>
+          </label>
+          {includeOther ? (
+            <input type="hidden" name="other_parent_id" value={spouseOptions[0].id} />
+          ) : (
+            <input type="hidden" name="other_parent_choice" value="none" />
+          )}
+        </div>
+      )}
+      {isChild && spouseOptions.length > 1 && (
+        <div className="sm:col-span-2">
+          <Field label="Who is the other parent?">
+            <Select value={otherChoice} onChange={(e) => setOtherChoice(e.target.value)} required>
+              <option value="">Choose…</option>
+              {spouseOptions.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  {displayNameText(sp)}
+                </option>
+              ))}
+              <option value="none">Not sure — leave blank</option>
+            </Select>
+          </Field>
+          {otherChoice === "none" ? (
+            <input type="hidden" name="other_parent_choice" value="none" />
+          ) : otherChoice ? (
+            <input type="hidden" name="other_parent_id" value={otherChoice} />
+          ) : null}
         </div>
       )}
 

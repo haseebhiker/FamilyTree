@@ -47,7 +47,8 @@ export function describeChange(
   if (changeType === "add_person") {
     const relationType = String(d.relation_type ?? "");
     const word = RELATION_WORD[relationType]?.[String(d.gender ?? "")] ?? (relationType || "relative");
-    return `Added a new person, ${d.full_name ?? "(unnamed)"}, as ${nameOf(d.relation_to_person_id)}'s ${word}.`;
+    const withOther = typeof d.other_parent_id === "string" ? ` (also recorded as ${nameOf(d.other_parent_id)}'s child)` : "";
+    return `Added a new person, ${d.full_name ?? "(unnamed)"}, as ${nameOf(d.relation_to_person_id)}'s ${word}${withOther}.`;
   }
 
   if (changeType === "add_relationship") {
@@ -70,6 +71,6 @@ export function describeChange(
 /** Every person id an audit_log row's data could reference, beyond its own person_id — for batching one lookup query instead of one per row. */
 export function referencedPersonIds(data: Record<string, unknown> | null): string[] {
   const d = data ?? {};
-  return [d.relation_to_person_id, d.existing_person_id]
+  return [d.relation_to_person_id, d.existing_person_id, d.other_parent_id]
     .filter((v): v is string => typeof v === "string");
 }
