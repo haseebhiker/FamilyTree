@@ -1,4 +1,5 @@
 interface NameFields {
+  public_no?: number | null;
   full_name: string;
   surname_tag: string | null;
   preferred_name?: string | null;
@@ -35,7 +36,7 @@ export function displayNameText(p: NameFields) {
  * looking for them is most likely to type.
  */
 export function searchText(p: NameFields) {
-  return [p.preferred_name, p.full_name, p.surname_tag].filter(Boolean).join(" ");
+  return [p.preferred_name, p.full_name, p.surname_tag, p.public_no ? String(p.public_no) : null].filter(Boolean).join(" ");
 }
 
 /**

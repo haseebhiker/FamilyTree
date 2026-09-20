@@ -375,7 +375,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const { data: allPeopleForPicker } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag")
+    .select("id, public_no, full_name, preferred_name, surname_tag")
     .is("deleted_at", null)
     .neq("id", person.id)
     .order("full_name")
@@ -439,7 +439,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <Link href={`/compare?a=${person.id}`} className="text-xs text-slate-400 hover:text-slate-600 hover:underline">
               Compare relationship with someone else…
             </Link>
-            <p className="mt-0.5 text-[10px] text-slate-300 select-all">ID: {person.id}</p>
+            <p className="mt-0.5 text-xs text-slate-400 select-all">Person #{personRaw.public_no}</p>
           </div>
         </div>
         <ShareButton

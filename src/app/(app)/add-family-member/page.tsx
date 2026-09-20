@@ -6,7 +6,7 @@ export default async function AddFamilyMemberPage() {
   const [{ data: people }, { data: spouses }] = await Promise.all([
     supabase
       .from("people")
-      .select("id, full_name, preferred_name, surname_tag, father_id, mother_id")
+      .select("id, public_no, full_name, preferred_name, surname_tag, father_id, mother_id")
       .is("deleted_at", null)
       .order("full_name")
       .limit(2000),

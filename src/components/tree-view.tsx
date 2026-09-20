@@ -8,6 +8,7 @@ import { ChevronIcon } from "@/components/ui";
 
 export interface TreeNodeData {
   id: string;
+  public_no?: number | null;
   full_name: string;
   preferred_name: string | null;
   surname_tag: string | null;
@@ -180,9 +181,11 @@ function SearchResultRow({ person, peopleById }: { person: TreeNodeData; peopleB
         <span className="font-medium text-slate-900">{person.full_name}</span>
         {surname}
         {parentNames.length > 0 && <div className="text-xs text-slate-400">Child of {parentNames.join(" & ")}</div>}
+        {person.public_no != null && <div className="text-xs text-slate-400">Person #{person.public_no}</div>}
       </div>
       <div className="text-sm sm:hidden">
         <span className="font-medium text-slate-900">{person.full_name}</span>
+        {person.public_no != null && <span className="ml-2 text-xs text-slate-400">#{person.public_no}</span>}
         {surname}
       </div>
     </div>
@@ -229,7 +232,7 @@ export function TreeView({
 
   const searchResults = useMemo(() => {
     if (query.trim().length < 2) return [];
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase().replace(/^#/, "");
     return allPeople.filter((p) => searchText(p).toLowerCase().includes(q)).slice(0, 15);
   }, [query, allPeople]);
 

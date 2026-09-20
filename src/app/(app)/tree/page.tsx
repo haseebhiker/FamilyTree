@@ -20,7 +20,7 @@ export default async function TreePage() {
   for (let from = 0; ; from += 1000) {
     const { data: page } = await supabase
       .from("people")
-      .select("id, full_name, preferred_name, surname_tag, living_status, father_id, mother_id, birth_year, birth_month, birth_day, birth_order")
+      .select("id, public_no, full_name, preferred_name, surname_tag, living_status, father_id, mother_id, birth_year, birth_month, birth_day, birth_order")
       .is("deleted_at", null)
       .order("full_name")
       .range(from, from + 999);

@@ -42,6 +42,8 @@ export interface Member {
 
 export interface Person {
   id: string;
+  /** Short, easy-to-say number (1, 2, 3 ...) — see migration 0019. */
+  public_no: number;
   full_name: string;
   preferred_name: string | null;
   other_names: string | null;

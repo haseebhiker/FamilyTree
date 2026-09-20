@@ -5,6 +5,7 @@ import { displayNameText, searchText, DisambiguatedName } from "@/components/per
 
 export interface PersonOption {
   id: string;
+  public_no?: number | null;
   full_name: string;
   surname_tag: string | null;
   preferred_name?: string | null;
@@ -34,7 +35,7 @@ export function PersonPicker({
 
   const results = useMemo(() => {
     if (query.trim().length < 1) return [];
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase().replace(/^#/, "");
     return people.filter((p) => searchText(p).toLowerCase().includes(q)).slice(0, 20);
   }, [query, people]);
 
@@ -83,6 +84,7 @@ export function PersonPicker({
                     who they're choosing, not just whichever name happens
                     to be set as preferred. */}
                 <DisambiguatedName person={p} />
+                {p.public_no != null && <span className="ml-2 text-xs text-slate-400">#{p.public_no}</span>}
               </button>
             </li>
           ))}
