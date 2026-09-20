@@ -87,8 +87,7 @@ function ListedPersonName({ person, spouse }: { person: NameLike; spouse?: NameL
     <>
       <ResponsivePersonName person={person} />
       {spouse && (
-        <span className="text-slate-500">
-          {" "}
+        <span className="ml-1 text-[0.7em] text-violet-600">
           (<ResponsivePersonName person={spouse} />)
         </span>
       )}

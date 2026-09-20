@@ -115,7 +115,7 @@ function TreeNode({
           )}
         </Link>
         {(spouseNames[person.id]?.length ?? 0) > 0 && (
-          <span className="ml-3 text-xs text-violet-600">({spouseNames[person.id].join(", ")})</span>
+          <span className="ml-3 text-[0.65rem] text-violet-600">({spouseNames[person.id].join(", ")})</span>
         )}
         {kids.length > 0 && <span className="text-xs text-slate-400">({kids.length})</span>}
         {hasGrandkids && (
