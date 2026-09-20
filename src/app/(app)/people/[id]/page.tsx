@@ -21,7 +21,7 @@ import { PersonAvatar } from "@/components/person-avatar";
 import { PersonAvatarUpload } from "@/components/person-photo-upload";
 import { ShareButton } from "@/components/share-button";
 import { ContactIcons } from "@/components/contact-icons";
-import { ProfileHeaderName, ResponsivePersonName } from "@/components/person-name";
+import { ProfileHeaderName, ResponsivePersonName, displayName } from "@/components/person-name";
 import { AncestorChart, type AncestorNode } from "@/components/ancestor-chart";
 import { RelationshipFinder } from "@/components/relationship-finder";
 import { findRelationshipPaths } from "@/lib/relationship";
@@ -83,15 +83,25 @@ interface NameLike {
 
 /** Name for a Children/Siblings/Cousins row, with their spouse (if any) shown in parentheses — preferred-name-only on mobile, full name on desktop, for both. */
 function ListedPersonName({ person, spouse }: { person: NameLike; spouse?: NameLike }) {
+  // items-baseline lines the spouse up with the FIRST line of the (two-line)
+  // name block, instead of its last line, which is where a plain inline
+  // sibling would sit.
   return (
-    <>
+    <span className="inline-flex flex-wrap items-baseline gap-x-1">
       <ResponsivePersonName person={person} />
       {spouse && (
-        <span className="ml-1 text-[0.7em] text-violet-600">
-          (<ResponsivePersonName person={spouse} />)
+        // One inline run of text (not the stacked name-over-family-name block
+        // PersonName renders): nested in brackets, that block sat on its own
+        // baseline and left the "(" and ")" hanging at different heights.
+        <span className="text-[0.7em] text-violet-600">
+          ({displayName(spouse)}
+          {spouse.surname_tag && (
+            <span className="ml-1 text-[0.85em] font-medium tracking-wide text-amber-700">{spouse.surname_tag}</span>
+          )}
+          )
         </span>
       )}
-    </>
+    </span>
   );
 }
 
