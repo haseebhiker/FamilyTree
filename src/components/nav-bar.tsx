@@ -31,6 +31,17 @@ function TrophyIcon() {
   );
 }
 
+function HelpIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
+      <circle cx="10" cy="10" r="8.5" fill="currentColor" />
+      <text x="10" y="14.4" textAnchor="middle" fontSize="12.5" fontWeight="700" fill="white" fontFamily="Arial, sans-serif">
+        ?
+      </text>
+    </svg>
+  );
+}
+
 function ActivityIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -103,6 +114,9 @@ export function NavBar({
           <Link href="/leaderboard" aria-label="Leaderboard" title="Leaderboard" className="hover:text-slate-900">
             <TrophyIcon />
           </Link>
+          <Link href="/help" aria-label="Help — how to" title="Help — how to" className="hover:text-slate-900">
+            <HelpIcon />
+          </Link>
           {isAdmin && (
             <Link href="/admin/activity-log" aria-label="Activity Log" title="Activity Log" className="hover:text-slate-900">
               <ActivityIcon />
@@ -161,9 +175,6 @@ export function NavBar({
                   My Privacy Settings
                 </Link>
               )}
-              <Link href="/help" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                Help &mdash; How to
-              </Link>
               <Link href="/faq" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 FAQ
               </Link>
