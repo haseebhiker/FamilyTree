@@ -14,6 +14,10 @@ export interface ContactValue {
 export interface ParsedContact {
   name: string;
   org: string | null;
+  /** Job title, nickname and a short note, when the contact has them — context for deciding who someone is. */
+  title?: string | null;
+  nickname?: string | null;
+  note?: string | null;
   phones: ContactValue[];
   emails: ContactValue[];
 }
@@ -73,18 +77,28 @@ function emailLabel(types: string[]): string {
 export function parseVCards(text: string): ParsedContact[] {
   const contacts: ParsedContact[] = [];
   let current: (ParsedContact & { fn: string; n: string }) | null = null;
+  const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
 
   for (const line of unfold(text)) {
     if (!line.trim()) continue;
     if (/^BEGIN:VCARD/i.test(line)) {
-      current = { name: "", org: null, phones: [], emails: [], fn: "", n: "" };
+      current = { name: "", org: null, title: null, nickname: null, note: null, phones: [], emails: [], fn: "", n: "" };
       continue;
     }
     if (/^END:VCARD/i.test(line)) {
       if (current) {
-        const name = current.fn || current.n || current.org || "";
+        // Some exports keep only a first name in FN but the full name in N (or the reverse): take whichever has more words.
+        const name = (words(current.n) > words(current.fn) ? current.n : current.fn) || current.n || current.org || "";
         if (name && (current.phones.length > 0 || current.emails.length > 0)) {
-          contacts.push({ name, org: current.org, phones: current.phones, emails: current.emails });
+          contacts.push({
+            name,
+            org: current.org,
+            title: current.title,
+            nickname: current.nickname,
+            note: current.note,
+            phones: current.phones,
+            emails: current.emails,
+          });
         }
       }
       current = null;
@@ -115,6 +129,9 @@ export function parseVCards(text: string): ParsedContact[] {
       const [family = "", given = "", additional = ""] = value.split(";").map(unescapeValue);
       current.n = [given, additional, family].filter(Boolean).join(" ");
     } else if (prop === "ORG") current.org = unescapeValue(value.split(";")[0]) || null;
+    else if (prop === "TITLE") current.title = unescapeValue(value) || null;
+    else if (prop === "NICKNAME") current.nickname = unescapeValue(value) || null;
+    else if (prop === "NOTE") current.note = unescapeValue(value).replace(/\s+/g, " ").slice(0, 120) || null;
     else if (prop === "TEL") {
       const v = unescapeValue(value).replace(/^tel:/i, "");
       if (v) current.phones.push({ value: v, label: phoneLabel(types) });

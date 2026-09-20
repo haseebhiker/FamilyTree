@@ -75,6 +75,9 @@ export function mergeContacts(list: ParsedContact[]): MergedContact[] {
       out.push({
         name,
         org: contacts.find((c) => c.org)?.org ?? null,
+        title: contacts.find((c) => c.title)?.title ?? null,
+        nickname: contacts.find((c) => c.nickname)?.nickname ?? null,
+        note: contacts.find((c) => c.note)?.note ?? null,
         phones: [...phones.values()],
         emails: [...emails.values()],
         alsoNamed,

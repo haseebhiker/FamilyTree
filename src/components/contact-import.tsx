@@ -15,6 +15,9 @@ type Filter = "likely" | "other" | "selected";
 
 const PAGE = 100;
 
+/** "Abdul" alone could be any of dozens of people — only names of two or more words are ticked automatically. */
+const hasFullName = (name: string) => name.trim().split(/\s+/).length >= 2;
+
 export function ContactImport({ people }: { people: PickerPerson[] }) {
   const [contacts, setContacts] = useState<MergedContact[] | null>(null);
   const [cands, setCands] = useState<Candidate[][]>([]);
@@ -73,7 +76,7 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
         const cs = bestCandidates(merged[i]);
         allCands.push(cs);
         if (cs.length > 0) ch[i] = people[cs[0].personIdx].id;
-        if (cs[0] && cs[0].score >= 0.85 && (!cs[1] || cs[0].score - cs[1].score >= 0.08)) inc.add(i);
+        if (hasFullName(merged[i].name) && cs[0] && cs[0].score >= 0.85 && (!cs[1] || cs[0].score - cs[1].score >= 0.08)) inc.add(i);
         if (i % 400 === 399) {
           setProgress(`Matching to the family tree… ${(i + 1).toLocaleString()} of ${merged.length.toLocaleString()}`);
           await tick();
@@ -129,7 +132,7 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
   function selectAllLikely() {
     setInclude((s) => {
       const copy = new Set(s);
-      for (const i of likelyIdx) if (choice[i] && !saved.has(i)) copy.add(i);
+      for (const i of likelyIdx) if (choice[i] && !saved.has(i) && contacts && hasFullName(contacts[i].name)) copy.add(i);
       return copy;
     });
   }
@@ -283,10 +286,18 @@ export function ContactImport({ people }: { people: PickerPerson[] }) {
                   onChange={(e) => toggle(i, e.target.checked)}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-slate-900">{c.name}</span>
+                  <span className="block text-sm font-medium text-slate-900">
+                    {c.name}
+                    {c.nickname && <span className="ml-1 font-normal text-slate-500">&ldquo;{c.nickname}&rdquo;</span>}
+                    {!hasFullName(c.name) && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">one-word name</span>}
+                  </span>
+                  {(c.org || c.title) && (
+                    <span className="block text-xs text-slate-600">{[c.title, c.org].filter(Boolean).join(" · ")}</span>
+                  )}
                   <span className="block break-words text-xs text-slate-500">
                     {[...c.phones.map((p) => p.value), ...c.emails.map((e) => e.value)].join("  ·  ")}
                   </span>
+                  {c.note && <span className="block text-[11px] italic text-slate-400">{c.note}</span>}
                   {(c.dupCount > 1 || c.alsoNamed.length > 0) && (
                     <span className="block text-[11px] text-slate-400">
                       {c.dupCount > 1 && `merged from ${c.dupCount} entries`}
