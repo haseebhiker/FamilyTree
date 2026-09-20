@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AskHaseebLine } from "@/components/ask-haseeb";
 
 export default async function LoginPage({
   searchParams,
@@ -23,6 +24,11 @@ export default async function LoginPage({
           </p>
         )}
         <GoogleSignInButton />
+        <AskHaseebLine
+          className="mt-5"
+          prefix="Trouble signing in?"
+          message="Hi Haseeb, I need help getting into the family tree. "
+        />
       </Card>
     </main>
   );

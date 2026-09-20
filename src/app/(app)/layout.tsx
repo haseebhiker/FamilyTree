@@ -1,3 +1,4 @@
+import { AskHaseebLine } from "@/components/ask-haseeb";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, getRealMember, isAdmin } from "@/lib/members";
@@ -82,6 +83,9 @@ export default async function AppLayout({
           <Tip seed={`${member.id}:${member.last_login_at}`} isAdmin={isAdmin(member)} />
         </aside>
       </main>
+      <footer className="px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2">
+        <AskHaseebLine />
+      </footer>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronIcon } from "@/components/ui";
+import { AskHaseebButton } from "@/components/ask-haseeb";
 
 function Steps({ children }: { children: React.ReactNode }) {
   return <ol className="ml-5 list-decimal space-y-1.5 text-sm text-slate-700">{children}</ol>;
@@ -31,6 +32,10 @@ export default function HelpPage() {
         <p className="mt-1 text-sm text-slate-500">
           Simple steps for the things people ask most. Tap a heading to open it.
         </p>
+        <div className="mt-3">
+          <AskHaseebButton />
+        </div>
+        <p className="mt-1 text-xs text-slate-400">Have a question that isn&apos;t answered below? Message Haseeb directly.</p>
       </div>
 
       <div className="space-y-2">
@@ -53,7 +58,10 @@ export default function HelpPage() {
               <b>Trophy</b> &mdash; who has helped the most (the <Link href="/leaderboard" className={link}>Leaderboard</Link>)
             </li>
             <li>
-              <b>Menu (three lines)</b> &mdash; add a family member, My Submissions, Quick Edit, this Help page and more
+              <b>Question mark (?)</b> &mdash; this Help page
+            </li>
+            <li>
+              <b>Menu (three lines)</b> &mdash; add a family member, My Submissions, Quick Edit and more
             </li>
           </ul>
         </Section>
@@ -201,8 +209,11 @@ export default function HelpPage() {
               Send a note through <Link href="/suggestions" className={link}>Suggestions</Link> in the menu &mdash; tell us what
               isn&apos;t working or what would help.
             </li>
-            <li>Or simply message Haseeb.</li>
+            <li>Or message Haseeb directly:</li>
           </ul>
+          <div className="pt-2">
+            <AskHaseebButton />
+          </div>
         </Section>
       </div>
     </div>

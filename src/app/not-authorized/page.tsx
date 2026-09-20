@@ -6,6 +6,7 @@ import { signOut } from "@/app/login/actions";
 import { PendingButton } from "@/components/pending-button";
 import { submitAccessRequest } from "@/lib/actions/access-requests";
 import { ApprovedReloadGuard } from "@/components/approved-reload-guard";
+import { AskHaseebLine } from "@/components/ask-haseeb";
 import { provisionMemberFromInvite } from "@/lib/members";
 
 export default async function NotAuthorizedPage() {
@@ -142,6 +143,11 @@ export default async function NotAuthorizedPage() {
             Sign out
           </PendingButton>
         </form>
+        <AskHaseebLine
+          className="mt-4"
+          prefix="Waiting, or need help?"
+          message={`Hi Haseeb, I asked to join the family tree with ${user.email} and need help. `}
+        />
       </Card>
     </main>
   );
