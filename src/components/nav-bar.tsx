@@ -161,6 +161,9 @@ export function NavBar({
                   My Privacy Settings
                 </Link>
               )}
+              <Link href="/help" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Help &mdash; How to
+              </Link>
               <Link href="/faq" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 FAQ
               </Link>

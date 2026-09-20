@@ -15,7 +15,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Who can see my birthday, phone number, or other details?",
-    a: "Nothing beyond your name and current location is shown by default. Everything else — birthday, contact info, social links — stays private until you choose to share it, either with everyone in the app or with specific groups you're in. Set this from My Privacy Settings.",
+    a: "By default, family members in the app can see your name, current location, birthday, places, and social links — you can hide or limit any of these from My Privacy Settings. Phone numbers, email addresses and home addresses are more private: only admins can see them until you choose who else can (everyone in the app, or specific groups you're in).",
   },
   {
     q: "How do I set the name people actually call me by?",
