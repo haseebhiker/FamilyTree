@@ -94,11 +94,7 @@ function ListedPersonName({ person, spouse }: { person: NameLike; spouse?: NameL
         // PersonName renders): nested in brackets, that block sat on its own
         // baseline and left the "(" and ")" hanging at different heights.
         <span className="text-[0.7em] text-violet-600">
-          ({displayName(spouse)}
-          {spouse.surname_tag && (
-            <span className="ml-1 text-[0.85em] font-medium tracking-wide text-amber-700">{spouse.surname_tag}</span>
-          )}
-          )
+          ({displayName(spouse)})
         </span>
       )}
     </span>
