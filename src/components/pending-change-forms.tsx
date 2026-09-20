@@ -12,14 +12,38 @@ interface PersonLite {
   surname_tag: string | null;
 }
 
+/**
+ * Stacked on a phone (field name, then what it is now, then a full-width box
+ * for what it will become) — three narrow side-by-side columns cut the
+ * proposed value off ("Dr." for a whole full name) so the reviewer couldn't
+ * see what was actually being changed. Side by side again from `sm` up,
+ * where there's room.
+ */
 function DiffRow({ field, oldValue, newValue }: { field: string; oldValue: unknown; newValue: unknown }) {
+  const oldEmpty = oldValue == null || oldValue === "";
+  const newEmpty = newValue == null || newValue === "";
   return (
-    <div className="grid grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-100 py-1.5 text-sm">
-      <div className="font-medium text-slate-500">{field.replace(/_/g, " ")}</div>
-      <div className="text-red-700 line-through decoration-red-300">
-        {oldValue == null || oldValue === "" ? <span className="italic text-slate-400">empty</span> : String(oldValue)}
+    <div className="space-y-1.5 border-b border-slate-100 py-3 text-sm sm:grid sm:grid-cols-[140px_1fr_1fr] sm:items-start sm:gap-2 sm:space-y-0 sm:py-1.5">
+      <div className="font-semibold capitalize text-slate-700 sm:font-medium sm:normal-case sm:text-slate-500">
+        {field.replace(/_/g, " ")}
       </div>
-      <Input name={`edit_${field}`} defaultValue={newValue == null ? "" : String(newValue)} />
+      <div className="break-words">
+        <span className="text-xs font-medium text-slate-400 sm:hidden">Now: </span>
+        {oldEmpty ? (
+          <span className="italic text-slate-400">empty</span>
+        ) : (
+          <span className="text-red-700 line-through decoration-red-300">{String(oldValue)}</span>
+        )}
+      </div>
+      <div>
+        <span className="mb-0.5 block text-xs font-medium text-green-700 sm:hidden">Changing to:</span>
+        <Input name={`edit_${field}`} defaultValue={newValue == null ? "" : String(newValue)} />
+        {newEmpty && !oldEmpty && (
+          <p className="mt-1 text-xs font-medium text-red-600">
+            This clears the current value. To keep it, type it back into the box before approving.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -67,7 +91,7 @@ export function PendingChangeApproveForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <input type="hidden" name="change_id" value={changeId} />
       <div>
-        <div className="grid grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-200 pb-1 text-xs font-semibold text-slate-500">
+        <div className="hidden grid-cols-[140px_1fr_1fr] gap-2 border-b border-slate-200 pb-1 text-xs font-semibold text-slate-500 sm:grid">
           <div>Field</div>
           <div>Current</div>
           <div>Proposed (editable)</div>
