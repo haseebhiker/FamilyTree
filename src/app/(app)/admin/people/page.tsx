@@ -5,7 +5,7 @@ import {
   mergePeople,
   cleanupSpouseNames,
 } from "@/lib/actions/people-admin";
-import { Card, Input, Button, Field } from "@/components/ui";
+import { Card, Input, Button, Field, ChevronIcon } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PersonPicker } from "@/components/person-picker";
 import { DisambiguatedName } from "@/components/person-name";
@@ -21,7 +21,7 @@ export default async function PeopleManagementPage({
 
   let query = supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag")
+    .select("id, public_no, full_name, preferred_name, surname_tag")
     .is("deleted_at", null)
     .order("full_name")
     .limit(200);
@@ -30,7 +30,7 @@ export default async function PeopleManagementPage({
 
   const { data: allPeopleForSelect } = await supabase
     .from("people")
-    .select("id, full_name, preferred_name, surname_tag")
+    .select("id, public_no, full_name, preferred_name, surname_tag")
     .is("deleted_at", null)
     .order("full_name")
     .limit(2000);
@@ -55,6 +55,37 @@ export default async function PeopleManagementPage({
       <h1 className="text-xl font-semibold text-slate-900">People Management</h1>
 
       <Card>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Merge duplicate profiles</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Picks the profile to keep; everything pointing at the other one (parents, spouses, children, and any
+          linked member account) gets repointed to the keeper, then the duplicate is deleted (recoverable from
+          Deleted Profiles below, though its relationships will already have moved to the keeper).
+        </p>
+        <form action={mergePeople} className="grid gap-3 sm:grid-cols-2">
+          <Field label="Keep this profile">
+            <PersonPicker name="keeper_id" people={allPeopleForSelect ?? []} />
+          </Field>
+          <Field label="Delete this duplicate">
+            <PersonPicker name="loser_id" people={allPeopleForSelect ?? []} />
+          </Field>
+          <div className="sm:col-span-2">
+            <PendingButton
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              pendingChildren="Merging…"
+              confirmMessage="Merge these two profiles? Their relationships can't easily be un-merged."
+            >
+              Merge
+            </PendingButton>
+          </div>
+        </form>
+      </Card>
+
+      <details className="group rounded-lg border border-slate-200 bg-white" open={!!q}>
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-900">
+          <ChevronIcon className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+          Search &amp; delete profiles
+        </summary>
+        <div className="border-t border-slate-100 p-4">
         <form className="flex gap-2">
           <Input name="q" defaultValue={q ?? ""} placeholder="Search by name…" />
           <Button type="submit">Search</Button>
@@ -103,33 +134,8 @@ export default async function PeopleManagementPage({
             </tbody>
           </table>
         </div>
-      </Card>
-
-      <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Merge duplicate profiles</h2>
-        <p className="mb-3 text-sm text-slate-500">
-          Picks the profile to keep; everything pointing at the other one (parents, spouses, children, and any
-          linked member account) gets repointed to the keeper, then the duplicate is deleted (recoverable from
-          Deleted Profiles below, though its relationships will already have moved to the keeper).
-        </p>
-        <form action={mergePeople} className="grid gap-3 sm:grid-cols-2">
-          <Field label="Keep this profile">
-            <PersonPicker name="keeper_id" people={allPeopleForSelect ?? []} />
-          </Field>
-          <Field label="Delete this duplicate">
-            <PersonPicker name="loser_id" people={allPeopleForSelect ?? []} />
-          </Field>
-          <div className="sm:col-span-2">
-            <PendingButton
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              pendingChildren="Merging…"
-              confirmMessage="Merge these two profiles? Their relationships can't easily be un-merged."
-            >
-              Merge
-            </PendingButton>
-          </div>
-        </form>
-      </Card>
+      </div>
+      </details>
 
       {/* One-time legacy-import cleanup. Hidden once the count reaches zero,
           so it disappears after it has been run rather than sitting there
