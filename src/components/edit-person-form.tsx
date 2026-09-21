@@ -20,9 +20,12 @@ export function EditPersonForm({
   personId,
   personRaw,
   onSuccess,
+  photoSuggestOnly = false,
 }: {
   personId: string;
   personRaw: Person;
+  /** Not the profile's owner or an admin — a photo added here goes to an admin for approval. */
+  photoSuggestOnly?: boolean;
   /** When given (ProfileActionButtons wires this up), called instead of showing the "Submitted" message inline — the parent collapses this section and shows the message in its place instead, so a successful save doesn't leave the whole form sitting open. */
   onSuccess?: (message: string) => void;
 }) {
@@ -93,6 +96,7 @@ export function EditPersonForm({
         key={`${generation}:${personRaw.updated_at}`}
         personId={personId}
         personRaw={personRaw}
+        photoSuggestOnly={photoSuggestOnly}
         onSubmit={handleSubmit}
         isPending={isPending}
         submitted={submitted}
@@ -105,6 +109,7 @@ export function EditPersonForm({
 function FormFields({
   personId,
   personRaw,
+  photoSuggestOnly,
   onSubmit,
   isPending,
   submitted,
@@ -112,6 +117,7 @@ function FormFields({
 }: {
   personId: string;
   personRaw: Person;
+  photoSuggestOnly: boolean;
   onSubmit: (formData: FormData) => void;
   isPending: boolean;
   submitted: boolean;
@@ -203,6 +209,7 @@ function FormFields({
             hasExistingPhoto={!!personRaw.photo_url}
             previousPhotoUrl={personRaw.photo_url}
             previousThumbnailUrl={personRaw.photo_thumbnail_url}
+            suggestOnly={photoSuggestOnly}
           />
         </Field>
       </div>

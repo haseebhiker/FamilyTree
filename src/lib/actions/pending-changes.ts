@@ -100,6 +100,20 @@ async function resolveParentGender(supabase: SupabaseClient, personId: string): 
   return null;
 }
 
+const PHOTO_BUCKET = "person-photos";
+
+/** Storage paths (in our photo bucket only) for the given photo URLs — a hand-typed external link isn't ours to delete. */
+function photoPathsFromUrls(urls: unknown[]): string[] {
+  const prefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/`;
+  return urls.filter((u): u is string => typeof u === "string" && u.startsWith(prefix)).map((u) => u.slice(prefix.length));
+}
+
+async function ownedPhotoPaths(supabase: SupabaseClient, personId: string | null): Promise<string[]> {
+  if (!personId) return [];
+  const { data } = await supabase.from("people").select("photo_url, photo_thumbnail_url").eq("id", personId).maybeSingle();
+  return photoPathsFromUrls([data?.photo_url, data?.photo_thumbnail_url]);
+}
+
 /**
  * Applies one change's proposed_data to the live tables. Shared by (a) the
  * admin approval action and (b) an admin's own edit, which — per design
@@ -114,9 +128,16 @@ async function applyChange(
   const proposedData = change.proposed_data;
 
   if (change.change_type === "edit_person") {
+    // A photo swap leaves the previous files orphaned in Storage — note them
+    // now, delete after the update succeeds (best-effort, admin-only per RLS).
+    const oldPhotoPaths =
+      "photo_url" in proposedData
+        ? await ownedPhotoPaths(supabase, change.target_person_id)
+        : [];
     const updatePayload: Record<string, unknown> = { ...proposedData, updated_at: new Date().toISOString() };
     const { error } = await supabase.from("people").update(updatePayload).eq("id", change.target_person_id);
     if (error) throw new Error(error.message);
+    if (oldPhotoPaths.length > 0) await supabase.storage.from("person-photos").remove(oldPhotoPaths);
     return change.target_person_id;
   }
 
@@ -721,7 +742,7 @@ export async function rejectPendingChange(formData: FormData) {
 
   const { data: change, error: fetchError } = await supabase
     .from("pending_changes")
-    .select("submitted_by, target_person_id")
+    .select("submitted_by, target_person_id, proposed_data")
     .eq("id", changeId)
     .single();
   if (fetchError || !change) throw new Error("Change not found");
@@ -737,6 +758,10 @@ export async function rejectPendingChange(formData: FormData) {
     .eq("id", changeId)
     .eq("status", "pending");
   if (error) throw new Error(error.message);
+
+  // A rejected photo suggestion's already-uploaded files are just clutter now.
+  const rejectedPhotoPaths = photoPathsFromUrls([change.proposed_data?.photo_url, change.proposed_data?.photo_thumbnail_url]);
+  if (rejectedPhotoPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(rejectedPhotoPaths);
 
   // No revalidatePath — see approvePendingChange's comment just above.
 }

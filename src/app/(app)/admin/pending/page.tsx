@@ -33,6 +33,10 @@ function describeChange(
   const d = change.proposed_data ?? {};
   const nameOf = (id: unknown) => (typeof id === "string" ? (peopleById.get(id)?.full_name ?? "someone not in the tree") : "someone not in the tree");
 
+  if (change.change_type === "edit_person" && "photo_url" in d) {
+    return `${d.photo_url ? "New photo" : "Remove photo"} for ${nameOf(change.target_person_id)}.`;
+  }
+
   if (change.change_type === "add_person") {
     const relationType = String(d.relation_type ?? "");
     const word = RELATION_WORD[relationType]?.[String(d.gender ?? "")] ?? (relationType || "relative");

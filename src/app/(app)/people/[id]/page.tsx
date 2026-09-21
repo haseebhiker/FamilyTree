@@ -410,7 +410,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          {isOwner || isAdmin(member) ? (
+          {member ? (
             <PersonAvatarUpload
               personId={person.id}
               photoUrl={person.photo_url}
@@ -418,6 +418,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
               fullName={person.full_name}
               previousPhotoUrl={person.photo_url}
               previousThumbnailUrl={person.photo_thumbnail_url}
+              suggestOnly={!(isOwner || isAdmin(member))}
             />
           ) : (
             <PersonAvatar photoUrl={person.photo_url} thumbnailUrl={person.photo_thumbnail_url} fullName={person.full_name} />
@@ -471,7 +472,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
             <ContactDetailForm personId={person.id} />
           </div>
         }
-        editForm={<EditPersonForm personId={person.id} personRaw={personRaw as Person} />}
+        editForm={<EditPersonForm personId={person.id} personRaw={personRaw as Person} photoSuggestOnly={!(isOwner || isAdmin(member))} />}
         addFamilyMemberForm={
           <div className="p-4">
             <AddFamilyMemberForm

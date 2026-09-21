@@ -19,7 +19,38 @@ interface PersonLite {
  * see what was actually being changed. Side by side again from `sm` up,
  * where there's room.
  */
+function PhotoDiffRow({ oldValue, newValue }: { oldValue: unknown; newValue: unknown }) {
+  const oldUrl = typeof oldValue === "string" && oldValue ? oldValue : null;
+  const newUrl = typeof newValue === "string" && newValue ? newValue : null;
+  return (
+    <div className="flex flex-wrap items-start gap-6 border-b border-slate-100 py-3 text-sm">
+      <div>
+        <div className="mb-1 text-xs font-medium text-slate-400">Now</div>
+        {oldUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- storage URL, not a static asset
+          <img src={oldUrl} alt="Current photo" className="h-28 w-28 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-28 w-28 items-center justify-center rounded-lg bg-slate-100 text-xs italic text-slate-400">no photo</div>
+        )}
+      </div>
+      <div>
+        <div className="mb-1 text-xs font-medium text-green-700">New photo</div>
+        {newUrl ? (
+          <a href={newUrl} target="_blank" rel="noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element -- storage URL, not a static asset */}
+            <img src={newUrl} alt="Suggested photo" className="h-28 w-28 rounded-lg object-cover" />
+          </a>
+        ) : (
+          <div className="flex h-28 w-28 items-center justify-center rounded-lg bg-slate-100 text-xs italic text-slate-400">removed</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DiffRow({ field, oldValue, newValue }: { field: string; oldValue: unknown; newValue: unknown }) {
+  if (field === "photo_url") return <PhotoDiffRow oldValue={oldValue} newValue={newValue} />;
+  if (field === "photo_thumbnail_url") return null;
   const oldEmpty = oldValue == null || oldValue === "";
   const newEmpty = newValue == null || newValue === "";
   return (

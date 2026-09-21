@@ -31,10 +31,11 @@ export function describeChange(
     typeof id === "string" ? (peopleById.get(id)?.full_name ?? "someone not in the tree") : "someone not in the tree";
 
   if (changeType === "edit_person") {
-    const keys = Object.keys(d);
+    const keys = Object.keys(d).filter((k) => k !== "photo_thumbnail_url");
     if (keys.length === 0) return "No fields changed.";
     return keys
       .map((k) => {
+        if (k === "photo_url") return d[k] ? "photo: new photo added" : "photo: removed";
         const from = previousData?.[k];
         const to = d[k];
         const fromText = from == null || from === "" ? "empty" : String(from);

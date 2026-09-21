@@ -61,6 +61,7 @@ function usePersonPhotoUpload({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const router = useRouter();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -68,6 +69,7 @@ function usePersonPhotoUpload({
     const input = e.target;
     if (!file) return;
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       try {
         const [compressedFull, thumbnail] = await Promise.all([
@@ -91,10 +93,17 @@ function usePersonPhotoUpload({
         const thumbnailUrl = supabase.storage.from(BUCKET).getPublicUrl(thumbPath).data.publicUrl;
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-        await updatePersonPhoto(personId, photoUrl, thumbnailUrl, {
+        const result = await updatePersonPhoto(personId, photoUrl, thumbnailUrl, {
           photoPath: pathFromOurUrl(previousPhotoUrl, supabaseUrl),
           thumbnailPath: pathFromOurUrl(previousThumbnailUrl, supabaseUrl),
         });
+        if ("error" in result) {
+          setError(result.error);
+          return;
+        }
+        if (result.status === "pending") {
+          setNotice("Thank you! Your photo was sent to an admin for approval. It will show up once approved.");
+        }
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed — please try again.");
@@ -110,10 +119,14 @@ function usePersonPhotoUpload({
     startTransition(async () => {
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        await removePersonPhoto(personId, {
+        const result = await removePersonPhoto(personId, {
           photoPath: pathFromOurUrl(previousPhotoUrl, supabaseUrl),
           thumbnailPath: pathFromOurUrl(previousThumbnailUrl, supabaseUrl),
         });
+        if (result && "error" in result) {
+          setError(result.error);
+          return;
+        }
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Couldn't remove the photo — please try again.");
@@ -121,7 +134,7 @@ function usePersonPhotoUpload({
     });
   }
 
-  return { isPending, error, handleChange, handleRemove };
+  return { isPending, error, notice, handleChange, handleRemove };
 }
 
 export function PersonPhotoUpload({
@@ -129,13 +142,16 @@ export function PersonPhotoUpload({
   hasExistingPhoto,
   previousPhotoUrl,
   previousThumbnailUrl,
+  suggestOnly = false,
 }: {
   personId: string;
   hasExistingPhoto: boolean;
   previousPhotoUrl: string | null;
   previousThumbnailUrl: string | null;
+  /** True for anyone who isn't this profile's owner or an admin: the photo is sent to an admin for approval instead of being applied. */
+  suggestOnly?: boolean;
 }) {
-  const { isPending, error, handleChange, handleRemove } = usePersonPhotoUpload({
+  const { isPending, error, notice, handleChange, handleRemove } = usePersonPhotoUpload({
     personId,
     previousPhotoUrl,
     previousThumbnailUrl,
@@ -145,10 +161,10 @@ export function PersonPhotoUpload({
     <div>
       <div className="flex items-center gap-3">
         <label className="inline-block cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          {isPending ? "Working…" : hasExistingPhoto ? "Change photo" : "Add a photo"}
+          {isPending ? "Working…" : suggestOnly ? "Add a photo (an admin approves it)" : hasExistingPhoto ? "Change photo" : "Add a photo"}
           <input type="file" accept="image/*" onChange={handleChange} disabled={isPending} className="hidden" />
         </label>
-        {hasExistingPhoto && (
+        {hasExistingPhoto && !suggestOnly && (
           <button
             type="button"
             onClick={handleRemove}
@@ -159,6 +175,7 @@ export function PersonPhotoUpload({
           </button>
         )}
       </div>
+      {notice && <p className="mt-1 text-xs text-green-700">{notice}</p>}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
@@ -198,6 +215,7 @@ export function PersonAvatarUpload({
   fullName,
   previousPhotoUrl,
   previousThumbnailUrl,
+  suggestOnly = false,
 }: {
   personId: string;
   photoUrl: string | null;
@@ -205,8 +223,10 @@ export function PersonAvatarUpload({
   fullName: string;
   previousPhotoUrl: string | null;
   previousThumbnailUrl: string | null;
+  /** Anyone but the owner/admin: the camera sends a photo for approval, and there's no remove button. */
+  suggestOnly?: boolean;
 }) {
-  const { isPending, error, handleChange, handleRemove } = usePersonPhotoUpload({
+  const { isPending, error, notice, handleChange, handleRemove } = usePersonPhotoUpload({
     personId,
     previousPhotoUrl,
     previousThumbnailUrl,
@@ -236,7 +256,7 @@ export function PersonAvatarUpload({
         )}
         <label
           className="absolute right-0 bottom-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow hover:bg-slate-700"
-          title={hasPhoto ? "Change photo" : "Add a photo"}
+          title={suggestOnly ? "Add a photo (an admin approves it)" : hasPhoto ? "Change photo" : "Add a photo"}
         >
           {isPending ? (
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -245,7 +265,7 @@ export function PersonAvatarUpload({
           )}
           <input type="file" accept="image/*" onChange={handleChange} disabled={isPending} className="hidden" />
         </label>
-        {hasPhoto && (
+        {hasPhoto && !suggestOnly && (
           <button
             type="button"
             onClick={handleRemove}
@@ -257,7 +277,8 @@ export function PersonAvatarUpload({
           </button>
         )}
       </div>
-      {error && <p className="mt-1 max-w-24 text-[10px] text-red-600">{error}</p>}
+      {notice && <p className="mt-1 max-w-48 text-xs text-green-700">{notice}</p>}
+      {error && <p className="mt-1 max-w-48 text-xs text-red-600">{error}</p>}
       {lightboxOpen && photoUrl && <PhotoLightbox url={photoUrl} alt={fullName} onClose={() => setLightboxOpen(false)} />}
     </div>
   );
