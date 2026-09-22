@@ -59,6 +59,10 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
   });
   const [missingFilter, setMissingFilter] = useState<ColumnKey | "none">("none");
   const [branchRoot, setBranchRoot] = useState<{ id: string; name: string } | null>(null);
+  // "children" (just the next generation) covers most real uses — filling
+  // in a handful of siblings' details — so it's the default; "descendants"
+  // opts into the full recursive tree below the root.
+  const [branchScope, setBranchScope] = useState<"children" | "descendants">("children");
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -85,6 +89,10 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
   const branchIds = useMemo(() => {
     if (!branchRoot) return null;
     const ids = new Set<string>([branchRoot.id]);
+    if (branchScope === "children") {
+      for (const childId of childrenByParent.get(branchRoot.id) ?? []) ids.add(childId);
+      return ids;
+    }
     const queue = [branchRoot.id];
     while (queue.length > 0) {
       const current = queue.pop()!;
@@ -95,7 +103,7 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
       }
     }
     return ids;
-  }, [branchRoot, childrenByParent]);
+  }, [branchRoot, branchScope, childrenByParent]);
 
   const filtered = useMemo(() => {
     let result = people;
@@ -179,9 +187,18 @@ export function QuickEditTable({ initialPeople }: { initialPeople: QuickEditPers
           />
         </div>
         {branchRoot && (
-          <div className="flex items-center gap-2 pb-2 text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-3 pb-2 text-xs text-slate-600">
+            <Select
+              value={branchScope}
+              onChange={(e) => setBranchScope(e.target.value as "children" | "descendants")}
+              className="w-auto px-2 py-1 text-xs"
+            >
+              <option value="children">Just their children</option>
+              <option value="descendants">Everyone under them</option>
+            </Select>
             <span>
-              Showing <span className="font-medium">{branchRoot.name}</span> and everyone under them (
+              Showing <span className="font-medium">{branchRoot.name}</span>
+              {branchScope === "children" ? " and their children" : " and everyone under them"} (
               {branchIds?.size ?? 0} {branchIds?.size === 1 ? "person" : "people"})
             </span>
             <button type="button" onClick={() => setBranchRoot(null)} className="text-red-600 hover:underline">
