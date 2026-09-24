@@ -87,7 +87,10 @@ export default async function TreePage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
-        <span className="text-slate-900">Tree</span>
+        <span className="text-slate-900">List</span>
+        <Link href="/tree/chart" className="hover:text-slate-900">
+          Chart
+        </Link>
         <Link href="/tree/surnames" className="hover:text-slate-900">
           Surnames
         </Link>

@@ -13,7 +13,7 @@ export function FamilyTreeRootPicker({ people }: { people: PersonOption[] }) {
         people={people}
         placeholder="Jump to a person…"
         onSelect={(id) => {
-          if (id) router.push(`/admin/family-tree?root=${id}`);
+          if (id) router.push(`/tree/chart?root=${id}`);
         }}
       />
     </div>

@@ -30,7 +30,7 @@ function FamilyTreeNodeItem({
     <li>
       <div className="inline-flex flex-col items-center gap-0.5">
         <Link
-          href={`/admin/family-tree?root=${node.id}`}
+          href={`/tree/chart?root=${node.id}`}
           ref={isRoot ? rootRef : undefined}
           title="Re-center the chart on this person"
           className={`inline-block rounded-md border px-3 py-1.5 text-xs leading-snug whitespace-nowrap hover:bg-slate-50 ${
@@ -56,7 +56,7 @@ function FamilyTreeNodeItem({
       {node.hiddenChildrenCount > 0 && (
         <div className="pt-2">
           <Link
-            href={`/admin/family-tree?root=${node.id}`}
+            href={`/tree/chart?root=${node.id}`}
             className="text-[10px] font-medium text-blue-600 hover:underline"
           >
             +{node.hiddenChildrenCount} more ↓

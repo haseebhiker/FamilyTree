@@ -137,11 +137,21 @@ export default async function FamilyTreeChartPage({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
+        <Link href="/tree" className="hover:text-slate-900">
+          List
+        </Link>
+        <span className="text-slate-900">Chart</span>
+        <Link href="/tree/surnames" className="hover:text-slate-900">
+          Surnames
+        </Link>
+      </div>
+
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Family Tree Chart</h1>
         <p className="mt-1 text-sm text-slate-500">
           A visual, connector-line view of the tree, {VISIBLE_GENERATIONS} generations at a time. Click any name to
-          re-center the chart on them and reveal further generations. Admin-only for now.
+          re-center the chart on them and reveal further generations.
         </p>
       </div>
 
@@ -150,13 +160,13 @@ export default async function FamilyTreeChartPage({
           <p className="text-sm text-slate-500">
             Up:{" "}
             {father && (
-              <Link href={`/admin/family-tree?root=${father.id}`} className="text-blue-600 hover:underline">
+              <Link href={`/tree/chart?root=${father.id}`} className="text-blue-600 hover:underline">
                 {displayNameText(father)}
               </Link>
             )}
             {father && mother && <span className="mx-1">·</span>}
             {mother && (
-              <Link href={`/admin/family-tree?root=${mother.id}`} className="text-blue-600 hover:underline">
+              <Link href={`/tree/chart?root=${mother.id}`} className="text-blue-600 hover:underline">
                 {displayNameText(mother)}
               </Link>
             )}

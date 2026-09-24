@@ -102,8 +102,8 @@ export function NavBar({
               Me
             </Link>
           )}
-          <Link href="/tree" className="hover:text-slate-900">
-            Tree
+          <Link href="/tree/chart" className="hover:text-slate-900">
+            Family Tree
           </Link>
           <Link href="/compare" className="hover:text-slate-900">
             Compare
@@ -141,6 +141,9 @@ export function NavBar({
               }}
               className="absolute right-0 z-10 mt-2 w-60 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
             >
+              <Link href="/tree" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                Tree (list view)
+              </Link>
               <Link href="/add-family-member" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                 Add a Family Member
               </Link>
@@ -237,9 +240,6 @@ export function NavBar({
                   </Link>
                   <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     People Management
-                  </Link>
-                  <Link href="/admin/family-tree" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
-                    Family Tree Chart
                   </Link>
                   <Link href="/admin/audit-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Audit Log
