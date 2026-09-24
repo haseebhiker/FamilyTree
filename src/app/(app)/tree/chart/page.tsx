@@ -148,7 +148,7 @@ export default async function FamilyTreeChartPage({
       </div>
 
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Family Tree Chart</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Tree</h1>
         <p className="mt-1 text-sm text-slate-500">
           A visual, connector-line view of the tree, {VISIBLE_GENERATIONS} generations at a time. Click any name to
           re-center the chart on them and reveal further generations.

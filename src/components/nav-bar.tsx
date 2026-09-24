@@ -103,7 +103,7 @@ export function NavBar({
             </Link>
           )}
           <Link href="/tree/chart" className="hover:text-slate-900">
-            Family Tree
+            Tree
           </Link>
           <Link href="/compare" className="hover:text-slate-900">
             Compare

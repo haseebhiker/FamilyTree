@@ -9,7 +9,8 @@ import { AutoSubmitCheckbox } from "@/components/auto-submit-checkbox";
 
 const PATH_LABELS: Record<string, string> = {
   "/": "Home",
-  "/tree": "Family Tree",
+  "/tree": "Tree (list view)",
+  "/tree/chart": "Tree",
   "/compare": "Compare Relationship",
   "/privacy": "Privacy Settings",
   "/admin/invites": "Admin: Invite Management",
