@@ -2,10 +2,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { clearPageViewLog } from "@/lib/actions/page-view-log";
 import { Card } from "@/components/ui";
-import { PendingButton } from "@/components/pending-button";
 import { LocalTime } from "@/components/local-time";
 import { DisambiguatedName } from "@/components/person-name";
 import { AutoSubmitCheckbox } from "@/components/auto-submit-checkbox";
+import { ClearActivityLogForm } from "@/components/clear-activity-log-form";
 
 const PATH_LABELS: Record<string, string> = {
   "/": "Home",
@@ -82,24 +82,13 @@ export default async function ActivityLogPage({
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Activity Log</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Every page a member visits, kept for 7 days automatically (older entries clear themselves out — no
-            action needed).
+            Every page a member visits, kept indefinitely until you clear it below.
           </p>
           <div className="mt-2">
             <AutoSubmitCheckbox param="showMine" defaultChecked={includeMine} label="Show my own activity too" />
           </div>
         </div>
-        {entries && entries.length > 0 && (
-          <form action={clearPageViewLog}>
-            <PendingButton
-              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
-              pendingChildren="Clearing…"
-              confirmMessage="Clear the entire activity log? This can't be undone."
-            >
-              Clear log
-            </PendingButton>
-          </form>
-        )}
+        {entries && entries.length > 0 && <ClearActivityLogForm clearPageViewLog={clearPageViewLog} />}
       </div>
 
       <Card>

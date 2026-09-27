@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember, isAdmin } from "@/lib/members";
 
@@ -25,15 +24,20 @@ export async function recordPageView(path: string) {
   // insert look like it failed even when it succeeded.
   await supabase.from("page_view_log").insert({ member_id: member.id, path });
 
-  // Rolling 7-day retention, same opportunistic-delete-on-insert pattern as
-  // login_log — probabilistic here since page views are far more frequent
-  // than sign-ins, so most calls skip the extra query.
-  if (Math.random() < 0.02) {
-    await supabase.from("page_view_log").delete().lt("viewed_at", new Date(Date.now() - 7 * 86400000).toISOString());
-  }
+  // No automatic expiry — kept indefinitely until an admin clears it from
+  // the Activity Log page (which lets them pick a cutoff date, rather than
+  // only ever wiping the whole thing at once).
 }
 
-export async function clearPageViewLog() {
+/**
+ * Deletes activity logged on or before the chosen date (inclusive) — not
+ * necessarily the whole log. Called directly from ClearActivityLogForm (not
+ * a bare `<form action>`), which does its own router.refresh() after
+ * success — see ActionButton's comment for why bundling a revalidatePath
+ * into this action's own response was the repeated source of "Minified
+ * React error #441" crashes elsewhere in this app.
+ */
+export async function clearPageViewLog(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,10 +46,15 @@ export async function clearPageViewLog() {
   const member = await getCurrentMember(supabase, user.id);
   if (!isAdmin(member)) throw new Error("Admins only");
 
-  // Every row matches this condition (id is never null) — admin-only RLS
-  // policy is what actually allows wiping non-expired rows too.
-  const { error } = await supabase.from("page_view_log").delete().not("id", "is", null);
-  if (error) throw new Error(error.message);
+  const upToDate = String(formData.get("up_to") ?? "").trim();
+  if (!upToDate) throw new Error("Pick a date to clear up to");
 
-  revalidatePath("/admin/activity-log");
+  // End of that UTC calendar day, so the picked day itself is fully
+  // included — not worth threading the admin's own timezone through for
+  // what's just a manual housekeeping action.
+  const cutoff = new Date(`${upToDate}T23:59:59.999Z`);
+  if (Number.isNaN(cutoff.getTime())) throw new Error("Invalid date");
+
+  const { error } = await supabase.from("page_view_log").delete().lte("viewed_at", cutoff.toISOString());
+  if (error) throw new Error(error.message);
 }
