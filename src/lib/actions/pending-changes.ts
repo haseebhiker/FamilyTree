@@ -100,6 +100,44 @@ async function resolveParentGender(supabase: SupabaseClient, personId: string): 
   return null;
 }
 
+/**
+ * Sibling-ness in this schema IS "shares a parent" — there's no separate
+ * siblings table (see existingSiblings in add-person-screen.tsx, computed
+ * purely from matching father_id/mother_id). So when `sourcePersonId` has
+ * neither recorded, there's nothing to hand the new sibling that would
+ * actually register as a relationship — refusing outright used to be the
+ * whole story here, but the fix is to create the one shared parent that's
+ * missing (an "Unknown Parent" placeholder, same idea as any other person
+ * profile with no photo/dates yet) and link `sourcePersonId` to it too, so
+ * both sides end up with an actual shared parent rather than nothing.
+ * Returns the { father_id } payload the CALLER should apply to the sibling
+ * being added/linked.
+ */
+async function ensureSharedParent(supabase: SupabaseClient, sourcePersonId: string): Promise<Record<string, unknown>> {
+  const { data: sourcePerson } = await supabase
+    .from("people")
+    .select("father_id, mother_id")
+    .eq("id", sourcePersonId)
+    .single();
+
+  const payload: Record<string, unknown> = {};
+  if (sourcePerson?.father_id) payload.father_id = sourcePerson.father_id;
+  if (sourcePerson?.mother_id) payload.mother_id = sourcePerson.mother_id;
+  if (Object.keys(payload).length > 0) return payload;
+
+  const { data: newParent, error } = await supabase
+    .from("people")
+    .insert({ full_name: "Unknown Parent", living_status: "unknown" })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  const { error: linkError } = await supabase.from("people").update({ father_id: newParent.id }).eq("id", sourcePersonId);
+  if (linkError) throw new Error(linkError.message);
+
+  return { father_id: newParent.id };
+}
+
 const PHOTO_BUCKET = "person-photos";
 
 /** Storage paths (in our photo bucket only) for the given photo URLs — a hand-typed external link isn't ours to delete. */
@@ -170,15 +208,12 @@ async function applyChange(
     }
 
     if (relation_type === "sibling" && relation_to_person_id) {
-      // A new sibling shares whatever parents are already on record for
-      // the person they're being added relative to.
-      const { data: sourcePerson } = await supabase
-        .from("people")
-        .select("father_id, mother_id")
-        .eq("id", relation_to_person_id as string)
-        .single();
-      if (sourcePerson?.father_id) insertPayload.father_id = sourcePerson.father_id;
-      if (sourcePerson?.mother_id) insertPayload.mother_id = sourcePerson.mother_id;
+      // A new sibling shares whatever parents are already on record for the
+      // person they're being added relative to — creating one if there
+      // aren't any yet (see ensureSharedParent) rather than silently adding
+      // an unrelated, parentless new person that isn't actually anyone's
+      // sibling in the data.
+      Object.assign(insertPayload, await ensureSharedParent(supabase, relation_to_person_id as string));
     }
 
     const { data: newPerson, error } = await supabase.from("people").insert(insertPayload).select("id").single();
@@ -239,16 +274,9 @@ async function applyChange(
 
     if (mode === "sibling") {
       // target_person_id is the (existing) person being made a sibling —
-      // give them the same parents already on record for relation_to_person_id.
-      const { data: sourcePerson } = await supabase
-        .from("people")
-        .select("father_id, mother_id")
-        .eq("id", relation_to_person_id as string)
-        .single();
-      const updatePayload: Record<string, unknown> = {};
-      if (sourcePerson?.father_id) updatePayload.father_id = sourcePerson.father_id;
-      if (sourcePerson?.mother_id) updatePayload.mother_id = sourcePerson.mother_id;
-      if (Object.keys(updatePayload).length === 0) throw new Error("That person has no recorded parents to share");
+      // give them the same parents already on record for relation_to_person_id,
+      // creating one if there aren't any yet (see ensureSharedParent).
+      const updatePayload = await ensureSharedParent(supabase, relation_to_person_id as string);
       const { error } = await supabase.from("people").update(updatePayload).eq("id", change.target_person_id);
       if (error) throw new Error(error.message);
       return change.target_person_id;
