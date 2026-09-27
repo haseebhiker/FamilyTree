@@ -241,6 +241,9 @@ export function NavBar({
                   <Link href="/admin/people" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     People Management
                   </Link>
+                  <Link href="/admin/family-tree" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
+                    Family Tree (Admin)
+                  </Link>
                   <Link href="/admin/audit-log" className="block px-3 py-2 hover:bg-slate-50 hover:text-slate-900">
                     Audit Log
                   </Link>
