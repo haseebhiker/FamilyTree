@@ -80,6 +80,7 @@ export function AddPersonScreen({ people, spouses }: { people: PersonWithParents
           <AddFamilyMemberForm
             key={anchorPerson.id}
             personId={anchorPerson.id}
+            personName={anchor!.name}
             hasFather={!!anchorPerson.father_id}
             hasMother={!!anchorPerson.mother_id}
             people={people}

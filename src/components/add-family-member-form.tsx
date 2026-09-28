@@ -24,6 +24,8 @@ const RELATIONS: { value: Relation; label: string }[] = [
 
 interface FormProps {
   personId: string;
+  /** Whose relation this is, for the "X already has..." reminder below — without a name, that reminder reads as if it's about whoever's about to be added, not the person already on this form. */
+  personName: string;
   hasFather: boolean;
   hasMother: boolean;
   people: PersonOption[];
@@ -88,6 +90,7 @@ export function AddFamilyMemberForm(props: FormProps) {
 
 function FormFields({
   personId,
+  personName,
   hasFather,
   hasMother,
   people,
@@ -122,6 +125,18 @@ function FormFields({
         : isSpouse
           ? existingSpouses
           : undefined;
+  const existingCount = existingForRelation?.length ?? 0;
+  const existingForRelationNoun = isChild
+    ? existingCount === 1
+      ? "child"
+      : "children"
+    : isSpouse
+      ? existingCount === 1
+        ? "spouse"
+        : "spouses"
+      : existingCount === 1
+        ? "sibling"
+        : "siblings";
 
   return (
     <form action={onSubmit} className="grid gap-3 sm:grid-cols-2">
@@ -169,7 +184,14 @@ function FormFields({
 
       {existingForRelation && existingForRelation.length > 0 && (
         <div className="sm:col-span-2 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          <span className="font-medium">Already recorded, so double-check before adding another:</span>{" "}
+          {/* Names who this is about — without it, this reads as a warning
+              about whoever's being added right now, not a reminder of who's
+              already on file for the PERSON THIS FORM IS ON, especially once
+              the profile header above has scrolled out of view. */}
+          <span className="font-medium">
+            {personName} already has {existingCount} {existingForRelationNoun} on file — just checking you&apos;re not
+            about to add a duplicate:
+          </span>{" "}
           {existingForRelation.map((p, i) => (
             <span key={p.id}>
               {i > 0 && ", "}

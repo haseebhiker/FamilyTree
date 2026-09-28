@@ -477,6 +477,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <div className="p-4">
             <AddFamilyMemberForm
               personId={person.id}
+              personName={displayName(person)}
               hasFather={!!person.father_id}
               hasMother={!!person.mother_id}
               people={allPeopleForPicker ?? []}
