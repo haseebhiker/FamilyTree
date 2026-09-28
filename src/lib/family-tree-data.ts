@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sortSiblings } from "@/lib/sort-by-age";
-import type { FamilyTreeNode } from "@/components/family-tree-chart";
+import type { FamilyTreeNode, FamilyTreeRelationshipLink } from "@/components/family-tree-chart";
 
 export interface FamilyTreePersonRow {
   id: string;
@@ -21,8 +21,7 @@ export interface FamilyTreeData {
   allPeople: FamilyTreePersonRow[];
   peopleById: Map<string, FamilyTreePersonRow>;
   childrenByParent: Map<string, FamilyTreePersonRow[]>;
-  spouseNamesById: Record<string, string[]>;
-  spouseIdsById: Record<string, string[]>;
+  spousesById: Record<string, { id: string; name: string }[]>;
   defaultRoot: FamilyTreePersonRow | undefined;
 }
 
@@ -30,7 +29,7 @@ export interface FamilyTreeData {
  * Loads everyone (paginated past Supabase's project-level Max Rows cap,
  * same reasoning as the plain Tree page) plus every marriage, and builds
  * the lookup maps both Family Tree Chart pages — the member-facing one and
- * the admin one that also draws cross-relation lines — need to pick a
+ * the admin one that also draws relationship lines — need to pick a
  * default root and walk descendants.
  */
 export async function loadFamilyTreeData(supabase: SupabaseClient): Promise<FamilyTreeData> {
@@ -58,16 +57,13 @@ export async function loadFamilyTreeData(supabase: SupabaseClient): Promise<Fami
   }
 
   const peopleById = new Map(allPeople.map((p) => [p.id, p]));
-  const spouseNamesById: Record<string, string[]> = {};
-  const spouseIdsById: Record<string, string[]> = {};
+  const spousesById: Record<string, { id: string; name: string }[]> = {};
   for (const { person_a_id: a, person_b_id: b } of spouseRows) {
     const pa = peopleById.get(a);
     const pb = peopleById.get(b);
     if (!pa || !pb) continue;
-    (spouseNamesById[a] ??= []).push(pb.preferred_name?.trim() || pb.full_name);
-    (spouseNamesById[b] ??= []).push(pa.preferred_name?.trim() || pa.full_name);
-    (spouseIdsById[a] ??= []).push(b);
-    (spouseIdsById[b] ??= []).push(a);
+    (spousesById[a] ??= []).push({ id: b, name: pb.preferred_name?.trim() || pb.full_name });
+    (spousesById[b] ??= []).push({ id: a, name: pa.preferred_name?.trim() || pa.full_name });
   }
 
   const childrenByParent = new Map<string, FamilyTreePersonRow[]>();
@@ -95,7 +91,7 @@ export async function loadFamilyTreeData(supabase: SupabaseClient): Promise<Fami
     .map((p) => ({ person: p, descendants: countDescendants(p.id) }))
     .sort((a, b) => b.descendants - a.descendants)[0]?.person;
 
-  return { allPeople, peopleById, childrenByParent, spouseNamesById, spouseIdsById, defaultRoot };
+  return { allPeople, peopleById, childrenByParent, spousesById, defaultRoot };
 }
 
 /**
@@ -108,7 +104,7 @@ export async function loadFamilyTreeData(supabase: SupabaseClient): Promise<Fami
 export function buildFamilyTreeNode(
   personId: string,
   levelsRemaining: number,
-  data: Pick<FamilyTreeData, "peopleById" | "childrenByParent" | "spouseNamesById">,
+  data: Pick<FamilyTreeData, "peopleById" | "childrenByParent" | "spousesById">,
 ): FamilyTreeNode {
   const person = data.peopleById.get(personId)!;
   const kids = sortSiblings(data.childrenByParent.get(personId) ?? []);
@@ -118,7 +114,7 @@ export function buildFamilyTreeNode(
     preferred_name: person.preferred_name,
     surname_tag: person.surname_tag,
     living_status: person.living_status,
-    spouseNames: data.spouseNamesById[person.id] ?? [],
+    spouses: data.spousesById[person.id] ?? [],
     children: levelsRemaining > 0 ? kids.map((k) => buildFamilyTreeNode(k.id, levelsRemaining - 1, data)) : [],
     hiddenChildrenCount: levelsRemaining > 0 ? 0 : kids.length,
   };
@@ -131,29 +127,35 @@ export function collectNodeIds(node: FamilyTreeNode, into: Set<string> = new Set
   return into;
 }
 
-export interface FamilyTreeCrossLink {
-  aId: string;
-  bId: string;
-}
-
 /**
- * Marriages where BOTH spouses independently appear as blood-descendant
- * boxes in the same rendered subtree — which can only happen if the two of
- * them are related to the root through two different lines (a cousin
- * marriage or similar), since a spouse who married in from outside the
- * family never gets a box of their own — just a name label next to their
- * partner (see FamilyTreeNode.spouseNames). Each pair is returned once.
+ * One line per marriage touching anyone rendered in this subtree, in two
+ * flavors:
+ *
+ * - "cross": BOTH spouses independently appear as blood-descendant boxes —
+ *   which can only happen if the two of them are related to the root
+ *   through two different lines (a cousin marriage or similar). Connects
+ *   the two real boxes.
+ * - "marriage": the ordinary case — one spouse married in from outside the
+ *   family and has no box of their own, just a name label next to their
+ *   partner (FamilyTreeNode.spouses). Connects the box to that label.
+ *
+ * Both are found via each endpoint's `data-person-id` (a real box) or
+ * `data-spouse-label` (a label) attribute — see FamilyTreeChart. Each pair
+ * is returned once.
  */
-export function findCrossLinks(nodeIds: Set<string>, spouseIdsById: Record<string, string[]>): FamilyTreeCrossLink[] {
+export function findRelationshipLinks(
+  nodeIds: Set<string>,
+  spousesById: Record<string, { id: string; name: string }[]>,
+): FamilyTreeRelationshipLink[] {
   const seen = new Set<string>();
-  const links: FamilyTreeCrossLink[] = [];
+  const links: FamilyTreeRelationshipLink[] = [];
   for (const id of nodeIds) {
-    for (const spouseId of spouseIdsById[id] ?? []) {
-      if (spouseId === id || !nodeIds.has(spouseId)) continue;
-      const key = [id, spouseId].sort().join(":");
+    for (const spouse of spousesById[id] ?? []) {
+      if (spouse.id === id) continue;
+      const key = [id, spouse.id].sort().join(":");
       if (seen.has(key)) continue;
       seen.add(key);
-      links.push({ aId: id, bId: spouseId });
+      links.push({ aId: id, bId: spouse.id, kind: nodeIds.has(spouse.id) ? "cross" : "marriage" });
     }
   }
   return links;

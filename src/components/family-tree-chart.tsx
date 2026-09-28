@@ -11,15 +11,17 @@ export interface FamilyTreeNode {
   preferred_name: string | null;
   surname_tag: string | null;
   living_status: string;
-  spouseNames: string[];
+  spouses: { id: string; name: string }[];
   children: FamilyTreeNode[];
   /** >0 when this person really does have children beyond the generations already expanded — click through to see them. */
   hiddenChildrenCount: number;
 }
 
-export interface FamilyTreeCrossLink {
+export interface FamilyTreeRelationshipLink {
   aId: string;
   bId: string;
+  /** "cross" — both spouses are blood-descendant boxes elsewhere in the chart (a marriage within the family). "marriage" — the ordinary case, one spouse married in and has no box of their own. */
+  kind: "cross" | "marriage";
 }
 
 function FamilyTreeNodeItem({
@@ -47,8 +49,20 @@ function FamilyTreeNodeItem({
         >
           <TreeName person={node} />
         </Link>
-        {node.spouseNames.length > 0 && (
-          <span className="text-[10px] whitespace-nowrap text-violet-600">⚭ {node.spouseNames.join(", ")}</span>
+        {node.spouses.length > 0 && (
+          <span className="text-[10px] whitespace-nowrap text-violet-600">
+            ⚭{" "}
+            {node.spouses.map((s, i) => (
+              // A tagged span per spouse (not one joined string) so the line
+              // overlay has something to point at even when this spouse has
+              // no box of their own anywhere in the chart — see
+              // data-spouse-label in FamilyTreeChart's overlay.
+              <span key={s.id} data-spouse-label={s.id}>
+                {i > 0 && ", "}
+                {s.name}
+              </span>
+            ))}
+          </span>
         )}
         <Link href={`/people/${node.id}`} className="text-[10px] text-slate-400 hover:text-slate-600 hover:underline">
           View profile
@@ -74,31 +88,54 @@ function FamilyTreeNodeItem({
 
 interface ScreenLine {
   key: string;
+  kind: "cross" | "marriage";
   x1: number;
   y1: number;
   x2: number;
   y2: number;
 }
 
+const LINE_STYLE: Record<ScreenLine["kind"], { stroke: string; dash?: string; title: string }> = {
+  cross: {
+    stroke: "#dc2626",
+    dash: "6 4",
+    title: "Married within the family — also shown elsewhere in this chart as a blood relative",
+  },
+  marriage: { stroke: "#0891b2", title: "Married" },
+};
+
 /**
- * Draws `crossLinks` as an SVG overlay on top of the chart — a straight
- * line between the two boxes named by each link's ids, found via their
- * `data-person-id` attribute. Positions are measured with
- * getBoundingClientRect rather than derived from the tree structure,
- * because the two ends of a cross-link are (by definition — see
- * findCrossLinks) in different branches with no fixed geometric relationship
- * to each other; actual rendered pixels are the only thing that works
- * regardless of how the CSS org-chart connectors above happen to lay
- * everything out. Recomputes on zoom change and on the chart's own size
+ * Finds an endpoint by id — a real box (`data-person-id`) if it has one,
+ * otherwise the little name label next to whichever partner it's shown
+ * beside (`data-spouse-label`). A "cross" link's ids are always real boxes;
+ * a "marriage" link's `bId` is usually a label, since a spouse who married
+ * in from outside the family never gets a box of their own.
+ */
+function findEndpoint(wrap: HTMLElement, id: string): HTMLElement | null {
+  return (
+    wrap.querySelector<HTMLElement>(`[data-person-id="${CSS.escape(id)}"]`) ??
+    wrap.querySelector<HTMLElement>(`[data-spouse-label="${CSS.escape(id)}"]`)
+  );
+}
+
+/**
+ * Draws `links` as an SVG overlay on top of the chart — a straight line
+ * between each link's two endpoints (see findEndpoint). Positions are
+ * measured with getBoundingClientRect rather than derived from the tree
+ * structure, because a "cross" link's two ends are (by definition — see
+ * findRelationshipLinks) in different branches with no fixed geometric
+ * relationship to each other; actual rendered pixels are the only thing
+ * that works regardless of how the CSS org-chart connectors above happen to
+ * lay everything out. Recomputes on zoom change and on the chart's own size
  * changing (a ResizeObserver on the content, not the scroll viewport, since
  * scrolling itself doesn't move anything in content-relative coordinates).
  */
-function CrossLinkOverlay({
-  crossLinks,
+function RelationshipLineOverlay({
+  links,
   wrapRef,
   zoom,
 }: {
-  crossLinks: FamilyTreeCrossLink[];
+  links: FamilyTreeRelationshipLink[];
   wrapRef: React.RefObject<HTMLDivElement | null>;
   zoom: number;
 }) {
@@ -115,14 +152,15 @@ function CrossLinkOverlay({
       setSize({ width: wrap.scrollWidth, height: wrap.scrollHeight });
       const wrapRect = wrap.getBoundingClientRect();
       const next: ScreenLine[] = [];
-      for (const link of crossLinks) {
-        const elA = wrap.querySelector<HTMLElement>(`[data-person-id="${CSS.escape(link.aId)}"]`);
-        const elB = wrap.querySelector<HTMLElement>(`[data-person-id="${CSS.escape(link.bId)}"]`);
+      for (const link of links) {
+        const elA = findEndpoint(wrap, link.aId);
+        const elB = findEndpoint(wrap, link.bId);
         if (!elA || !elB) continue;
         const rectA = elA.getBoundingClientRect();
         const rectB = elB.getBoundingClientRect();
         next.push({
           key: `${link.aId}:${link.bId}`,
+          kind: link.kind,
           x1: rectA.left + rectA.width / 2 - wrapRect.left + wrap.scrollLeft,
           y1: rectA.top + rectA.height / 2 - wrapRect.top + wrap.scrollTop,
           x2: rectB.left + rectB.width / 2 - wrapRect.left + wrap.scrollLeft,
@@ -140,22 +178,30 @@ function CrossLinkOverlay({
       ro.disconnect();
       window.removeEventListener("resize", recompute);
     };
-  }, [crossLinks, zoom, wrapRef]);
+  }, [links, zoom, wrapRef]);
 
   if (lines.length === 0) return null;
 
   return (
-    <svg
-      className="pointer-events-none absolute top-0 left-0"
-      width={size.width}
-      height={size.height}
-      aria-hidden="true"
-    >
-      {lines.map((l) => (
-        <line key={l.key} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="#dc2626" strokeWidth={2} strokeDasharray="6 4" opacity={0.75}>
-          <title>Married within the family — also shown elsewhere in this chart as a blood relative</title>
-        </line>
-      ))}
+    <svg className="pointer-events-none absolute top-0 left-0" width={size.width} height={size.height} aria-hidden="true">
+      {lines.map((l) => {
+        const style = LINE_STYLE[l.kind];
+        return (
+          <line
+            key={l.key}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke={style.stroke}
+            strokeWidth={2}
+            strokeDasharray={style.dash}
+            opacity={0.75}
+          >
+            <title>{style.title}</title>
+          </line>
+        );
+      })}
     </svg>
   );
 }
@@ -171,17 +217,18 @@ function CrossLinkOverlay({
  * a person with hidden children works. Zoom/pinch behavior is shared with
  * AncestorChart via useZoomableChart.
  *
- * `crossLinks` (admin-only feature, opt-in) draws extra dashed red lines
- * for marriages within the family — see findCrossLinks in
- * lib/family-tree-data.ts for what qualifies.
+ * `relationshipLinks` (admin-only feature, opt-in) draws extra lines for
+ * every marriage touching this subtree — teal for an ordinary marriage,
+ * dashed red for one within the family — see findRelationshipLinks in
+ * lib/family-tree-data.ts.
  */
 export function FamilyTreeChart({
   root,
-  crossLinks,
+  relationshipLinks,
   basePath = "/tree/chart",
 }: {
   root: FamilyTreeNode;
-  crossLinks?: FamilyTreeCrossLink[];
+  relationshipLinks?: FamilyTreeRelationshipLink[];
   basePath?: string;
 }) {
   const rootRef = useRef<HTMLAnchorElement>(null);
@@ -228,8 +275,8 @@ export function FamilyTreeChart({
         </span>
       </div>
       <div ref={wrapRef} className="relative max-h-[70vh] overflow-auto py-2" {...wrapProps}>
-        {crossLinks && crossLinks.length > 0 && (
-          <CrossLinkOverlay crossLinks={crossLinks} wrapRef={wrapRef} zoom={zoom} />
+        {relationshipLinks && relationshipLinks.length > 0 && (
+          <RelationshipLineOverlay links={relationshipLinks} wrapRef={wrapRef} zoom={zoom} />
         )}
         <ul className="family-tree-chart" style={{ zoom }}>
           <FamilyTreeNodeItem node={root} isRoot rootRef={rootRef} basePath={basePath} />

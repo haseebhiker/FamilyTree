@@ -4,12 +4,12 @@ import { Card } from "@/components/ui";
 import { FamilyTreeChart } from "@/components/family-tree-chart";
 import { FamilyTreeRootPicker } from "@/components/family-tree-root-picker";
 import { displayNameText } from "@/components/person-name";
-import { loadFamilyTreeData, buildFamilyTreeNode, collectNodeIds, findCrossLinks } from "@/lib/family-tree-data";
+import { loadFamilyTreeData, buildFamilyTreeNode, collectNodeIds, findRelationshipLinks } from "@/lib/family-tree-data";
 
 // Same chart as the member-facing /tree/chart (see that page and
 // FamilyTreeChart's own comment for why generations are capped this way),
-// plus cross-relation lines — an admin-only view, so this is a separate
-// route rather than a toggle on the member page.
+// plus marriage lines — an admin-only view, so this is a separate route
+// rather than a toggle on the member page.
 const VISIBLE_GENERATIONS = 4;
 const BASE_PATH = "/admin/family-tree";
 
@@ -43,7 +43,9 @@ export default async function AdminFamilyTreeChartPage({
 
   const chartRoot = buildFamilyTreeNode(rootPerson.id, VISIBLE_GENERATIONS - 1, data);
   const nodeIds = collectNodeIds(chartRoot);
-  const crossLinks = findCrossLinks(nodeIds, data.spouseIdsById);
+  const relationshipLinks = findRelationshipLinks(nodeIds, data.spousesById);
+  const crossCount = relationshipLinks.filter((l) => l.kind === "cross").length;
+  const marriageCount = relationshipLinks.length - crossCount;
   const father = rootPerson.father_id ? data.peopleById.get(rootPerson.father_id) : null;
   const mother = rootPerson.mother_id ? data.peopleById.get(rootPerson.mother_id) : null;
 
@@ -56,10 +58,10 @@ export default async function AdminFamilyTreeChartPage({
           <Link href="/tree/chart" className="text-blue-600 hover:underline">
             Tree
           </Link>
-          , {VISIBLE_GENERATIONS} generations at a time, plus{" "}
-          <span className="font-medium text-red-600">dashed red lines</span> connecting anyone (or their spouse) who
-          also shows up elsewhere in this chart as a blood relative — i.e. a marriage within the family, not to
-          someone who married in from outside. Admin-only for now.
+          , {VISIBLE_GENERATIONS} generations at a time, plus marriage lines:{" "}
+          <span className="font-medium text-cyan-700">teal</span> for an ordinary marriage, and{" "}
+          <span className="font-medium text-red-600">dashed red</span> when both spouses also show up elsewhere in
+          this chart as blood relatives — i.e. a marriage within the family. Admin-only for now.
         </p>
       </div>
 
@@ -85,14 +87,16 @@ export default async function AdminFamilyTreeChartPage({
         <FamilyTreeRootPicker people={data.allPeople} basePath={BASE_PATH} />
       </div>
 
-      {crossLinks.length > 0 && (
+      {relationshipLinks.length > 0 && (
         <p className="text-xs text-slate-400">
-          {crossLinks.length} {crossLinks.length === 1 ? "marriage" : "marriages"} within the family highlighted in
+          {marriageCount > 0 && `${marriageCount} ordinary ${marriageCount === 1 ? "marriage" : "marriages"}`}
+          {marriageCount > 0 && crossCount > 0 && " and "}
+          {crossCount > 0 && `${crossCount} within-family ${crossCount === 1 ? "marriage" : "marriages"}`} shown in
           this view.
         </p>
       )}
 
-      <FamilyTreeChart root={chartRoot} crossLinks={crossLinks} basePath={BASE_PATH} />
+      <FamilyTreeChart root={chartRoot} relationshipLinks={relationshipLinks} basePath={BASE_PATH} />
     </div>
   );
 }
