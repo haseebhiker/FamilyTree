@@ -160,3 +160,43 @@ export function findRelationshipLinks(
   }
   return links;
 }
+
+/**
+ * Blood ties between two people who each married INTO the family from a
+ * different branch — e.g. two brothers' wives who turn out to be sisters
+ * themselves. Neither has a box of their own (see findRelationshipLinks'
+ * comment on "marriage" links), so unlike everything else in this file this
+ * checks their own father_id/mother_id directly against each other, not
+ * anything about the currently-displayed subtree. Only in-law spouses are
+ * checked: two people who ARE blood-descendant boxes and share a parent are
+ * already shown as ordinary sibling branches in the chart, so a line there
+ * would just repeat what's already visible. Only a shared PARENT counts —
+ * cousins-in-law or more distant ties aren't detected.
+ */
+export function findKinshipLinks(
+  nodeIds: Set<string>,
+  spousesById: Record<string, { id: string; name: string }[]>,
+  peopleById: Map<string, FamilyTreePersonRow>,
+): FamilyTreeRelationshipLink[] {
+  const inLawIds = new Set<string>();
+  for (const spouses of Object.values(spousesById)) {
+    for (const s of spouses) {
+      if (!nodeIds.has(s.id)) inLawIds.add(s.id);
+    }
+  }
+
+  const ids = Array.from(inLawIds);
+  const links: FamilyTreeRelationshipLink[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    const a = peopleById.get(ids[i]);
+    if (!a) continue;
+    for (let j = i + 1; j < ids.length; j++) {
+      const b = peopleById.get(ids[j]);
+      if (!b) continue;
+      if ((a.father_id && a.father_id === b.father_id) || (a.mother_id && a.mother_id === b.mother_id)) {
+        links.push({ aId: ids[i], bId: ids[j], kind: "kinship" });
+      }
+    }
+  }
+  return links;
+}

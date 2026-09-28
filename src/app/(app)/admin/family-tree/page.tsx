@@ -4,7 +4,13 @@ import { Card } from "@/components/ui";
 import { FamilyTreeChart } from "@/components/family-tree-chart";
 import { FamilyTreeRootPicker } from "@/components/family-tree-root-picker";
 import { displayNameText } from "@/components/person-name";
-import { loadFamilyTreeData, buildFamilyTreeNode, collectNodeIds, findRelationshipLinks } from "@/lib/family-tree-data";
+import {
+  loadFamilyTreeData,
+  buildFamilyTreeNode,
+  collectNodeIds,
+  findRelationshipLinks,
+  findKinshipLinks,
+} from "@/lib/family-tree-data";
 
 // Same chart as the member-facing /tree/chart (see that page and
 // FamilyTreeChart's own comment for why generations are capped this way),
@@ -43,9 +49,13 @@ export default async function AdminFamilyTreeChartPage({
 
   const chartRoot = buildFamilyTreeNode(rootPerson.id, VISIBLE_GENERATIONS - 1, data);
   const nodeIds = collectNodeIds(chartRoot);
-  const relationshipLinks = findRelationshipLinks(nodeIds, data.spousesById);
+  const relationshipLinks = [
+    ...findRelationshipLinks(nodeIds, data.spousesById),
+    ...findKinshipLinks(nodeIds, data.spousesById, data.peopleById),
+  ];
   const crossCount = relationshipLinks.filter((l) => l.kind === "cross").length;
-  const marriageCount = relationshipLinks.length - crossCount;
+  const kinshipCount = relationshipLinks.filter((l) => l.kind === "kinship").length;
+  const marriageCount = relationshipLinks.length - crossCount - kinshipCount;
   const father = rootPerson.father_id ? data.peopleById.get(rootPerson.father_id) : null;
   const mother = rootPerson.mother_id ? data.peopleById.get(rootPerson.mother_id) : null;
 
@@ -58,10 +68,13 @@ export default async function AdminFamilyTreeChartPage({
           <Link href="/tree/chart" className="text-blue-600 hover:underline">
             Tree
           </Link>
-          , {VISIBLE_GENERATIONS} generations at a time, plus marriage lines:{" "}
-          <span className="font-medium text-cyan-700">teal</span> for an ordinary marriage, and{" "}
+          , {VISIBLE_GENERATIONS} generations at a time, plus lines for relationships the tree structure alone
+          doesn&apos;t show: <span className="font-medium text-cyan-700">teal</span> for an ordinary marriage,{" "}
           <span className="font-medium text-red-600">dashed red</span> when both spouses also show up elsewhere in
-          this chart as blood relatives — i.e. a marriage within the family. Admin-only for now.
+          this chart as blood relatives (a marriage within the family), and{" "}
+          <span className="font-medium text-amber-700">dashed amber</span> between two in-law spouses — married to
+          different people in this family — who turn out to be related to each other (e.g. sisters). Admin-only for
+          now.
         </p>
       </div>
 
@@ -89,10 +102,14 @@ export default async function AdminFamilyTreeChartPage({
 
       {relationshipLinks.length > 0 && (
         <p className="text-xs text-slate-400">
-          {marriageCount > 0 && `${marriageCount} ordinary ${marriageCount === 1 ? "marriage" : "marriages"}`}
-          {marriageCount > 0 && crossCount > 0 && " and "}
-          {crossCount > 0 && `${crossCount} within-family ${crossCount === 1 ? "marriage" : "marriages"}`} shown in
-          this view.
+          {[
+            marriageCount > 0 && `${marriageCount} ordinary ${marriageCount === 1 ? "marriage" : "marriages"}`,
+            crossCount > 0 && `${crossCount} within-family ${crossCount === 1 ? "marriage" : "marriages"}`,
+            kinshipCount > 0 && `${kinshipCount} in-law ${kinshipCount === 1 ? "tie" : "ties"}`,
+          ]
+            .filter(Boolean)
+            .join(", ")}{" "}
+          shown in this view.
         </p>
       )}
 

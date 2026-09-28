@@ -20,8 +20,14 @@ export interface FamilyTreeNode {
 export interface FamilyTreeRelationshipLink {
   aId: string;
   bId: string;
-  /** "cross" — both spouses are blood-descendant boxes elsewhere in the chart (a marriage within the family). "marriage" — the ordinary case, one spouse married in and has no box of their own. */
-  kind: "cross" | "marriage";
+  /**
+   * "cross" — both spouses are blood-descendant boxes elsewhere in the
+   * chart (a marriage within the family). "marriage" — the ordinary case,
+   * one spouse married in and has no box of their own. "kinship" — two
+   * in-law spouses (neither a box) who are themselves blood relatives, e.g.
+   * two brothers' wives who are sisters.
+   */
+  kind: "cross" | "marriage" | "kinship";
 }
 
 function FamilyTreeNodeItem({
@@ -88,7 +94,7 @@ function FamilyTreeNodeItem({
 
 interface ScreenLine {
   key: string;
-  kind: "cross" | "marriage";
+  kind: FamilyTreeRelationshipLink["kind"];
   x1: number;
   y1: number;
   x2: number;
@@ -102,6 +108,7 @@ const LINE_STYLE: Record<ScreenLine["kind"], { stroke: string; dash?: string; ti
     title: "Married within the family — also shown elsewhere in this chart as a blood relative",
   },
   marriage: { stroke: "#0891b2", title: "Married" },
+  kinship: { stroke: "#d97706", dash: "2 3", title: "Related by blood, though neither is part of this family line" },
 };
 
 /**
@@ -218,8 +225,10 @@ function RelationshipLineOverlay({
  * AncestorChart via useZoomableChart.
  *
  * `relationshipLinks` (admin-only feature, opt-in) draws extra lines for
- * every marriage touching this subtree — teal for an ordinary marriage,
- * dashed red for one within the family — see findRelationshipLinks in
+ * every marriage touching this subtree, plus blood ties between in-law
+ * spouses who are related to each other — teal for an ordinary marriage,
+ * dashed red for one within the family, dashed amber for two in-laws who
+ * turn out to be relatives — see findRelationshipLinks/findKinshipLinks in
  * lib/family-tree-data.ts.
  */
 export function FamilyTreeChart({
