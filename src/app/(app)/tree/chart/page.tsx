@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentMember, isAdmin } from "@/lib/members";
 import { Card } from "@/components/ui";
-import { FamilyTreeChart } from "@/components/family-tree-chart";
+import { FamilyTreeChartTabs } from "@/components/family-tree-chart-tabs";
 import { FamilyTreeRootPicker } from "@/components/family-tree-root-picker";
 import { displayNameText } from "@/components/person-name";
-import { loadFamilyTreeData, buildFamilyTreeNode } from "@/lib/family-tree-data";
+import {
+  loadFamilyTreeData,
+  buildFamilyTreeNode,
+  collectNodeIds,
+  findRelationshipLinks,
+  findKinshipLinks,
+} from "@/lib/family-tree-data";
 
 // How many generations render at once below whichever person is the
 // current root — see FamilyTreeChart's comment for why this is capped.
@@ -17,6 +24,12 @@ export default async function FamilyTreeChartPage({
 }) {
   const { root: rootParam } = await searchParams;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const member = await getCurrentMember(supabase, user!.id);
+  const admin = isAdmin(member);
+
   const data = await loadFamilyTreeData(supabase);
 
   if (data.allPeople.length === 0) {
@@ -39,6 +52,17 @@ export default async function FamilyTreeChartPage({
   }
 
   const chartRoot = buildFamilyTreeNode(rootPerson.id, VISIBLE_GENERATIONS - 1, data);
+
+  // Only computed for admins — the extra marriage/blood-relation lines are
+  // an admin-only tab on this same chart (see FamilyTreeChartTabs), not
+  // something a regular member's page load needs to spend time building.
+  const relationshipLinks = admin
+    ? (() => {
+        const nodeIds = collectNodeIds(chartRoot);
+        return [...findRelationshipLinks(nodeIds, data.spousesById), ...findKinshipLinks(nodeIds, data.spousesById, data.peopleById)];
+      })()
+    : undefined;
+
   const father = rootPerson.father_id ? data.peopleById.get(rootPerson.father_id) : null;
   const mother = rootPerson.mother_id ? data.peopleById.get(rootPerson.mother_id) : null;
 
@@ -84,7 +108,7 @@ export default async function FamilyTreeChartPage({
         <FamilyTreeRootPicker people={data.allPeople} />
       </div>
 
-      <FamilyTreeChart root={chartRoot} />
+      <FamilyTreeChartTabs root={chartRoot} relationshipLinks={relationshipLinks} basePath="/tree/chart" />
     </div>
   );
 }
