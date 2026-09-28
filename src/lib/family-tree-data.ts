@@ -179,8 +179,8 @@ export function findKinshipLinks(
   peopleById: Map<string, FamilyTreePersonRow>,
 ): FamilyTreeRelationshipLink[] {
   const inLawIds = new Set<string>();
-  for (const spouses of Object.values(spousesById)) {
-    for (const s of spouses) {
+  for (const id of nodeIds) {
+    for (const s of spousesById[id] ?? []) {
       if (!nodeIds.has(s.id)) inLawIds.add(s.id);
     }
   }
