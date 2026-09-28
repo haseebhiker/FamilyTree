@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui";
 import { DisambiguatedName } from "@/components/person-name";
+import { TreeSubnav } from "@/components/tree-subnav";
 
 interface PersonLite {
   id: string;
@@ -41,12 +42,7 @@ export default async function SurnamesPage({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
-        <Link href="/tree" className="hover:text-slate-900">
-          Tree
-        </Link>
-        <span className="text-slate-900">Surnames</span>
-      </div>
+      <TreeSubnav active="surnames" />
 
       {!tag ? (
         <Card>

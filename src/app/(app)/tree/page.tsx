@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/members";
 import { TreeView, type TreeNodeData } from "@/components/tree-view";
 import { Card } from "@/components/ui";
+import { TreeSubnav } from "@/components/tree-subnav";
 
 export default async function TreePage() {
   const supabase = await createClient();
@@ -86,15 +86,7 @@ export default async function TreePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 text-sm font-medium text-slate-600">
-        <span className="text-slate-900">List</span>
-        <Link href="/tree/chart" className="hover:text-slate-900">
-          Chart
-        </Link>
-        <Link href="/tree/surnames" className="hover:text-slate-900">
-          Surnames
-        </Link>
-      </div>
+      <TreeSubnav active="list" />
       <p className="text-sm text-slate-500">{allPeople.length} people</p>
       <TreeView roots={roots} allPeople={allPeople} spouseNames={spouseNames} myPersonId={member?.person_id} />
     </div>
