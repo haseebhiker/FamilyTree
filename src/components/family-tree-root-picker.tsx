@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { PersonPicker, type PersonOption } from "@/components/person-picker";
 
 /** Jumps the Family Tree Chart page to a new root by navigating to ?root=<id> — the chart itself is a server-rendered subtree, so re-centering on an arbitrary person (not just one already on screen) has to go through a real navigation rather than client state. */
-export function FamilyTreeRootPicker({ people, basePath = "/tree/chart" }: { people: PersonOption[]; basePath?: string }) {
+export function FamilyTreeRootPicker({
+  people,
+  basePath = "/tree/chart",
+  extraQuery = "",
+}: {
+  people: PersonOption[];
+  basePath?: string;
+  extraQuery?: string;
+}) {
   const router = useRouter();
   return (
     <div className="w-72">
@@ -13,7 +21,7 @@ export function FamilyTreeRootPicker({ people, basePath = "/tree/chart" }: { peo
         people={people}
         placeholder="Jump to a person…"
         onSelect={(id) => {
-          if (id) router.push(`${basePath}?root=${id}`);
+          if (id) router.push(`${basePath}?root=${id}${extraQuery}`);
         }}
       />
     </div>

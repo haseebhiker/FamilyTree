@@ -22,9 +22,11 @@ const BASE_PATH = "/tree/relationships";
 export default async function TreeRelationshipsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ root?: string }>;
+  searchParams: Promise<{ root?: string; depth?: string }>;
 }) {
-  const { root: rootParam } = await searchParams;
+  const { root: rootParam, depth } = await searchParams;
+  const showAll = depth === "all";
+  const extraQuery = showAll ? "&depth=all" : "";
   const supabase = await createClient();
   const data = await loadFamilyTreeData(supabase);
 
@@ -47,7 +49,7 @@ export default async function TreeRelationshipsPage({
     );
   }
 
-  const chartRoot = buildFamilyTreeNode(rootPerson.id, VISIBLE_GENERATIONS - 1, data);
+  const chartRoot = buildFamilyTreeNode(rootPerson.id, showAll ? Infinity : VISIBLE_GENERATIONS - 1, data);
   const nodeIds = collectNodeIds(chartRoot);
   const relationshipLinks = [
     ...findRelationshipLinks(nodeIds, data.spousesById),
@@ -76,18 +78,43 @@ export default async function TreeRelationshipsPage({
         </p>
       </div>
 
+      <div className="flex items-center gap-1 text-sm">
+        <span className="mr-1 text-slate-500">Show:</span>
+        {[
+          { label: `${VISIBLE_GENERATIONS} generations`, all: false },
+          { label: "All generations", all: true },
+        ].map((opt) =>
+          opt.all === showAll ? (
+            <span key={opt.label} className="rounded-md bg-slate-900 px-2.5 py-1 font-medium text-white">
+              {opt.label}
+            </span>
+          ) : (
+            <Link
+              key={opt.label}
+              href={`${BASE_PATH}?root=${rootPerson.id}${opt.all ? "&depth=all" : ""}`}
+              className="rounded-md border border-slate-300 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50"
+            >
+              {opt.label}
+            </Link>
+          ),
+        )}
+        {showAll && (
+          <span className="ml-2 text-xs text-slate-400">Large — zoom out (−) to see the whole thing.</span>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         {(father || mother) ? (
           <p className="text-sm text-slate-500">
             Up:{" "}
             {father && (
-              <Link href={`${BASE_PATH}?root=${father.id}`} className="text-blue-600 hover:underline">
+              <Link href={`${BASE_PATH}?root=${father.id}${extraQuery}`} className="text-blue-600 hover:underline">
                 {displayNameText(father)}
               </Link>
             )}
             {father && mother && <span className="mx-1">·</span>}
             {mother && (
-              <Link href={`${BASE_PATH}?root=${mother.id}`} className="text-blue-600 hover:underline">
+              <Link href={`${BASE_PATH}?root=${mother.id}${extraQuery}`} className="text-blue-600 hover:underline">
                 {displayNameText(mother)}
               </Link>
             )}
@@ -95,7 +122,7 @@ export default async function TreeRelationshipsPage({
         ) : (
           <span />
         )}
-        <FamilyTreeRootPicker people={data.allPeople} basePath={BASE_PATH} />
+        <FamilyTreeRootPicker people={data.allPeople} basePath={BASE_PATH} extraQuery={extraQuery} />
       </div>
 
       {relationshipLinks.length > 0 && (
@@ -111,7 +138,12 @@ export default async function TreeRelationshipsPage({
         </p>
       )}
 
-      <FamilyTreeChart root={chartRoot} relationshipLinks={relationshipLinks} basePath={BASE_PATH} />
+      <FamilyTreeChart
+        root={chartRoot}
+        relationshipLinks={relationshipLinks}
+        basePath={BASE_PATH}
+        extraQuery={extraQuery}
+      />
     </div>
   );
 }

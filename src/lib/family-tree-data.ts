@@ -105,9 +105,14 @@ export function buildFamilyTreeNode(
   personId: string,
   levelsRemaining: number,
   data: Pick<FamilyTreeData, "peopleById" | "childrenByParent" | "spousesById">,
+  ancestors: ReadonlySet<string> = new Set(),
 ): FamilyTreeNode {
   const person = data.peopleById.get(personId)!;
-  const kids = sortSiblings(data.childrenByParent.get(personId) ?? []);
+  // Guards against a bad father_id/mother_id loop in the data — harmless at
+  // a 4-generation cap, but infinite recursion when levelsRemaining is
+  // unbounded (the "All generations" view).
+  const lineage = new Set(ancestors).add(person.id);
+  const kids = sortSiblings(data.childrenByParent.get(personId) ?? []).filter((k) => !lineage.has(k.id));
   return {
     id: person.id,
     full_name: person.full_name,
@@ -115,7 +120,7 @@ export function buildFamilyTreeNode(
     surname_tag: person.surname_tag,
     living_status: person.living_status,
     spouses: data.spousesById[person.id] ?? [],
-    children: levelsRemaining > 0 ? kids.map((k) => buildFamilyTreeNode(k.id, levelsRemaining - 1, data)) : [],
+    children: levelsRemaining > 0 ? kids.map((k) => buildFamilyTreeNode(k.id, levelsRemaining - 1, data, lineage)) : [],
     hiddenChildrenCount: levelsRemaining > 0 ? 0 : kids.length,
   };
 }

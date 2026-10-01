@@ -35,17 +35,20 @@ function FamilyTreeNodeItem({
   isRoot = false,
   rootRef,
   basePath,
+  extraQuery,
 }: {
   node: FamilyTreeNode;
   isRoot?: boolean;
   rootRef?: React.RefObject<HTMLAnchorElement | null>;
   basePath: string;
+  extraQuery: string;
 }) {
+  const recenterHref = `${basePath}?root=${node.id}${extraQuery}`;
   return (
     <li>
       <div className="inline-flex flex-col items-center gap-0.5">
         <Link
-          href={`${basePath}?root=${node.id}`}
+          href={recenterHref}
           ref={isRoot ? rootRef : undefined}
           data-person-id={node.id}
           title="Re-center the chart on this person"
@@ -77,13 +80,13 @@ function FamilyTreeNodeItem({
       {node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
-            <FamilyTreeNodeItem key={child.id} node={child} basePath={basePath} />
+            <FamilyTreeNodeItem key={child.id} node={child} basePath={basePath} extraQuery={extraQuery} />
           ))}
         </ul>
       )}
       {node.hiddenChildrenCount > 0 && (
         <div className="pt-2">
-          <Link href={`${basePath}?root=${node.id}`} className="text-[10px] font-medium text-blue-600 hover:underline">
+          <Link href={recenterHref} className="text-[10px] font-medium text-blue-600 hover:underline">
             +{node.hiddenChildrenCount} more ↓
           </Link>
         </div>
@@ -235,10 +238,13 @@ export function FamilyTreeChart({
   root,
   relationshipLinks,
   basePath = "/tree/chart",
+  extraQuery = "",
 }: {
   root: FamilyTreeNode;
   relationshipLinks?: FamilyTreeRelationshipLink[];
   basePath?: string;
+  /** Appended to every re-center link (e.g. "&depth=all"), so clicking a name keeps the current view mode. */
+  extraQuery?: string;
 }) {
   const rootRef = useRef<HTMLAnchorElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -280,7 +286,7 @@ export function FamilyTreeChart({
           +
         </button>
         <span className="ml-1 text-xs text-slate-400">
-          Pinch, or ctrl/⌘+scroll, to zoom. Click a name to re-center the chart on them.
+          Drag to move around. Pinch, or ctrl/⌘+scroll, to zoom. Click a name to re-center the chart on them.
         </span>
       </div>
       <div ref={wrapRef} className="relative max-h-[70vh] overflow-auto py-2" {...wrapProps}>
@@ -288,7 +294,7 @@ export function FamilyTreeChart({
           <RelationshipLineOverlay links={relationshipLinks} wrapRef={wrapRef} zoom={zoom} />
         )}
         <ul className="family-tree-chart" style={{ zoom }}>
-          <FamilyTreeNodeItem node={root} isRoot rootRef={rootRef} basePath={basePath} />
+          <FamilyTreeNodeItem node={root} isRoot rootRef={rootRef} basePath={basePath} extraQuery={extraQuery} />
         </ul>
       </div>
     </div>

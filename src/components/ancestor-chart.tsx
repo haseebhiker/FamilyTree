@@ -124,7 +124,7 @@ export function AncestorChart({ root }: { root: AncestorNode }) {
         >
           +
         </button>
-        <span className="ml-1 text-xs text-slate-400">Pinch, or ctrl/⌘+scroll, to zoom</span>
+        <span className="ml-1 text-xs text-slate-400">Drag to move around. Pinch, or ctrl/⌘+scroll, to zoom</span>
       </div>
       <div ref={wrapRef} className="ancestor-chart-wrap overflow-auto py-2" {...wrapProps}>
         <ul className="ancestor-chart" style={{ zoom }}>
