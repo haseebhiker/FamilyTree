@@ -98,10 +98,38 @@ function FamilyTreeNodeItem({
 interface ScreenLine {
   key: string;
   kind: FamilyTreeRelationshipLink["kind"];
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+  /** SVG path data, in the scroll container's content coordinates. */
+  d: string;
+}
+
+/**
+ * Path for one link. A "marriage" line just joins a box to the spouse label
+ * right under it, so straight is fine. "cross"/"kinship" lines join two
+ * people in different branches — often on the same row with other people
+ * in between — and a straight line ran right through those in-between
+ * boxes, reading as if they were part of the relationship (reported live:
+ * Malick ↔ Faiz looked like it went through Shahul Hameed Faizee). These
+ * instead leave from the bottom corner of each end facing the other, and
+ * curve down into the gap under the row, clear of the boxes. The dip is
+ * fixed (scaled by zoom): deep enough to pass under the spouse/"View
+ * profile" labels hanging below each in-between box, shallow enough to
+ * stay above the next generation's connector bar.
+ */
+function pathFor(kind: ScreenLine["kind"], a: DOMRect, b: DOMRect, toLocal: (x: number, y: number) => [number, number], zoom: number): string {
+  if (kind === "marriage") {
+    const [x1, y1] = toLocal(a.left + a.width / 2, a.top + a.height / 2);
+    const [x2, y2] = toLocal(b.left + b.width / 2, b.top + b.height / 2);
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  }
+  const aIsLeft = a.left + a.width / 2 <= b.left + b.width / 2;
+  const inset = Math.min(12 * zoom, a.width / 3, b.width / 3);
+  const [x1, y1] = toLocal(aIsLeft ? a.right - inset : a.left + inset, a.bottom);
+  const [x2, y2] = toLocal(aIsLeft ? b.left + inset : b.right - inset, b.bottom);
+  const dip = 55 * zoom;
+  // A quadratic curve reaches only halfway to its control point, hence 2×.
+  const cx = (x1 + x2) / 2;
+  const cy = Math.max(y1, y2) + dip * 2;
+  return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
 }
 
 const LINE_STYLE: Record<ScreenLine["kind"], { stroke: string; dash?: string; title: string }> = {
@@ -129,8 +157,8 @@ function findEndpoint(wrap: HTMLElement, id: string): HTMLElement | null {
 }
 
 /**
- * Draws `links` as an SVG overlay on top of the chart — a straight line
- * between each link's two endpoints (see findEndpoint). Positions are
+ * Draws `links` as an SVG overlay on top of the chart — a line between each
+ * link's two endpoints (see findEndpoint and pathFor). Positions are
  * measured with getBoundingClientRect rather than derived from the tree
  * structure, because a "cross" link's two ends are (by definition — see
  * findRelationshipLinks) in different branches with no fixed geometric
@@ -161,20 +189,19 @@ function RelationshipLineOverlay({
       if (!wrap) return;
       setSize({ width: wrap.scrollWidth, height: wrap.scrollHeight });
       const wrapRect = wrap.getBoundingClientRect();
+      const toLocal = (x: number, y: number): [number, number] => [
+        x - wrapRect.left + wrap.scrollLeft,
+        y - wrapRect.top + wrap.scrollTop,
+      ];
       const next: ScreenLine[] = [];
       for (const link of links) {
         const elA = findEndpoint(wrap, link.aId);
         const elB = findEndpoint(wrap, link.bId);
         if (!elA || !elB) continue;
-        const rectA = elA.getBoundingClientRect();
-        const rectB = elB.getBoundingClientRect();
         next.push({
           key: `${link.aId}:${link.bId}`,
           kind: link.kind,
-          x1: rectA.left + rectA.width / 2 - wrapRect.left + wrap.scrollLeft,
-          y1: rectA.top + rectA.height / 2 - wrapRect.top + wrap.scrollTop,
-          x2: rectB.left + rectB.width / 2 - wrapRect.left + wrap.scrollLeft,
-          y2: rectB.top + rectB.height / 2 - wrapRect.top + wrap.scrollTop,
+          d: pathFor(link.kind, elA.getBoundingClientRect(), elB.getBoundingClientRect(), toLocal, zoom),
         });
       }
       setLines(next);
@@ -197,19 +224,17 @@ function RelationshipLineOverlay({
       {lines.map((l) => {
         const style = LINE_STYLE[l.kind];
         return (
-          <line
+          <path
             key={l.key}
-            x1={l.x1}
-            y1={l.y1}
-            x2={l.x2}
-            y2={l.y2}
+            d={l.d}
+            fill="none"
             stroke={style.stroke}
             strokeWidth={2}
             strokeDasharray={style.dash}
             opacity={0.75}
           >
             <title>{style.title}</title>
-          </line>
+          </path>
         );
       })}
     </svg>
