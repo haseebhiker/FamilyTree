@@ -8,6 +8,14 @@ import type { Member, Person, PendingChangeType } from "@/lib/types";
 import { parsePartialDateFields } from "@/lib/partial-date";
 import { encryptValue } from "@/lib/vault-crypto";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { sendEmail, emailBodyToHtml } from "@/lib/email";
+import { notifyAdmins } from "@/lib/notify-admins";
+
+const SITE = "https://familytree.haseeb.in";
+// A burst of edits within this window counts as one "session" — only its
+// first change emails anyone, so a mass edit sends one email, not dozens.
+const BURST_WINDOW_MS = 30 * 60000;
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 const RELATION_MAP: Record<string, { type: "child" | "parent" | "sibling" | "spouse"; gender: "M" | "F" }> = {
   father: { type: "parent", gender: "M" },
@@ -415,9 +423,110 @@ async function applyOrQueue(
     status: "pending",
   });
   if (error) throw new Error(error.message);
-  // No per-change email to admins — someone doing a mass edit would send one
-  // each. /api/cron/pending-digest sends a single daily summary instead.
+  await notifyOfNewSubmission(supabase, member, input.target_person_id);
   return false;
+}
+
+/**
+ * "Something's waiting" to admins plus a "we got it" to the submitter — but
+ * only for the first change in a burst (no other pending change of theirs in
+ * the last BURST_WINDOW_MS), so a mass edit sends one of each instead of one
+ * per field. Best-effort: never lets an email problem fail the submission.
+ */
+async function notifyOfNewSubmission(supabase: SupabaseClient, member: Member, targetPersonId: string | null) {
+  try {
+    const { count } = await supabase
+      .from("pending_changes")
+      .select("id", { count: "exact", head: true })
+      .eq("submitted_by", member.id)
+      .eq("status", "pending")
+      .gte("created_at", new Date(Date.now() - BURST_WINDOW_MS).toISOString());
+    if ((count ?? 0) > 1) return; // the row just inserted is 1
+
+    const { data: person } = targetPersonId
+      ? await supabase.from("people").select("full_name, preferred_name").eq("id", targetPersonId).maybeSingle()
+      : { data: null };
+    const about = person ? ` to ${person.preferred_name?.trim() || person.full_name}` : "";
+
+    await notifyAdmins(
+      `${member.name} submitted a change for approval on Family Tree`,
+      `${member.name} just submitted a change${about}. If they're making several edits, this is the only email for the next 30 minutes.\n\nReview it at ${SITE}/admin/pending`,
+    );
+    if (member.email) {
+      await sendEmail({
+        to: member.email,
+        subject: "Your Family Tree change is waiting for approval",
+        html: emailBodyToHtml(
+          `Hi ${member.name},\n\nThank you! We got your change${about}. It's waiting for an admin to approve it, and you'll get another email once it's reviewed.\n\nYou can check on everything you've submitted at ${SITE}/my-submissions`,
+        ),
+      });
+    }
+  } catch (e) {
+    console.error("[notifyOfNewSubmission] failed (continuing):", e);
+  }
+}
+
+/**
+ * Emails a submitter once an admin has worked through ALL of their pending
+ * changes — one summary ("12 of your changes were approved") instead of one
+ * email per approve/reject click. Counts decisions in the last few hours so a
+ * batch reviewed in one sitting lands in a single email.
+ */
+async function notifySubmitterIfQueueCleared(supabase: SupabaseClient, submittedBy: string, reviewerId: string) {
+  try {
+    if (submittedBy === reviewerId) return;
+    const { count: remaining } = await supabase
+      .from("pending_changes")
+      .select("id", { count: "exact", head: true })
+      .eq("submitted_by", submittedBy)
+      .eq("status", "pending");
+    if ((remaining ?? 0) > 0) return;
+
+    const { data: decided } = await supabase
+      .from("pending_changes")
+      .select("status")
+      .eq("submitted_by", submittedBy)
+      .in("status", ["approved", "rejected"])
+      .neq("reviewed_by", submittedBy)
+      .gte("reviewed_at", new Date(Date.now() - 3 * 3600000).toISOString());
+    const approved = (decided ?? []).filter((r) => r.status === "approved").length;
+    const rejected = (decided ?? []).filter((r) => r.status === "rejected").length;
+    if (approved + rejected === 0) return;
+
+    const { data: submitter } = await supabase
+      .from("members")
+      .select("name, email, status")
+      .eq("id", submittedBy)
+      .maybeSingle();
+    if (!submitter?.email || submitter.status !== "active") return;
+
+    const parts = [`Hi ${submitter.name},`];
+    if (approved > 0) {
+      parts.push(
+        `Thank you! ${approved} ${plural(approved, "change", "changes")} you submitted ${plural(approved, "was", "were")} approved and ${plural(approved, "is", "are")} now live on the family tree!`,
+        "Contributions like yours are exactly what keeps this tree accurate and growing, for all of us and for the generations who come after. If you spot anything else missing or worth adding, please keep them coming.",
+      );
+    }
+    if (rejected > 0) {
+      parts.push(
+        `${approved > 0 ? "Another " : ""}${rejected} ${plural(rejected, "change", "changes")} you submitted ${plural(rejected, "wasn't", "weren't")} approved this time — please don't let that discourage you. You can see all your submissions at ${SITE}/my-submissions`,
+      );
+    }
+    if (approved > 0) parts.push(`See it at ${SITE}`);
+
+    await sendEmail({
+      to: submitter.email,
+      subject:
+        approved === 1
+          ? "Your Family Tree change was approved"
+          : approved > 1
+            ? `${approved} of your Family Tree changes were approved`
+            : "An update on your Family Tree submissions",
+      html: emailBodyToHtml(parts.join("\n\n")),
+    });
+  } catch (e) {
+    console.error("[notifySubmitterIfQueueCleared] failed (continuing):", e);
+  }
 }
 
 /**
@@ -755,6 +864,8 @@ export async function approvePendingChange(formData: FormData) {
     pending_change_id: changeId,
   });
 
+  await notifySubmitterIfQueueCleared(supabase, change.submitted_by, member.id);
+
   // No revalidatePath — called from PendingChangeApproveForm/
   // PendingChangeApproveRaw, which do their own router.refresh() after
   // success. See ActionButton's comment for why bundling a revalidatePath
@@ -790,6 +901,8 @@ export async function rejectPendingChange(formData: FormData) {
   // A rejected photo suggestion's already-uploaded files are just clutter now.
   const rejectedPhotoPaths = photoPathsFromUrls([change.proposed_data?.photo_url, change.proposed_data?.photo_thumbnail_url]);
   if (rejectedPhotoPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(rejectedPhotoPaths);
+
+  await notifySubmitterIfQueueCleared(supabase, change.submitted_by, member.id);
 
   // No revalidatePath — see approvePendingChange's comment just above.
 }
